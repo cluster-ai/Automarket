@@ -1,8 +1,8 @@
 
 ////Cluster.Ai - Automarket//// v1.0 - Alpha (Pre-Launch)
 
-This program is meant to interact with cryptocurrency markets in a way that maximizes profits through trading between different crypto-coins (no fiat interaction). Using historical data of the desired currencies, a LSTM neural network takes historical data from a crypto API in order improve its predictive ability as well as the likelyhood of that prediction to be false. In doing so this model can intelligently intuit trading actions based on that model. 
-It is unlikely that an A.I model of any kind feasible to an average programmer could manage to break even let alone make money. But using a model that is aware of its likely hood and to what degree it may be off, I believe it would at least be able to not lose money through its awareness of just how unpredictable the market is (can't lose money if the model doesn't make any trades XD).
+This program is meant to interact with cryptocurrency markets in a way that maximizes profits through trading between different crypto-coins (no fiat interaction). Using historical data of the desired currencies, a LSTM neural network takes historical data from a crypto API in order improve its predictive ability as well as track its likelyhood of that prediction to be false. In doing so this model can intelligently intuit trading actions based on that model. 
+It is unlikely that an A.I model of any kind feasible to an average programmer could manage to break even, let alone make money. But using a model that can accurately track its likelyhood and magnitude of error, I believe it would at least be able to not lose money(can't lose money if the model doesn't make any trades XD).
 
 
 //API = [coinapi]//
