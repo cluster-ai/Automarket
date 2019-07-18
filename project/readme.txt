@@ -22,5 +22,9 @@ OHLCV Bar Data:
  - Volume traded during interval (not sure if its in coins or fiat)
  - Number of trades during interval (int)
 
-API
- - 
+
+Information needed for a historical data request
+1. exchange - "symbol_id"
+2. exchange - "exchange_id"
+3. exchange - "asset_id_base"
+4. exchange - "asset_id_quote"

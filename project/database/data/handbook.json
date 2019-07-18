@@ -1,18 +1,21 @@
 {
     "config": {
-        "last_update": 1563261408,
+        "last_update": 1563430274,
         "update_frequency": 86400,
         "coins": [
             "BTC",
             "ETH",
             "NEO"
         ],
-        "url_ext": "symbols",
+        "exchanges_url_ext": "symbols",
+        "periods_url_ext": "ohlcv/periods",
         "tracked_exchanges": [
             "KRAKEN",
             "COINBASE",
             "BINANCE"
-        ]
+        ],
+        "reference_fiat": "USD",
+        "reference_crypto": "BTC"
     },
     "exchanges": {
         "KRAKEN": {
@@ -29,19 +32,17 @@
             "volume_1mth_usd": 0.0
         },
         "BINANCE": {
-            "symbol_id": "BINANCE_SPOT_BCHSV_TUSD",
+            "symbol_id": "BINANCE_SPOT_LEND_BNB",
             "exchange_id": "BINANCE",
             "symbol_type": "SPOT",
-            "asset_id_base": "BCHSV",
-            "asset_id_quote": "TUSD",
-            "data_start": "2019-01-22",
+            "asset_id_base": "LEND",
+            "asset_id_quote": "BNB",
+            "data_start": "2017-12-19",
             "data_end": "2019-05-15",
-            "data_quote_start": "2019-01-22T10:00:46.8540000Z",
-            "data_quote_end": "2019-05-15T08:51:14.7750000Z",
-            "data_orderbook_start": "2019-01-22T10:00:46.8540000Z",
-            "data_orderbook_end": "2019-04-22T00:00:00.0000000Z",
-            "data_trade_start": "2019-01-22T10:00:35.5450000Z",
-            "data_trade_end": "2019-04-22T00:00:00.0000000Z",
+            "data_quote_start": "2017-12-19T06:49:54.0612786Z",
+            "data_quote_end": "2019-05-15T08:46:13.1330000Z",
+            "data_orderbook_start": "2017-12-19T06:49:54.0612786Z",
+            "data_orderbook_end": "2019-03-12T00:00:00.0000000Z",
             "volume_1hrs": 0.0,
             "volume_1hrs_usd": 0.0,
             "volume_1day": 0.0,
@@ -70,5 +71,271 @@
             "volume_1mth": 0.0,
             "volume_1mth_usd": 0.0
         }
-    }
+    },
+    "periods": [
+        {
+            "period_id": "1SEC",
+            "length_seconds": 1,
+            "length_months": 0,
+            "unit_count": 1,
+            "unit_name": "second",
+            "display_name": "1 Second"
+        },
+        {
+            "period_id": "2SEC",
+            "length_seconds": 2,
+            "length_months": 0,
+            "unit_count": 2,
+            "unit_name": "second",
+            "display_name": "2 Seconds"
+        },
+        {
+            "period_id": "3SEC",
+            "length_seconds": 3,
+            "length_months": 0,
+            "unit_count": 3,
+            "unit_name": "second",
+            "display_name": "3 Seconds"
+        },
+        {
+            "period_id": "4SEC",
+            "length_seconds": 4,
+            "length_months": 0,
+            "unit_count": 4,
+            "unit_name": "second",
+            "display_name": "4 Seconds"
+        },
+        {
+            "period_id": "5SEC",
+            "length_seconds": 5,
+            "length_months": 0,
+            "unit_count": 5,
+            "unit_name": "second",
+            "display_name": "5 Seconds"
+        },
+        {
+            "period_id": "6SEC",
+            "length_seconds": 6,
+            "length_months": 0,
+            "unit_count": 6,
+            "unit_name": "second",
+            "display_name": "6 Seconds"
+        },
+        {
+            "period_id": "10SEC",
+            "length_seconds": 10,
+            "length_months": 0,
+            "unit_count": 10,
+            "unit_name": "second",
+            "display_name": "10 Seconds"
+        },
+        {
+            "period_id": "15SEC",
+            "length_seconds": 15,
+            "length_months": 0,
+            "unit_count": 15,
+            "unit_name": "second",
+            "display_name": "15 Seconds"
+        },
+        {
+            "period_id": "20SEC",
+            "length_seconds": 20,
+            "length_months": 0,
+            "unit_count": 20,
+            "unit_name": "second",
+            "display_name": "20 Seconds"
+        },
+        {
+            "period_id": "30SEC",
+            "length_seconds": 30,
+            "length_months": 0,
+            "unit_count": 30,
+            "unit_name": "second",
+            "display_name": "30 Seconds"
+        },
+        {
+            "period_id": "1MIN",
+            "length_seconds": 60,
+            "length_months": 0,
+            "unit_count": 1,
+            "unit_name": "minute",
+            "display_name": "1 Minute"
+        },
+        {
+            "period_id": "2MIN",
+            "length_seconds": 120,
+            "length_months": 0,
+            "unit_count": 2,
+            "unit_name": "minute",
+            "display_name": "2 Minutes"
+        },
+        {
+            "period_id": "3MIN",
+            "length_seconds": 180,
+            "length_months": 0,
+            "unit_count": 3,
+            "unit_name": "minute",
+            "display_name": "3 Minutes"
+        },
+        {
+            "period_id": "4MIN",
+            "length_seconds": 240,
+            "length_months": 0,
+            "unit_count": 4,
+            "unit_name": "minute",
+            "display_name": "4 Minutes"
+        },
+        {
+            "period_id": "5MIN",
+            "length_seconds": 300,
+            "length_months": 0,
+            "unit_count": 5,
+            "unit_name": "minute",
+            "display_name": "5 Minutes"
+        },
+        {
+            "period_id": "6MIN",
+            "length_seconds": 360,
+            "length_months": 0,
+            "unit_count": 6,
+            "unit_name": "minute",
+            "display_name": "6 Minutes"
+        },
+        {
+            "period_id": "10MIN",
+            "length_seconds": 600,
+            "length_months": 0,
+            "unit_count": 10,
+            "unit_name": "minute",
+            "display_name": "10 Minutes"
+        },
+        {
+            "period_id": "15MIN",
+            "length_seconds": 900,
+            "length_months": 0,
+            "unit_count": 15,
+            "unit_name": "minute",
+            "display_name": "15 Minutes"
+        },
+        {
+            "period_id": "20MIN",
+            "length_seconds": 1200,
+            "length_months": 0,
+            "unit_count": 20,
+            "unit_name": "minute",
+            "display_name": "20 Minutes"
+        },
+        {
+            "period_id": "30MIN",
+            "length_seconds": 1800,
+            "length_months": 0,
+            "unit_count": 30,
+            "unit_name": "minute",
+            "display_name": "30 Minutes"
+        },
+        {
+            "period_id": "1HRS",
+            "length_seconds": 3600,
+            "length_months": 0,
+            "unit_count": 1,
+            "unit_name": "hour",
+            "display_name": "1 Hour"
+        },
+        {
+            "period_id": "2HRS",
+            "length_seconds": 7200,
+            "length_months": 0,
+            "unit_count": 2,
+            "unit_name": "hour",
+            "display_name": "2 Hours"
+        },
+        {
+            "period_id": "3HRS",
+            "length_seconds": 10800,
+            "length_months": 0,
+            "unit_count": 3,
+            "unit_name": "hour",
+            "display_name": "3 Hours"
+        },
+        {
+            "period_id": "4HRS",
+            "length_seconds": 14400,
+            "length_months": 0,
+            "unit_count": 4,
+            "unit_name": "hour",
+            "display_name": "4 Hours"
+        },
+        {
+            "period_id": "6HRS",
+            "length_seconds": 21600,
+            "length_months": 0,
+            "unit_count": 6,
+            "unit_name": "hour",
+            "display_name": "6 Hours"
+        },
+        {
+            "period_id": "8HRS",
+            "length_seconds": 28800,
+            "length_months": 0,
+            "unit_count": 8,
+            "unit_name": "hour",
+            "display_name": "8 Hours"
+        },
+        {
+            "period_id": "12HRS",
+            "length_seconds": 43200,
+            "length_months": 0,
+            "unit_count": 12,
+            "unit_name": "hour",
+            "display_name": "12 Hours"
+        },
+        {
+            "period_id": "1DAY",
+            "length_seconds": 86400,
+            "length_months": 0,
+            "unit_count": 1,
+            "unit_name": "day",
+            "display_name": "1 Day"
+        },
+        {
+            "period_id": "2DAY",
+            "length_seconds": 172800,
+            "length_months": 0,
+            "unit_count": 2,
+            "unit_name": "day",
+            "display_name": "2 Days"
+        },
+        {
+            "period_id": "3DAY",
+            "length_seconds": 259200,
+            "length_months": 0,
+            "unit_count": 3,
+            "unit_name": "day",
+            "display_name": "3 Days"
+        },
+        {
+            "period_id": "5DAY",
+            "length_seconds": 432000,
+            "length_months": 0,
+            "unit_count": 5,
+            "unit_name": "day",
+            "display_name": "5 Days"
+        },
+        {
+            "period_id": "7DAY",
+            "length_seconds": 604800,
+            "length_months": 0,
+            "unit_count": 7,
+            "unit_name": "day",
+            "display_name": "7 Days"
+        },
+        {
+            "period_id": "10DAY",
+            "length_seconds": 864000,
+            "length_months": 0,
+            "unit_count": 10,
+            "unit_name": "day",
+            "display_name": "10 Days"
+        }
+    ]
 }
