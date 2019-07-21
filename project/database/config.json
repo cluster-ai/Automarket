@@ -1,0 +1,20 @@
+{
+    "last_update": 1563702087,
+    "update_frequency": 86400,
+    "update_limiter": false,
+    "exchanges_url_ext": "symbols",
+    "periods_url_ext": "ohlcv/periods",
+    "historical_url_ext": "ohlcv/{symbol_id}/history",
+    "asset_id_base": "USD",
+    "asset_id_quote": "BTC",
+    "tracked_exchanges": [
+        "KRAKEN",
+        "BINANCE",
+        "COINBASE"
+    ],
+    "tracked_crypto": [
+        "BTC",
+        "ETH",
+        "NEO"
+    ]
+}

@@ -24,7 +24,7 @@ OHLCV Bar Data:
 
 
 Information needed for a historical data request
-1. exchange - "symbol_id"
+1. exchange - "symbol_id" ex: "BITSTAMP_SPOT_BTC_USD"
 2. exchange - "exchange_id"
-3. exchange - "asset_id_base"
-4. exchange - "asset_id_quote"
+3. exchange - "asset_id_base" ex: "BTC"
+4. exchange - "asset_id_quote" ex: "USD"

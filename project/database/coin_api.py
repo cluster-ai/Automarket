@@ -14,13 +14,13 @@ print(response)'''
 class CoinAPI():
 	def __init__(self):
 		self.base_url = 'https://rest.coinapi.io/v1/'
-		self.key = {'X-CoinAPI-Key' : '4364DC07-0336-4C8A-A43C-2BD216B1B285'}
+		self.free_key = {'X-CoinAPI-Key' : '4364DC07-0336-4C8A-A43C-2BD216B1B285'}
 
 	def __RequestHandler(self, url_ext):
 		url = self.base_url + url_ext
 		try:
 			print("Making API Request at:", url)
-			response = requests.get(url, headers=self.key)
+			response = requests.get(url, headers=self.free_key)
 			# If the response was successful, no Exception will be raised
 			response.raise_for_status()
 		except HTTPError as http_err:
@@ -31,49 +31,76 @@ class CoinAPI():
 			print(f'API Request Successful: code {response.status_code}')
 			return response
 
-	def RequestFilter(self, response, search_term, search_values, inverse_search):
-		requested_data = []
-		for value in response.json():
-			inverse_search_counter = 0#needed if you have more than one search_term for inverse_search = True
-			for search_value in search_values:
-				if inverse_search == False and value[search_term] == search_value:
-					requested_data.append(value)
-				elif inverse_search == True and value[search_term] != search_value:
-					inverse_search_counter += 1
-					if inverse_search_counter == len(search_values):
-						requested_data.append(value)
+	def CheckForKey(self, key_ref, dictionary):
+		has_key = False
+		for key, item in dictionary.items():
+			if key == key_ref:
+				has_key = True
+		return has_key
 
+
+	def ResponseFilter(self, response, filters, omit_filtered):
+		requested_data = []
+
+		if omit_filtered == True:
+			#for each value in the api response... (json)
+			for index, requested_item in enumerate(requested_data):
+				#for each filter within filter dictionary... (remember filter_values is a list)
+				for key, filter_values in filters.items():
+					
+					#for each item within filter_values list...
+					for filter_value in filter_values:
+						if requested_item[key] == filter_value:
+							del requested_data[index]
+							break
+
+		elif omit_filtered == False:
+			for response_item in response.json():
+				response_item_score = 0#if it equals to number of filters it appends to requested_data
+
+				for key, filter_values in filters.items():#for each filter
+					if self.CheckForKey(key, response_item) == True:
+						for filter_item in filter_values:#compare response_item to each filter_item
+							if response_item[key] == filter_item:
+								response_item_score += 1
+				if response_item_score >= len(filters):
+					requested_data.append(response_item)
+			#print(requested_data)
 		return requested_data
 
 	#def TypeError
 
-	'''kwargs: url_ext, inverse_search (if true, omitt searched. default false), 
-	(search_term, search_values) - package deal for search pair'''
+	'''kwargs: url_ext=str, omit_filtered=bool, dict(filters={str(search_term): list(search_values), ...}'''
 	def MakeRequest(self, **kwargs):
 		try:
 			response = self.__RequestHandler(kwargs["url_ext"])
 		except:
 			print("Exception: request failed, check url_ext")
 		else:
-			try:#Filtered Search
-				search_term = kwargs["search_term"]
-				search_values = kwargs["search_values"]
-				if type(search_values) is not list:
-					print("TypeError, search_values not a list: filter failed")
-					raise Exception(TypeError)
+			try:#Response Filter
+				filters = kwargs["filters"]
+				for key, item in filters.items():
+					if type(item) is not list:
+						filters_list = []
+						filters_list.append(filters[key])
+						filters[key] = filters_list
 				try:
-					inverse_search = bool(kwargs["inverse_search"])
+						omit_filtered = bool(kwargs["omit_filtered"])
 				except:
-					inverse_search = False
-				filtered_response = self.RequestFilter(response, search_term, search_values, inverse_search)
+					omit_filtered = False
+				filtered_response = self.ResponseFilter(response, filters, omit_filtered)
 			except:
 				print("no datastream filter")
 			else:
-				print(f"search_term = {search_term} | search_values = {search_values}")
-				if inverse_search == True:
-					print("Filtered Request Executed: inverse_search = True")
-				else:
-					print("Filtered Request Executed: inverse_search = False")
+				filter_config = ""
+				for key, item in filters.items():
+					filter_config = filter_config + f"{key}, {item} | "
+	
+				if omit_filtered == True:
+					print(filter_config, "searched terms isolated")
+				elif omit_filtered == False:
+					print(filter_config, "searched terms isolated")
+				print("API Response Filter Executed")
 				return filtered_response
 
 
