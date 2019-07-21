@@ -43,16 +43,16 @@ class CoinAPI():
 		requested_data = []
 
 		if omit_filtered == True:
-			#for each value in the api response... (json)
-			for index, requested_item in enumerate(requested_data):
-				#for each filter within filter dictionary... (remember filter_values is a list)
-				for key, filter_values in filters.items():
-					
-					#for each item within filter_values list...
-					for filter_value in filter_values:
-						if requested_item[key] == filter_value:
-							del requested_data[index]
-							break
+			for response_item in response.json():
+				response_item_score = 0#if it equals zero, it appends to requested_data
+
+				for key, filter_values in filters.items():#for each filter
+					if self.CheckForKey(key, response_item) == True:
+						for filter_item in filter_values:#compare response_item to each filter_item
+							if response_item[key] == filter_item:
+								response_item_score += 1
+				if response_item_score == 0:
+					requested_data.append(response_item)
 
 		elif omit_filtered == False:
 			for response_item in response.json():

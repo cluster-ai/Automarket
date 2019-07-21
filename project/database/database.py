@@ -1,5 +1,6 @@
 
 import json
+import os
 
 import time
 import datetime
@@ -61,10 +62,19 @@ class Database():
 		for tracked_exchange in self.config['tracked_exchanges']:
 			extracted_data.update({tracked_exchange : {}})
 
+		relevant_data_keys = ['symbol_type', 'asset_id_base', 'asset_id_quote', 'data_start', 'data_end']
 		for item in raw_exchange_data:
 			for exchange_id, exchange_data in extracted_data.items():
 				if exchange_id == item['exchange_id']:
-					extracted_data[exchange_id].update({item["symbol_id"] : item})
+					relevant_data = {}
+					has_keys = True
+					for key in relevant_data_keys:
+						if self.coin_api.CheckForKey(key, item) == True:
+							relevant_data.update({key: item[key]})
+						else:
+							has_keys = False
+					if has_keys == True:
+						extracted_data[exchange_id].update({item["symbol_id"] : relevant_data})
 					break
 
 		return extracted_data
@@ -75,12 +85,14 @@ class Database():
 
 	def UpdateHandbook(self):
 		exchanges_response = self.coin_api.MakeRequest(url_ext=self.config['exchanges_url_ext'], 
-									filters={'exchange_id': self.config['tracked_exchanges']})
+									filters={'exchange_id': self.config['tracked_exchanges'],
+											 'asset_id_quote': self.config['asset_id_quote']})
 
-		#periods_response = self.coin_api.MakeRequest(url_ext=self.config['periods_url_ext'])
+		periods_response = self.coin_api.MakeRequest(url_ext=self.config['periods_url_ext'],
+									filters={'length_seconds': 0}, omit_filtered=True)
 
 		updated_handbook = {}
-		#updated_handbook.update({'period_data' : periods_response})
+		updated_handbook.update({'period_data' : periods_response})
 		updated_handbook.update({'exchange_data' : self.ExtractExchangeData(exchanges_response)})
 
 		self.handbook = updated_handbook
