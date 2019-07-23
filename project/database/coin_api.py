@@ -3,6 +3,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import json
+import csv
 
 '''url = 'https://rest.coinapi.io/v1/assets'
 headers = {'X-CoinAPI-Key' : '4364DC07-0336-4C8A-A43C-2BD216B1B285'}
@@ -14,13 +15,14 @@ print(response)'''
 class CoinAPI():
 	def __init__(self):
 		self.base_url = 'https://rest.coinapi.io/v1/'
-		self.free_key = {'X-CoinAPI-Key' : '4364DC07-0336-4C8A-A43C-2BD216B1B285'}
+		self.free_key = get your own
+		self.paid_key = get your own
 
-	def __RequestHandler(self, url_ext):
+	def __RequestHandler(self, url_ext, api_key):
 		url = self.base_url + url_ext
 		try:
 			print("Making API Request at:", url)
-			response = requests.get(url, headers=self.free_key)
+			response = requests.get(url, headers=api_key)
 			# If the response was successful, no Exception will be raised
 			response.raise_for_status()
 		except HTTPError as http_err:
@@ -70,10 +72,21 @@ class CoinAPI():
 
 	#def TypeError
 
-	'''kwargs: url_ext=str, omit_filtered=bool, dict(filters={str(search_term): list(search_values), ...}'''
+	'''kwargs: 
+	url_ext=str, 
+	omit_filtered=bool, 
+	filters={str(search_term): list(search_values)}, 
+	api_key={'X-CoinAPI-Key': 'actual_api_key_code'}...}'''
 	def MakeRequest(self, **kwargs):
 		try:
-			response = self.__RequestHandler(kwargs["url_ext"])
+			try:
+				api_key = kwargs["api_key"]
+			except:
+				api_key = self.free_key
+				print("using default api key")
+			else:
+				print("using specified api_key")
+			response = self.__RequestHandler(kwargs["url_ext"], api_key)
 		except:
 			print("Exception: request failed, check url_ext")
 		else:

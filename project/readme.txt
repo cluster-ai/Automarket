@@ -7,7 +7,7 @@ It is unlikely that an A.I model of any kind feasible to an average programmer c
 
 //API = [coinapi]//
 
-The API class in this program is meant to offer the database a standardized use of data in a format most suited for it. In this way, the API class is a middle-man that translates all data requests from the database and puts it into terms the API can understand and vise versa.
+The API class in this program is meant to offer the database a streamlined use of the api with needed error handling, request limit monitoring, request filtering, etc.
 
 Relevant API data available:
 MetaData:
@@ -21,10 +21,3 @@ OHLCV Bar Data:
  - Price at open-high-low-close of interval.
  - Volume traded during interval (not sure if its in coins or fiat)
  - Number of trades during interval (int)
-
-
-Information needed for a historical data request
-1. exchange - "symbol_id" ex: "BITSTAMP_SPOT_BTC_USD"
-2. exchange - "exchange_id"
-3. exchange - "asset_id_base" ex: "BTC"
-4. exchange - "asset_id_quote" ex: "USD"

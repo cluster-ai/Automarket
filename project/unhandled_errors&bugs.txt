@@ -1,5 +1,11 @@
  - when an api request is made but the connection breaks during read the request fails with no httpresponse error code because communications were dirupted.
 
-  - need to give all exceptions an "out" to whatever process they are running so as not to crash the program later when it tries to access data from an earlier failed process.
+ - need to give all exceptions an "out" to whatever process they are running so as not to crash the program later when it tries to access data from an earlier failed process.
 
-  - program is not aware of what it needs from the handbook in order to run properly (assuming the config is inproperly configured or api does not have requested data type such as USD and BTC as asset_id_quote and asset_id_base for handbook["exchanges"] which is needed for gathering the correct type of historical data of coins)
+ - program is not aware of what it needs from the handbook in order to run properly (assuming the config is inproperly configured or api does not have requested data type such as USD and BTC as asset_id_quote and asset_id_base for handbook["exchanges"] which is needed for gathering the correct type of historical data of coins)
+
+ - if a json file exsists but does not have the right keys or format the program will break
+
+ - check to see if database.UpdateIndex() will run into errors when run such as it trying to write to files that arn't there if called in certain spots of code. etc
+
+ - error catching for all possabilities within database.BackfillHistoricalData() and related

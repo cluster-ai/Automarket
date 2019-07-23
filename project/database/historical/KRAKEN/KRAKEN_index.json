@@ -1,0 +1,14 @@
+{
+    "BTC_USD.csv": {
+        "asset_id_base": "BTC",
+        "asset_id_quote": "USD",
+        "time_start": "n/a",
+        "time_end": "n/a"
+    },
+    "ETH_USD.csv": {
+        "asset_id_base": "ETH",
+        "asset_id_quote": "USD",
+        "time_start": "n/a",
+        "time_end": "n/a"
+    }
+}
