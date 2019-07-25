@@ -1,6 +1,6 @@
  - when an api request is made but the connection breaks during read the request fails with no httpresponse error code because communications were dirupted.
 
- - need to give all exceptions an "out" to whatever process they are running so as not to crash the program later when it tries to access data from an earlier failed process.
+ - need to give all exceptions an "out" to whatever process is running that breaks the program in a benign way so that the location of error is known and can be logged accurately in container program.
 
  - program is not aware of what it needs from the handbook in order to run properly (assuming the config is inproperly configured or api does not have requested data type such as USD and BTC as asset_id_quote and asset_id_base for handbook["exchanges"] which is needed for gathering the correct type of historical data of coins)
 
@@ -9,3 +9,11 @@
  - check to see if database.UpdateIndex() will run into errors when run such as it trying to write to files that arn't there if called in certain spots of code. etc
 
  - error catching for all possabilities within database.BackfillHistoricalData() and related
+
+ - should put handbook last update value in handbook.json not config.json
+
+ - for api_index.json, coinAPI doesn't properly initialize it to track when the next api refresh will be or if the file does not exist it will crash.
+
+ - when opening files, have an if statement with os.path.exists instead of a try - catch statement. Also, need to have a grep statement eventually if the file is not found to locate it and put it in the proper place if in the wrong or different location. That way we can simply change what path the program is looking for and rearange folder itself (may be unnecessary).
+
+ - if the coinAPI api_index is not loaded or initialized as intended (which is possible), the api limit will default to 0 and not let any requests through.

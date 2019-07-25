@@ -1,0 +1,18 @@
+{
+    "free_key": {
+        "api_key": {
+            "X-CoinAPI-Key": ""
+        },
+        "limit": 100,
+        "remaining": 100,
+        "reset": 0
+    },
+    "startup_key": {
+        "api_key": {
+            "X-CoinAPI-Key": ""
+        },
+        "limit": 1000,
+        "remaining": 1000,
+        "reset": 0
+    }
+}

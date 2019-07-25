@@ -64,7 +64,6 @@ class Database():
 
 		return extracted_data
 
-
 	def UpdateHandbook(self):
 		exchanges_response = self.coin_api.MakeRequest(url_ext=self.config['exchanges_url_ext'], 
 									filters={'exchange_id': self.config['tracked_exchanges'],
@@ -167,12 +166,18 @@ class Database():
 		self.UpdateIndex()
 
 
-	def BackfillHistoricalData(self):			
+	def BackfillHistoricalData(self):
+		self.__InitHistoricalDir()
+		#if self. 
 		if self.config['backfill_historical'] == True:
-			url_ext = self.config['historical_url_ext'].format()
-			response = self.coin_api.MakeRequest(url_ext=self.config['historcal_url_ext'].format())
-			#print(self.config['historical_url_ext'].format(symbol_id, period_id, time_start))
 			pass
+			'''for 
+			url_ext = self.config['historical_url_ext'].format()
+			response = self.coin_api.MakeRequest(url_ext=self.config['historcal_url_ext'].format())'''
+			#print(self.config['historical_url_ext'].format(symbol_id, period_id, time_start))
+		else:
+			print('config.backfill_historical = false: not updating historical data')
+
 
 
 data = Database()

@@ -1,7 +1,7 @@
 {
-    "last_update": 1563858080,
+    "last_update": 1564040620,
     "update_frequency": 86400,
-    "update_limiter": true,
+    "update_limiter": false,
     "backfill_historical": true,
     "exchanges_url_ext": "symbols",
     "periods_url_ext": "ohlcv/periods",
