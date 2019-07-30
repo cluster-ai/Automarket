@@ -17,8 +17,8 @@ class Database():
 		with open(self.handbook_path) as file:
 			self.handbook = json.load(file)
 			try:
-				self.exchange_data = self.handbook['exchange_data']
-				self.period_data = self.handbook['period_data']
+				self.exchange_handbook = self.handbook['exchange_data']
+				self.period_handbook = self.handbook['period_data']
 			except:
 				self.missing_data = True
 				print('missing handbook.json data')
@@ -45,9 +45,9 @@ class Database():
 	def ExtractExchangeData(self, raw_exchange_data):
 		extracted_data = {}
 		for tracked_exchange in self.config['tracked_exchanges']:
-			extracted_data.update({tracked_exchange : {}})
+			extracted_data.update({tracked_exchange : []})
 
-		relevant_data_keys = ['symbol_type', 'asset_id_base', 'asset_id_quote', 'data_start', 'data_end']
+		relevant_data_keys = ['symbol_id', 'symbol_type', 'asset_id_base', 'asset_id_quote', 'data_start', 'data_end']
 		for item in raw_exchange_data:
 			for exchange_id, exchange_data in extracted_data.items():
 				if exchange_id == item['exchange_id']:
@@ -59,7 +59,7 @@ class Database():
 						else:
 							has_keys = False
 					if has_keys == True:
-						extracted_data[exchange_id].update({item["symbol_id"] : relevant_data})
+						extracted_data[exchange_id].append(relevant_data)
 					break
 
 		return extracted_data
@@ -81,8 +81,8 @@ class Database():
 			json.dump(self.handbook, file, indent=4)
 
 		self.config['last_update'] = int(time.time())
-		self.exchange_data = self.handbook['exchange_data']
-		self.period_data = self.handbook['period_data']
+		self.exchange_handbook = self.handbook['exchange_data']
+		self.period_handbook = self.handbook['period_data']
 
 		updated_config = {}
 		updated_config.update(self.config)
@@ -99,7 +99,7 @@ class Database():
 		#function only to verify all exchange indexes (goes through all historical data)
 		pass
 
-	def UpdateIndex(self):
+	def UpdateHistoricalIndex(self):
 		#use to update all (exchange_id)_index.json files with newest self.historical_index data
 		for exchange_id, index_data in self.historical_index.items():
 			index_file_path = self.historical_base_path+f"{exchange_id}/{exchange_id}_index.json"
@@ -108,20 +108,38 @@ class Database():
 				json.dump(index_data, file, indent=4)
 
 	def __InitHistoricalDir(self):
+
+		'''
+		The following looks at all tracked exchanges and crypto-coins in config and filters through
+		handbook to find matches in config data. If any are found and there is no existing dir for 
+		that currency pair from specified exchange (ex: BTC in USD on KRAKEN | symbol_id = KRAKEN_SPOT_BTC_USD)\
+
+		Since handbook.json only has tracked exchanges on the specified fiat/asset_id_quote, we can skip searching 
+		for those and instead cycle through self.exchange_handbook (exchange_handbook shows all historical data 
+		available from coinapi for tracked exchanges at specified reference fiat (USD), handbook update frequency 
+		set in config.json)
+		'''
+
 		self.historical_base_path = "historical/"
 		self.historical_index = {}
 		#if you change index_data_keys, you must change if statments accordingly below
-		self.index_data_keys = ['asset_id_base',
+		self.index_data_keys = ['filename',
+								'symbol_id',
+								'symbol_type'
+								'asset_id_base',
 								'asset_id_quote',
 								'time_start',
 								'time_end']
 
-		#the following 'for loop' verifies exsistence of files and folders needed for backfill, historical
-		#data uses a lot of api requests and faulty data must be removed manually (for now) during developement
-		asset_id_quote = self.config['asset_id_quote']#cant put self.config in f-string
-		for exchange_id in self.config['tracked_exchanges']:
+		#looks through all tracked exchanges in self.exchange_handbook 
+		#(exchange_handbook == handbook['exchange_data'])
+		for exchange_id, exchange_data in self.exchange_handbook.items():
+			# following uses coin_api function to filter through exchange contents by specified filter
+			#contents of self.exchange_handbook are already filtered by asset_id_quote & tracked_exchanges
+			exchange_items = self.coin_api.JsonFilter(exchange_data, 
+												{'asset_id_base': self.config['tracked_crypto']}, False)
 
-			#checks for data/(exchange_id), creates dir if not found
+			#checks for historical/(exchange_id), creates dir if not found
 			exchange_path = self.historical_base_path+f"{exchange_id}"
 			if os.path.isdir(exchange_path) == False:
 				os.mkdir(exchange_path)
@@ -142,41 +160,48 @@ class Database():
 				exchange_index = {exchange_id: {}}
 				self.historical_index.update(exchange_index)
 
-
-			for coin in self.config['tracked_crypto']:
-				coin_data_id = f'{coin}_{asset_id_quote}.csv'
-				coin_data_path = self.historical_base_path+f"{exchange_id}/"+coin_data_id
-				#checks for data/(exchange_id)/(coin_id)_(asset_id_quote), creates file if not found
-				#updates data/(exchange_id)/(exchange_id)_index.json if new file is created
+			#extracts data from each item and uses it to create/load historical data files
+			for item in exchange_items:
+				coin_data_file = item['symbol_id']+".csv"
+				coin_data_path = self.historical_base_path+f"{exchange_id}/{coin_data_file}"
+				#checks for historical/{exchange_id}/{symbol_id}.csv, creates file if not found
 				if os.path.exists(coin_data_path) == False:
 					open(coin_data_path, 'w')
 					#create coin data dictionary
+				coin_data_id = ("{}_{}_{}").format(item['symbol_type'], 
+												   item['asset_id_base'], 
+												   item['asset_id_quote'])
+				print(item)
 				coin_data = {coin_data_id: {}}
 				for key in self.index_data_keys:
-					if key == 'asset_id_base':
-						coin_data[coin_data_id].update({key: coin})
+					if key == 'filename':
+						coin_data[coin_data_id].update({key: coin_data_file})
+					elif key == 'symbol_id':
+						coin_data[coin_data_id].update({key: item[key]})
+					elif key == 'symbol_type':
+						coin_data[coin_data_id].update({key: item[key]})
+					elif key == 'asset_id_base':
+						coin_data[coin_data_id].update({key: item[key]})
 					elif key == 'asset_id_quote':
-						coin_data[coin_data_id].update({key: asset_id_quote})
+						coin_data[coin_data_id].update({key: item[key]})
 					elif key == 'time_start':
 						coin_data[coin_data_id].update({key: 'n/a'})
 					elif key == 'time_end':
 						coin_data[coin_data_id].update({key: 'n/a'})
 				self.historical_index[exchange_id].update(coin_data)
 
-		self.UpdateIndex()
+		self.UpdateHistoricalIndex()
 
 
 	def BackfillHistoricalData(self):
 		self.__InitHistoricalDir()
-		#if self. 
-		if self.config['backfill_historical'] == True:
-			pass
-			'''for 
-			url_ext = self.config['historical_url_ext'].format()
-			response = self.coin_api.MakeRequest(url_ext=self.config['historcal_url_ext'].format())'''
-			#print(self.config['historical_url_ext'].format(symbol_id, period_id, time_start))
+
+		'''if self.config['backfill_historical'] == True:
+			#historical data requests needs period_id & time_start query
+			response = self.coin_api.MakeRequest()
 		else:
-			print('config.backfill_historical = false: not updating historical data')
+			print('config.backfill_historical = false: not updating historical data')'''
+		print('successfull end')
 
 
 
