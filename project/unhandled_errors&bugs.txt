@@ -17,3 +17,5 @@
  - when opening files, have an if statement with os.path.exists instead of a try - catch statement. Also, need to have a grep statement eventually if the file is not found to locate it and put it in the proper place if in the wrong or different location. That way we can simply change what path the program is looking for and rearange folder itself (may be unnecessary).
 
  - if the coinAPI api_index is not loaded or initialized as intended (which is possible), the api limit will default to 0 and not let any requests through.
+
+ - if period_id is not found in database.FindPeriodId(), it return and empty string (''). Needs to have error handling 

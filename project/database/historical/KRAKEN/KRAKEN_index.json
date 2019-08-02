@@ -1,16 +1,22 @@
 {
-    "SPOT_BTC_USD": {
-        "filename": "KRAKEN_SPOT_BTC_USD.csv",
+    "SPOT_BTC_USD.csv": {
+        "filepath": "historical/KRAKEN/SPOT_BTC_USD.csv",
         "symbol_id": "KRAKEN_SPOT_BTC_USD",
+        "exchange": "KRAKEN",
+        "symbol_type": "SPOT",
+        "asset_id_base": "BTC",
         "asset_id_quote": "USD",
-        "time_start": "n/a",
-        "time_end": "n/a"
+        "time_start": "2014-01-07",
+        "time_end": "2014-01-08T06:24:00.0000000Z"
     },
-    "SPOT_ETH_USD": {
-        "filename": "KRAKEN_SPOT_ETH_USD.csv",
+    "SPOT_ETH_USD.csv": {
+        "filepath": "historical/KRAKEN/SPOT_ETH_USD.csv",
         "symbol_id": "KRAKEN_SPOT_ETH_USD",
+        "exchange": "KRAKEN",
+        "symbol_type": "SPOT",
+        "asset_id_base": "ETH",
         "asset_id_quote": "USD",
-        "time_start": "n/a",
-        "time_end": "n/a"
+        "time_start": "2015-08-10",
+        "time_end": "2016-10-17T19:56:00.0000000Z"
     }
 }

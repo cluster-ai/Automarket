@@ -273,7 +273,7 @@
                 "asset_id_base": "BTC",
                 "asset_id_quote": "USD",
                 "data_start": "2014-01-07",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_ETH_USD",
@@ -281,7 +281,7 @@
                 "asset_id_base": "ETH",
                 "asset_id_quote": "USD",
                 "data_start": "2015-08-10",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_LTC_USD",
@@ -289,7 +289,7 @@
                 "asset_id_base": "LTC",
                 "asset_id_quote": "USD",
                 "data_start": "2014-06-02",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_XRP_USD",
@@ -297,7 +297,7 @@
                 "asset_id_base": "XRP",
                 "asset_id_quote": "USD",
                 "data_start": "2017-05-19",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_BCH_USD",
@@ -305,7 +305,7 @@
                 "asset_id_base": "BCH",
                 "asset_id_quote": "USD",
                 "data_start": "2017-08-03",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_USDT_USD",
@@ -313,7 +313,7 @@
                 "asset_id_base": "USDT",
                 "asset_id_quote": "USD",
                 "data_start": "2017-04-01",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_EOS_USD",
@@ -321,15 +321,7 @@
                 "asset_id_base": "EOS",
                 "asset_id_quote": "USD",
                 "data_start": "2017-08-03",
-                "data_end": "2019-07-30"
-            },
-            {
-                "symbol_id": "KRAKEN_SPOT_XMR_USD",
-                "symbol_type": "SPOT",
-                "asset_id_base": "XMR",
-                "asset_id_quote": "USD",
-                "data_start": "2017-01-09",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_XTZ_USD",
@@ -337,7 +329,15 @@
                 "asset_id_base": "XTZ",
                 "asset_id_quote": "USD",
                 "data_start": "2018-10-16",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
+            },
+            {
+                "symbol_id": "KRAKEN_SPOT_XMR_USD",
+                "symbol_type": "SPOT",
+                "asset_id_base": "XMR",
+                "asset_id_quote": "USD",
+                "data_start": "2017-01-09",
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_ADA_USD",
@@ -345,7 +345,7 @@
                 "asset_id_base": "ADA",
                 "asset_id_quote": "USD",
                 "data_start": "2018-09-28",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_XLM_USD",
@@ -353,7 +353,7 @@
                 "asset_id_base": "XLM",
                 "asset_id_quote": "USD",
                 "data_start": "2017-01-17",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_QTUM_USD",
@@ -361,7 +361,7 @@
                 "asset_id_base": "QTUM",
                 "asset_id_quote": "USD",
                 "data_start": "2018-09-28",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_ZEC_USD",
@@ -369,7 +369,7 @@
                 "asset_id_base": "ZEC",
                 "asset_id_quote": "USD",
                 "data_start": "2016-11-09",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_ATOM_USD",
@@ -377,15 +377,7 @@
                 "asset_id_base": "ATOM",
                 "asset_id_quote": "USD",
                 "data_start": "2019-04-22",
-                "data_end": "2019-07-30"
-            },
-            {
-                "symbol_id": "KRAKEN_SPOT_ETC_USD",
-                "symbol_type": "SPOT",
-                "asset_id_base": "ETC",
-                "asset_id_quote": "USD",
-                "data_start": "2016-07-28",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_DASH_USD",
@@ -393,7 +385,15 @@
                 "asset_id_base": "DASH",
                 "asset_id_quote": "USD",
                 "data_start": "2017-04-20",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
+            },
+            {
+                "symbol_id": "KRAKEN_SPOT_ETC_USD",
+                "symbol_type": "SPOT",
+                "asset_id_base": "ETC",
+                "asset_id_quote": "USD",
+                "data_start": "2016-07-28",
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_REP_USD",
@@ -401,7 +401,7 @@
                 "asset_id_base": "REP",
                 "asset_id_quote": "USD",
                 "data_start": "2016-10-13",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_GNO_USD",
@@ -409,7 +409,7 @@
                 "asset_id_base": "GNO",
                 "asset_id_quote": "USD",
                 "data_start": "2017-05-03",
-                "data_end": "2019-07-30"
+                "data_end": "2019-08-02"
             },
             {
                 "symbol_id": "KRAKEN_SPOT_DAO_USD",

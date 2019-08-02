@@ -12,8 +12,8 @@ import os
 class CoinAPI():
 	def __init__(self):
 		self.base_url = 'https://rest.coinapi.io/v1/'
-		self.free_key = {'X-CoinAPI-Key': key here}
-		self.startup_key = {'X-CoinAPI-Key': key here}
+		self.free_key = get your own
+		self.startup_key = get your own
 		self.api_keys = {'free_key': self.free_key, 'startup_key': self.startup_key}
 
 		self.api_index_path = 'api_index.json'
@@ -121,12 +121,16 @@ class CoinAPI():
 	omit_filtered=bool, 
 	filters={str(search_term): list(search_values), ...}, 
 	api_key_id=str(api_key_id)
-
+	return_type=str(return_type) ex:'json'
+	
 	queries = dict("query_variable": "query_value", ...)
 	#queries not used by self.MakeRequest(), it is handed directly to self.__RequestHandler()
 	'''
 	def MakeRequest(self, **kwargs):
 		try:
+			if 'return_type' not in kwargs:
+				kwargs['return_type'] = ''
+
 			try:
 				api_key_id = kwargs["api_key_id"]
 				print('using specified api key')
@@ -171,6 +175,7 @@ class CoinAPI():
 
 
 			#put this at the end, will only proc when it is no other type of request
-			print("General Request Executed")
-
-			return response.json()
+			if kwargs['return_type'] == 'json':
+				return response.json()
+			else:
+				return response

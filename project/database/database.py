@@ -7,6 +7,8 @@ import datetime
 
 import coin_api
 
+import pandas as pd
+
 class Database():
 	def __init__(self):
 		self.coin_api = coin_api.CoinAPI()
@@ -67,10 +69,11 @@ class Database():
 	def UpdateHandbook(self):
 		exchanges_response = self.coin_api.MakeRequest(url_ext=self.config['exchanges_url_ext'], 
 									filters={'exchange_id': self.config['tracked_exchanges'],
-											 'asset_id_quote': self.config['asset_id_quote']})
+											 'asset_id_quote': self.config['asset_id_quote']},
+											 return_type='json')
 
 		periods_response = self.coin_api.MakeRequest(url_ext=self.config['periods_url_ext'],
-									filters={'length_seconds': 0}, omit_filtered=True)
+									filters={'length_seconds': 0}, omit_filtered=True, return_type='json')
 
 		updated_handbook = {}
 		updated_handbook.update({'period_data' : periods_response})
@@ -95,8 +98,8 @@ class Database():
 				self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency']), "HST")
 
 	def ReloadIndex(self):
-		#index is updated automatically as changes are made, use this
-		#function only to verify all exchange indexes (goes through all historical data)
+		#only use this function to verify all exchange indexes (goes through all historical data)
+		#it also clears out any indexes of files that no longer exist
 		pass
 
 	def UpdateHistoricalIndex(self):
@@ -123,9 +126,10 @@ class Database():
 		self.historical_base_path = "historical/"
 		self.historical_index = {}
 		#if you change index_data_keys, you must change if statments accordingly below
-		self.index_data_keys = ['filename',
+		self.index_data_keys = ['filepath',
 								'symbol_id',
-								'symbol_type'
+								'exchange',
+								'symbol_type',
 								'asset_id_base',
 								'asset_id_quote',
 								'time_start',
@@ -134,7 +138,7 @@ class Database():
 		#looks through all tracked exchanges in self.exchange_handbook 
 		#(exchange_handbook == handbook['exchange_data'])
 		for exchange_id, exchange_data in self.exchange_handbook.items():
-			# following uses coin_api function to filter through exchange contents by specified filter
+			#following uses coin_api function to filter through exchange contents by specified filter.
 			#contents of self.exchange_handbook are already filtered by asset_id_quote & tracked_exchanges
 			exchange_items = self.coin_api.JsonFilter(exchange_data, 
 												{'asset_id_base': self.config['tracked_crypto']}, False)
@@ -162,46 +166,91 @@ class Database():
 
 			#extracts data from each item and uses it to create/load historical data files
 			for item in exchange_items:
-				coin_data_file = item['symbol_id']+".csv"
-				coin_data_path = self.historical_base_path+f"{exchange_id}/{coin_data_file}"
+				coin_data_filename = ("{}_{}_{}").format(item['symbol_type'], 
+												   item['asset_id_base'], 
+												   item['asset_id_quote'])+".csv"
+				coin_data_path = self.historical_base_path+f"{exchange_id}/{coin_data_filename}"
 				#checks for historical/{exchange_id}/{symbol_id}.csv, creates file if not found
 				if os.path.exists(coin_data_path) == False:
 					open(coin_data_path, 'w')
-					#create coin data dictionary
-				coin_data_id = ("{}_{}_{}").format(item['symbol_type'], 
-												   item['asset_id_base'], 
-												   item['asset_id_quote'])
-				print(item)
-				coin_data = {coin_data_id: {}}
+
+				coin_data = {coin_data_filename: {}}
 				for key in self.index_data_keys:
-					if key == 'filename':
-						coin_data[coin_data_id].update({key: coin_data_file})
+					if key == 'filepath':
+						coin_data[coin_data_filename].update({key: coin_data_path})
+					elif key == 'exchange':
+						coin_data[coin_data_filename].update({key: exchange_id})
 					elif key == 'symbol_id':
-						coin_data[coin_data_id].update({key: item[key]})
+						coin_data[coin_data_filename].update({key: item[key]})
 					elif key == 'symbol_type':
-						coin_data[coin_data_id].update({key: item[key]})
+						coin_data[coin_data_filename].update({key: item[key]})
 					elif key == 'asset_id_base':
-						coin_data[coin_data_id].update({key: item[key]})
+						coin_data[coin_data_filename].update({key: item[key]})
 					elif key == 'asset_id_quote':
-						coin_data[coin_data_id].update({key: item[key]})
+						coin_data[coin_data_filename].update({key: item[key]})
 					elif key == 'time_start':
-						coin_data[coin_data_id].update({key: 'n/a'})
+						coin_data[coin_data_filename].update({key: item['data_start']})
 					elif key == 'time_end':
-						coin_data[coin_data_id].update({key: 'n/a'})
+						coin_data[coin_data_filename].update({key: item['data_start']})
 				self.historical_index[exchange_id].update(coin_data)
 
 		self.UpdateHistoricalIndex()
 
+	def FindPeriodId(self, unix):
+		for item in self.period_handbook:
+			if item['length_seconds'] == unix:
+				return item['period_id']
+		print('Error: period_id not found for unix_time value:', unix)
+		return ''
 
 	def BackfillHistoricalData(self):
 		self.__InitHistoricalDir()
 
-		'''if self.config['backfill_historical'] == True:
-			#historical data requests needs period_id & time_start query
-			response = self.coin_api.MakeRequest()
+		#NOTE: all data is in increments of 60 seconds exclusively
+		self.historical_time_interval = 60
+
+		if self.config['backfill_historical'] == True:
+			#the current version only supports 'balanced' backfilling of data
+			#in other words it updates all currencies in all exchanges evenly and at the same time
+
+			#the following goes through each indexed historical dataset
+			for exchange_id, exchange_indexes in self.historical_index.items():
+				#the key for each dataset's index is the filename
+				for filename, dataset in exchange_indexes.items():
+
+					#currently, this function only adds one request worth of data at a time
+					#this can be increased once we have an accurate knowledge of remaining requests
+
+					url_ext = self.config['historical_url_ext'].format(dataset['symbol_id'])
+					queries = {'time_start': dataset['time_end'],
+							   'period_id': self.FindPeriodId(self.historical_time_interval)}
+
+					#no filter, the default request size is 1 (100 datapoints)
+					response = self.coin_api.MakeRequest(url_ext=url_ext, queries=queries, api_key_id='startup_key')
+
+					#puts response into an array and adds it to existing data for current dataset
+					response_data = pd.DataFrame.from_dict(response, orient='columns')
+
+					#loads existing data if any
+					try:
+						existing_data = pd.read_csv(dataset['filepath'])
+						existing_data.append(response_data)
+					except(pd.errors.EmptyDataError):
+						print('No existing data for:', dataset['filepath'])
+						print('Initializing pandas.DataFrame')
+						existing_data = response_data
+
+					existing_data.to_csv(dataset['filepath'])
+					print(existing_data)
+
+					print(filename, 'Updated to: ', existing_data.iloc[-1]['time_period_end'])
+
+					#update currency index for current dataset
+					#ONLY CHANGE TIME_END
+					self.historical_index[exchange_id][filename]['time_end'] = existing_data.iloc[-1]['time_period_end']
+					self.UpdateHistoricalIndex()
 		else:
-			print('config.backfill_historical = false: not updating historical data')'''
-		print('successfull end')
+			print('config.backfill_historical = false: not updating historical data')
 
 
 

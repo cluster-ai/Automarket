@@ -1,7 +1,7 @@
 {
     "free_key": {
         "api_key": {
-            "X-CoinAPI-Key": key
+            "X-CoinAPI-Key": get your own
         },
         "limit": 100,
         "remaining": 100,
@@ -9,7 +9,7 @@
     },
     "startup_key": {
         "api_key": {
-            "X-CoinAPI-Key": key
+            "X-CoinAPI-Key": get your own
         },
         "limit": 1000,
         "remaining": 1000,
