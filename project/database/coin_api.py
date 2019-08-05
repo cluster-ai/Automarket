@@ -127,55 +127,53 @@ class CoinAPI():
 	#queries not used by self.MakeRequest(), it is handed directly to self.__RequestHandler()
 	'''
 	def MakeRequest(self, **kwargs):
+		if 'return_type' not in kwargs:
+			kwargs['return_type'] = ''
+
 		try:
-			if 'return_type' not in kwargs:
-				kwargs['return_type'] = ''
-
-			try:
-				api_key_id = kwargs["api_key_id"]
-				print('using specified api key')
-			except:
-				api_key_id = 'free_key'
-				print("using default api key")
-
-			try:
-				queries = kwargs['queries']
-			except:
-				print('no queries set')
-				queries = {}
-			response = self.__RequestHandler(kwargs["url_ext"], api_key_id, queries)
+			api_key_id = kwargs["api_key_id"]
+			print('using specified api key')
 		except:
-			print("Exception: request failed, check url_ext")
-		else:
-			try:#Response Filter
-				filters = kwargs["filters"]
-				for key, item in filters.items():
-					if type(item) is not list:
-						filters_list = []
-						filters_list.append(filters[key])
-						filters[key] = filters_list
-				try:
-						omit_filtered = bool(kwargs["omit_filtered"])
-				except:
-					omit_filtered = False
-				filtered_response = self.JsonFilter(response, filters, omit_filtered)
+			api_key_id = 'free_key'
+			print("using default api key")
+
+		try:
+			queries = kwargs['queries']
+		except:
+			print('no queries set')
+			queries = {}
+
+		response = self.__RequestHandler(kwargs["url_ext"], api_key_id, queries)
+
+		try:#Response Filter
+			filters = kwargs["filters"]
+			for key, item in filters.items():
+				if type(item) is not list:
+					filters_list = []
+					filters_list.append(filters[key])
+					filters[key] = filters_list
+			try:
+					omit_filtered = bool(kwargs["omit_filtered"])
 			except:
-				print("no datastream filter")
-			else:
-				filter_config = ""
-				for key, item in filters.items():
-					filter_config = filter_config + f"{key}, {item} | "
+				omit_filtered = False
+			filtered_response = self.JsonFilter(response, filters, omit_filtered)
+		except:
+			print("no datastream filter")
+		else:
+			filter_config = ""
+			for key, item in filters.items():
+				filter_config = filter_config + f"{key}, {item} | "
 	
-				if omit_filtered == True:
-					print(filter_config, "searched terms isolated")
-				elif omit_filtered == False:
-					print(filter_config, "searched terms isolated")
-				print("API Response Filter Executed")
-				return filtered_response
+			if omit_filtered == True:
+				print(filter_config, "filtered terms isolated")
+			elif omit_filtered == False:
+				print(filter_config, "filtered terms isolated")
+			print("API Response Filter Executed")
+			return filtered_response
 
 
-			#put this at the end, will only proc when it is no other type of request
-			if kwargs['return_type'] == 'json':
-				return response.json()
-			else:
-				return response
+		#put this at the end, will only proc when it is no other type of request
+		if kwargs['return_type'] == 'json':
+			return response.json()
+		else:
+			return response

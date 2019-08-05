@@ -12,7 +12,8 @@ import pandas as pd
 class Database():
 	def __init__(self):
 		self.coin_api = coin_api.CoinAPI()
-		self.handbook_path = 'historical/handbook.json'
+		self.historical_base_path = "historical_data/"
+		self.handbook_path = f'{self.historical_base_path}handbook.json'
 		self.config_path = 'config.json'
 		self.missing_data = False
 
@@ -37,7 +38,6 @@ class Database():
 		else:
 			print('handbook.json up to date, next update after', 
 				 self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency']), "HST")
-		self.BackfillHistoricalData()
 
 	def SetUnixToDate(self, unix):#input unix time as string or int
 		unix = unix - 36000 #UTC(default unix timezone) to HST time difference
@@ -97,7 +97,7 @@ class Database():
 		print("Finished: handbook.json up to date, next update after",
 				self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency']), "HST")
 
-	def ReloadIndex(self):
+	def ReloadHistoricalIndex(self):
 		#only use this function to verify all exchange indexes (goes through all historical data)
 		#it also clears out any indexes of files that no longer exist
 		pass
@@ -123,7 +123,6 @@ class Database():
 		set in config.json)
 		'''
 
-		self.historical_base_path = "historical/"
 		self.historical_index = {}
 		#if you change index_data_keys, you must change if statments accordingly below
 		self.index_data_keys = ['filepath',
@@ -132,8 +131,8 @@ class Database():
 								'symbol_type',
 								'asset_id_base',
 								'asset_id_quote',
-								'time_start',
-								'time_end']
+								'data_start',
+								'data_end']
 
 		#looks through all tracked exchanges in self.exchange_handbook 
 		#(exchange_handbook == handbook['exchange_data'])
@@ -174,25 +173,25 @@ class Database():
 				if os.path.exists(coin_data_path) == False:
 					open(coin_data_path, 'w')
 
-				coin_data = {coin_data_filename: {}}
-				for key in self.index_data_keys:
-					if key == 'filepath':
-						coin_data[coin_data_filename].update({key: coin_data_path})
-					elif key == 'exchange':
-						coin_data[coin_data_filename].update({key: exchange_id})
-					elif key == 'symbol_id':
-						coin_data[coin_data_filename].update({key: item[key]})
-					elif key == 'symbol_type':
-						coin_data[coin_data_filename].update({key: item[key]})
-					elif key == 'asset_id_base':
-						coin_data[coin_data_filename].update({key: item[key]})
-					elif key == 'asset_id_quote':
-						coin_data[coin_data_filename].update({key: item[key]})
-					elif key == 'time_start':
-						coin_data[coin_data_filename].update({key: item['data_start']})
-					elif key == 'time_end':
-						coin_data[coin_data_filename].update({key: item['data_start']})
-				self.historical_index[exchange_id].update(coin_data)
+					coin_data = {coin_data_filename: {}}
+					for key in self.index_data_keys:
+						if key == 'filepath':
+							coin_data[coin_data_filename].update({key: coin_data_path})
+						elif key == 'exchange':
+							coin_data[coin_data_filename].update({key: exchange_id})
+						elif key == 'symbol_id':
+							coin_data[coin_data_filename].update({key: item[key]})
+						elif key == 'symbol_type':
+							coin_data[coin_data_filename].update({key: item[key]})
+						elif key == 'asset_id_base':
+							coin_data[coin_data_filename].update({key: item[key]})
+						elif key == 'asset_id_quote':
+							coin_data[coin_data_filename].update({key: item[key]})
+						elif key == 'data_start':
+							coin_data[coin_data_filename].update({key: item[key]})
+						elif key == 'data_end':
+							coin_data[coin_data_filename].update({key: item['data_start']})#this is because it is made with no data
+					self.historical_index[exchange_id].update(coin_data)
 
 		self.UpdateHistoricalIndex()
 
@@ -205,6 +204,12 @@ class Database():
 
 	def BackfillHistoricalData(self):
 		self.__InitHistoricalDir()
+
+		print(self.historical_index)
+
+		print('----------------------------------------------------')
+		print('Backfilling Historical Data')
+		print('----------------------------------------------------')
 
 		#NOTE: all data is in increments of 60 seconds exclusively
 		self.historical_time_interval = 60
@@ -222,8 +227,10 @@ class Database():
 					#this can be increased once we have an accurate knowledge of remaining requests
 
 					url_ext = self.config['historical_url_ext'].format(dataset['symbol_id'])
-					queries = {'time_start': dataset['time_end'],
+					queries = {'time_start': dataset['data_end'], 'limit': 1000,
 							   'period_id': self.FindPeriodId(self.historical_time_interval)}
+
+					print(queries)
 
 					#no filter, the default request size is 1 (100 datapoints)
 					response = self.coin_api.MakeRequest(url_ext=url_ext, queries=queries, api_key_id='startup_key')
@@ -234,20 +241,20 @@ class Database():
 					#loads existing data if any
 					try:
 						existing_data = pd.read_csv(dataset['filepath'])
-						existing_data.append(response_data)
+						existing_data = existing_data.append(response_data, ignore_index=True, sort=False)
 					except(pd.errors.EmptyDataError):
 						print('No existing data for:', dataset['filepath'])
 						print('Initializing pandas.DataFrame')
 						existing_data = response_data
 
-					existing_data.to_csv(dataset['filepath'])
-					print(existing_data)
+					existing_data.to_csv(dataset['filepath'], index=False)
 
-					print(filename, 'Updated to: ', existing_data.iloc[-1]['time_period_end'])
+					print(filename, 'updated to: ', existing_data.iloc[-1]['time_period_end'])
+					print('----------------------------------------------------')
 
 					#update currency index for current dataset
 					#ONLY CHANGE TIME_END
-					self.historical_index[exchange_id][filename]['time_end'] = existing_data.iloc[-1]['time_period_end']
+					self.historical_index[exchange_id][filename]['data_end'] = existing_data.iloc[-1]['time_period_end']
 					self.UpdateHistoricalIndex()
 		else:
 			print('config.backfill_historical = false: not updating historical data')
