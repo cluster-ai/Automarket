@@ -39,6 +39,8 @@ class Database():
 			print('handbook.json up to date, next update after', 
 				 self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency']), "HST")
 
+		self.BackfillHistoricalData()
+
 	def SetUnixToDate(self, unix):#input unix time as string or int
 		unix = unix - 36000 #UTC(default unix timezone) to HST time difference
 		return datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S')
@@ -87,10 +89,6 @@ class Database():
 		self.exchange_handbook = self.handbook['exchange_data']
 		self.period_handbook = self.handbook['period_data']
 
-		updated_config = {}
-		updated_config.update(self.config)
-		
-		self.config = updated_config
 		#handbook_json = json.dumps(self.handbook, indent=4, separators=(',', ': '))
 		with open(self.config_path, 'w') as file:
 			json.dump(self.config, file, indent=4)
@@ -205,14 +203,25 @@ class Database():
 	def BackfillHistoricalData(self):
 		self.__InitHistoricalDir()
 
-		print(self.historical_index)
-
 		print('----------------------------------------------------')
 		print('Backfilling Historical Data')
 		print('----------------------------------------------------')
 
 		#NOTE: all data is in increments of 60 seconds exclusively
 		self.historical_time_interval = 60
+
+		#the following finds the total number of backfilling request we are making
+		#it then finds the limit on each request needed to use all remaining api requests
+		#so that only one iteration is needed
+		total_requests = 0
+		print('Backfill List:')
+		for exchange_id, exchange in self.historical_index.items():
+			print('   ', exchange_id)
+			for coin in exchange:
+				print('      ', coin)
+				total_requests += 1
+		print(f'{total_requests} total requests\n')
+		limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / total_requests * 100)
 
 		if self.config['backfill_historical'] == True:
 			#the current version only supports 'balanced' backfilling of data
@@ -223,11 +232,8 @@ class Database():
 				#the key for each dataset's index is the filename
 				for filename, dataset in exchange_indexes.items():
 
-					#currently, this function only adds one request worth of data at a time
-					#this can be increased once we have an accurate knowledge of remaining requests
-
 					url_ext = self.config['historical_url_ext'].format(dataset['symbol_id'])
-					queries = {'time_start': dataset['data_end'], 'limit': 1000,
+					queries = {'time_start': dataset['data_end'], 'limit': limit_per_request,
 							   'period_id': self.FindPeriodId(self.historical_time_interval)}
 
 					print(queries)
@@ -244,7 +250,7 @@ class Database():
 						existing_data = existing_data.append(response_data, ignore_index=True, sort=False)
 					except(pd.errors.EmptyDataError):
 						print('No existing data for:', dataset['filepath'])
-						print('Initializing pandas.DataFrame')
+						print('Creating New Dataframe')
 						existing_data = response_data
 
 					existing_data.to_csv(dataset['filepath'], index=False)

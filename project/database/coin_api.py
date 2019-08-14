@@ -12,46 +12,13 @@ import os
 class CoinAPI():
 	def __init__(self):
 		self.base_url = 'https://rest.coinapi.io/v1/'
-		self.free_key = get your own
-		self.startup_key = get your own
-		self.api_keys = {'free_key': self.free_key, 'startup_key': self.startup_key}
 
 		self.api_index_path = 'api_index.json'
-
-		self.tracked_index_variables = ['limit', 'remaining', 'reset']
-		self.api_index = {}#default created in for loop below
-		current_time = time.time()
-		#if you change the following, also change self.UpdateAPIIndex() Function accordingly
-		for api_key, api_key_value in self.api_keys.items():
-			limit = 0
-			if api_key == 'free_key':
-				limit = 100
-			elif api_key == 'startup_key':
-				limit = 1000
-			index_values = {'api_key': api_key_value}#api_key
-			#default values, must be the same as self.tracked_index_variables
-			index_values.update({'limit': limit, 'remaining': limit, 'reset': 0})
-			self.api_index.update({api_key: index_values})
-
-		self.UpdateAPIIndex()
-
-			
-	def UpdateAPIIndex(self):
-		#sets object variable to file data if available and without exceptions
-		try:
-			with open(self.api_index_path, 'r') as file:
-				api_index_file = json.load(file)
-
-			for api_key, api_item in self.api_index.items():
-				for index_item in self.tracked_index_variables:
-					api_item[index_item] = api_index_file[api_key][index_item]
-		except:
-			print("api_index.json failed to load data, setting to defaults")
-			#if file does not exist, program will crash
-			
-
-		with open(self.api_index_path, 'w') as file:
-			json.dump(self.api_index, file, indent=4)
+		with open(self.api_index_path, 'r') as file:
+			self.api_index = json.load(file)
+		'''self.free_key = {'X-CoinAPI-Key': '4364DC07-0336-4C8A-A43C-2BD216B1B285'}
+		self.startup_key = {'X-CoinAPI-Key': '9C28A83A-B213-4A7A-9B13-BE5540AAC57F'}
+		self.api_keys = {'free_key': self.free_key, 'startup_key': self.startup_key}'''
 
 
 	'''kwargs: NOT AN ACTUAL KWARG, it just gets handed kwargs from self.MakeRequest
@@ -67,11 +34,6 @@ class CoinAPI():
 			response.raise_for_status()
 		except HTTPError as http_err:
 			print(f'{http_err}')
-			#if error code 429 (api limit has been reached) 
-			#the limit in api_index is set to zero for the api key used
-			if response.status_code == 429:
-				self.api_index[api_key_id]['remaining'] = 0
-				self.UpdateAPIIndex()
 		except Exception as err:
 			print(f'{err}')
 		else:
