@@ -4,7 +4,6 @@ import os
 
 import time
 import datetime
-import pytz
 
 import database.coin_api as coin_api
 
@@ -31,14 +30,13 @@ class Database():
 			self.config = json.load(file)
 		
 
-
 		if ((self.config['last_update'] + self.config['update_frequency']) < time.time() 
 			or self.config['update_limiter'] == False or self.missing_data == True):
 			print('Updating handbook.json...')
 			self.UpdateHandbook()
 		else:
 			print('handbook.json up to date, next update after', 
-				 self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency']), "HST")
+				 self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency'] - 36000), "HST")
 
 		self.BackfillHistoricalData()
 
@@ -54,15 +52,24 @@ class Database():
 		unix = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f0Z')
 		unix = unix.timestamp() - 36000#sets it to UTC
 		return unix
+		
 
+	def UpdateHandbook(self):
+		exchanges_response = self.coin_api.MakeRequest(url_ext=self.config['exchanges_url_ext'], 
+									filters={'exchange_id': self.config['tracked_exchanges'],
+											 'asset_id_quote': self.config['asset_id_quote']},
+											 return_type='json')
 
-	def ExtractExchangeData(self, raw_exchange_data):
+		periods_response = self.coin_api.MakeRequest(url_ext=self.config['periods_url_ext'],
+									filters={'length_seconds': 0}, omit_filtered=True, return_type='json')
+
+		#filters out irrelevant exchange data, only keeps whats specified in relevant_data_keys
 		extracted_data = {}
 		for tracked_exchange in self.config['tracked_exchanges']:
 			extracted_data.update({tracked_exchange : []})
 
 		relevant_data_keys = ['symbol_id', 'symbol_type', 'asset_id_base', 'asset_id_quote', 'data_start', 'data_end']
-		for item in raw_exchange_data:
+		for item in exchanges_response:
 			for exchange_id, exchange_data in extracted_data.items():
 				if exchange_id == item['exchange_id']:
 					relevant_data = {}
@@ -76,26 +83,18 @@ class Database():
 						extracted_data[exchange_id].append(relevant_data)
 					break
 
-		return extracted_data
-
-	def UpdateHandbook(self):
-		exchanges_response = self.coin_api.MakeRequest(url_ext=self.config['exchanges_url_ext'], 
-									filters={'exchange_id': self.config['tracked_exchanges'],
-											 'asset_id_quote': self.config['asset_id_quote']},
-											 return_type='json')
-
-		periods_response = self.coin_api.MakeRequest(url_ext=self.config['periods_url_ext'],
-									filters={'length_seconds': 0}, omit_filtered=True, return_type='json')
+		exchange_response = extracted_data
+		#END OF EXCHANGE_DATAD EXTRACTION
 
 		updated_handbook = {}
 		updated_handbook.update({'period_data' : periods_response})
-		updated_handbook.update({'exchange_data' : self.ExtractExchangeData(exchanges_response)})
+		updated_handbook.update({'exchange_data' : exchange_response})
 
 		self.handbook = updated_handbook
 		with open(self.handbook_path, 'w') as file:
 			json.dump(self.handbook, file, indent=4)
 
-		self.config['last_update'] = int(time.time())
+		self.config['last_update'] = time.time()
 		self.exchange_handbook = self.handbook['exchange_data']
 		self.period_handbook = self.handbook['period_data']
 
@@ -103,7 +102,7 @@ class Database():
 		with open(self.config_path, 'w') as file:
 			json.dump(self.config, file, indent=4)
 		print("Finished: handbook.json up to date, next update after",
-				self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency']), "HST")
+				self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency'] - 36000), "HST")
 
 	def ReloadHistoricalIndex(self):
 		#only use this function to verify all exchange indexes (goes through all historical data)
@@ -339,15 +338,3 @@ class Database():
 
 
 
-	# the following are primarily used externally
-
-	def LoadHistoricalData(self, exchange, filename):
-		file_path = self.historical_base_path + f'{exchange}/{filename}'
-
-		if os.path.exists(file_path) == True:
-			return pd.read_csv(file_path)
-		else:
-			return []
-
-
-		
