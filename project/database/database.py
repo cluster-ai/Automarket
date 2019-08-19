@@ -5,16 +5,16 @@ import os
 import time
 import datetime
 
-import coin_api
+import database.coin_api as coin_api
 
 import pandas as pd
 
 class Database():
 	def __init__(self):
 		self.coin_api = coin_api.CoinAPI()
-		self.historical_base_path = "historical_data/"
+		self.historical_base_path = "database/historical_data/"
 		self.handbook_path = f'{self.historical_base_path}handbook.json'
-		self.config_path = 'config.json'
+		self.config_path = 'database/config.json'
 		self.missing_data = False
 
 		with open(self.handbook_path) as file:
@@ -45,6 +45,9 @@ class Database():
 		unix = unix - 36000 #UTC(default unix timezone) to HST time difference
 		return datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S')
 
+	def SetDateToUnix(self, date):
+		utc = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f0Z')
+		return int(utc.timestamp())
 
 	def ExtractExchangeData(self, raw_exchange_data):
 		extracted_data = {}
@@ -203,29 +206,30 @@ class Database():
 	def BackfillHistoricalData(self):
 		self.__InitHistoricalDir()
 
-		print('----------------------------------------------------')
-		print('Backfilling Historical Data')
-		print('----------------------------------------------------')
-
-		#NOTE: all data is in increments of 60 seconds exclusively
-		self.historical_time_interval = 60
-
-		#the following finds the total number of backfilling request we are making
-		#it then finds the limit on each request needed to use all remaining api requests
-		#so that only one iteration is needed
-		total_requests = 0
-		print('Backfill List:')
-		for exchange_id, exchange in self.historical_index.items():
-			print('   ', exchange_id)
-			for coin in exchange:
-				print('      ', coin)
-				total_requests += 1
-		print(f'{total_requests} total requests\n')
-		limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / total_requests * 100)
-
+		#the current version only supports 'balanced' backfilling of data
+		#in other words it updates all currencies in all exchanges evenly and at the same time
 		if self.config['backfill_historical'] == True:
-			#the current version only supports 'balanced' backfilling of data
-			#in other words it updates all currencies in all exchanges evenly and at the same time
+			print('----------------------------------------------------')
+			print('Backfilling Historical Data')
+			print('----------------------------------------------------')
+
+			#NOTE: all data is in increments of 60 seconds exclusively
+			self.historical_time_interval = 60
+
+			#the following finds the total number of backfilling request we are making
+			#it then finds the limit on each request needed to use all remaining api requests
+			#so that only one iteration is needed
+			total_requests = 0
+			print('Backfill List:')
+			for exchange_id, exchange in self.historical_index.items():
+				print('   ', exchange_id)
+				for coin in exchange:
+					print('      ', coin)
+					total_requests += 1
+			print(f'{total_requests} total requests\n')
+			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / total_requests * 100)
+			limit_per_request = limit_per_request - (limit_per_request % 100)
+			#one request is 100 datapoints so limit_per_request is made a multiple of 100
 
 			#the following goes through each indexed historical dataset
 			for exchange_id, exchange_indexes in self.historical_index.items():
@@ -267,4 +271,15 @@ class Database():
 
 
 
-data = Database()
+	# the following are primarily used externally
+
+	def LoadHistoricalData(self, exchange, filename):
+		file_path = self.historical_base_path + f'{exchange}/{filename}'
+
+		if os.path.exists(file_path) == True:
+			return pd.read_csv(file_path)
+		else:
+			return []
+
+
+		

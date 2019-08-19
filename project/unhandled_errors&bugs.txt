@@ -19,3 +19,5 @@
  - if the coinAPI api_index is not loaded or initialized as intended (which is possible), the api limit will default to 0 and not let any requests through.
 
  - if period_id is not found in database.FindPeriodId(), it return and empty string (''). Needs to have error handling 
+
+ - for some reason data historical data seemed to be altered/deleted from SPOT_BTC_USD.csv when I added LTC to the pool of tracked coins. MAKE SURE the data is not corrupted under ANY circumstance for any action in or around that data. Perhaps make a 'git' like backup of the historical data that you can compare the current data to after a backfill to make sure the existing data is not altered. This can be in the form of a 'backup' folder in each exchange folder (ex: historical_data/KRAKEN/backup           You could have the backup be all the requests you have made for backfill in order and the actual data file is just a compilation of that data, that way we can request blocks of data if one is corrupt/wrong.

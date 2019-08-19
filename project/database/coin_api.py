@@ -13,7 +13,7 @@ class CoinAPI():
 	def __init__(self):
 		self.base_url = 'https://rest.coinapi.io/v1/'
 
-		self.api_index_path = 'api_index.json'
+		self.api_index_path = 'database/api_index.json'
 		with open(self.api_index_path, 'r') as file:
 			self.api_index = json.load(file)
 		'''self.free_key = {'X-CoinAPI-Key': '4364DC07-0336-4C8A-A43C-2BD216B1B285'}
@@ -94,10 +94,10 @@ class CoinAPI():
 
 		try:
 			api_key_id = kwargs["api_key_id"]
-			print('using specified api key')
+			print('using specified api key:', api_key_id)
 		except:
 			api_key_id = 'free_key'
-			print("using default api key")
+			print("using default api key:", api_key_id)
 
 		try:
 			queries = kwargs['queries']
@@ -125,12 +125,11 @@ class CoinAPI():
 			filter_config = ""
 			for key, item in filters.items():
 				filter_config = filter_config + f"{key}, {item} | "
-	
+			print("API Response Filter Executed:")
 			if omit_filtered == True:
-				print(filter_config, "filtered terms isolated")
+				print('   ', filter_config, "filtered terms omitted\n")
 			elif omit_filtered == False:
-				print(filter_config, "filtered terms isolated")
-			print("API Response Filter Executed")
+				print('   ', filter_config, "filtered terms added\n")
 			return filtered_response
 
 
