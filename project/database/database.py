@@ -4,6 +4,7 @@ import os
 
 import time
 import datetime
+import pytz
 
 import database.coin_api as coin_api
 
@@ -41,13 +42,19 @@ class Database():
 
 		self.BackfillHistoricalData()
 
+
+
+
 	def SetUnixToDate(self, unix):#input unix time as string or int
-		unix = unix - 36000 #UTC(default unix timezone) to HST time difference
-		return datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S')
+		#when using to display on screen, add to UTC unix param to offset for your timezone
+		return datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S.%f0Z')
+		#RETURNS UTC, confirmed
 
 	def SetDateToUnix(self, date):
-		utc = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f0Z')
-		return int(utc.timestamp())
+		unix = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f0Z')
+		unix = unix.timestamp() - 36000#sets it to UTC
+		return unix
+
 
 	def ExtractExchangeData(self, raw_exchange_data):
 		extracted_data = {}
@@ -229,6 +236,7 @@ class Database():
 			print(f'{total_requests} total requests\n')
 			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / total_requests * 100)
 			limit_per_request = limit_per_request - (limit_per_request % 100)
+			limit_per_request = 1000
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
 
 			#the following goes through each indexed historical dataset
@@ -236,17 +244,76 @@ class Database():
 				#the key for each dataset's index is the filename
 				for filename, dataset in exchange_indexes.items():
 
+					#settings for the historical data requests
 					url_ext = self.config['historical_url_ext'].format(dataset['symbol_id'])
-					queries = {'time_start': dataset['data_end'], 'limit': limit_per_request,
+					queries = {'time_start': dataset['data_end'],
+							   'limit': limit_per_request,
 							   'period_id': self.FindPeriodId(self.historical_time_interval)}
 
 					print(queries)
 
-					#no filter, the default request size is 1 (100 datapoints)
+					#no filter, the default request size is 100 (100 datapoints: uses one request)
 					response = self.coin_api.MakeRequest(url_ext=url_ext, queries=queries, api_key_id='startup_key')
 
 					#puts response into an array and adds it to existing data for current dataset
 					response_data = pd.DataFrame.from_dict(response, orient='columns')
+
+					#==============================================================
+					#SET DATES TO UNIX START
+					#==============================================================
+					count = 0
+					prev_time = time.time()
+					start_time = time.time()
+					new_df = response_data.copy()
+
+					print('changing time values to unix')
+					for index, row in new_df.iterrows():
+						for col in new_df.columns:
+
+							if 'time' in col:#if true, needs to be changed to unix time
+								new_df.at[index, col] = self.SetDateToUnix(row[col])
+						count += 1
+						if count == 5000:
+							current_time = time.time()
+							delay = current_time - prev_time
+							print(f"index: {index} || delay: {delay}")
+							count = 0
+							prev_time = current_time
+
+					#it then verifies the data has not changed
+					print('verifying unix dates')
+
+					timestamp = 1000000
+					new_timestamp = self.SetUnixToDate(timestamp)
+					new_timestamp = self.SetDateToUnix(new_timestamp)
+					print(f'timestamp convertion test: {timestamp} || {new_timestamp}')
+
+					count = 0
+					prev_time = time.time()
+					for index, row in new_df.iterrows():
+						for col in new_df.columns:
+							#print(self.SetUnixToDate(new_df.iloc[index][col]), " || ", response_data.iloc[index][col])
+							if 'time' in col:
+								if self.SetUnixToDate(row[col]) != response_data.iloc[index][col]:
+									raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
+							elif row[col] != response_data.iloc[index][col]:
+								raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
+						count += 1
+						if count == 2000:
+							current_time = time.time()
+							delay = current_time - prev_time
+							print(f"index: {index} || delay: {delay}")
+							count = 0
+							prev_time = current_time
+
+
+					total_time = time.time() - start_time
+					print(f'Time Format Change Duration: {total_time} seconds')
+
+					response_data = new_df
+					#==============================================================
+					#SET DATES TO UNIX END
+					#==============================================================
 
 					#loads existing data if any
 					try:
@@ -259,12 +326,13 @@ class Database():
 
 					existing_data.to_csv(dataset['filepath'], index=False)
 
-					print(filename, 'updated to: ', existing_data.iloc[-1]['time_period_end'])
+					print(filename, 'updated to: ', self.SetUnixToDate(existing_data.iloc[-1]['time_period_end']))
 					print('----------------------------------------------------')
 
 					#update currency index for current dataset
 					#ONLY CHANGE TIME_END
-					self.historical_index[exchange_id][filename]['data_end'] = existing_data.iloc[-1]['time_period_end']
+					time_end = self.SetUnixToDate(existing_data.iloc[-1]['time_period_end'])
+					self.historical_index[exchange_id][filename]['data_end'] = time_end
 					self.UpdateHistoricalIndex()
 		else:
 			print('config.backfill_historical = false: not updating historical data')

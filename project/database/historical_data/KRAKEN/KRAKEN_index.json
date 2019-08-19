@@ -1,32 +1,32 @@
 {
     "SPOT_BTC_USD.csv": {
-        "filepath": "historical_data/KRAKEN/SPOT_BTC_USD.csv",
+        "filepath": "database/historical_data/KRAKEN/SPOT_BTC_USD.csv",
         "symbol_id": "KRAKEN_SPOT_BTC_USD",
         "exchange": "KRAKEN",
         "symbol_type": "SPOT",
         "asset_id_base": "BTC",
         "asset_id_quote": "USD",
         "data_start": "2014-01-07",
-        "data_end": "2017-12-31T00:07:00.0000000Z"
+        "data_end": "2016-02-07T09:17:00.0000000Z"
     },
     "SPOT_ETH_USD.csv": {
-        "filepath": "historical_data/KRAKEN/SPOT_ETH_USD.csv",
+        "filepath": "database/historical_data/KRAKEN/SPOT_ETH_USD.csv",
         "symbol_id": "KRAKEN_SPOT_ETH_USD",
         "exchange": "KRAKEN",
         "symbol_type": "SPOT",
         "asset_id_base": "ETH",
         "asset_id_quote": "USD",
         "data_start": "2015-08-10",
-        "data_end": "2018-04-16T15:52:00.0000000Z"
+        "data_end": "2017-03-08T15:27:00.0000000Z"
     },
     "SPOT_LTC_USD.csv": {
-        "filepath": "historical_data/KRAKEN/SPOT_LTC_USD.csv",
+        "filepath": "database/historical_data/KRAKEN/SPOT_LTC_USD.csv",
         "symbol_id": "KRAKEN_SPOT_LTC_USD",
         "exchange": "KRAKEN",
         "symbol_type": "SPOT",
         "asset_id_base": "LTC",
         "asset_id_quote": "USD",
         "data_start": "2014-06-02",
-        "data_end": "2017-09-09T22:26:00.0000000Z"
+        "data_end": "2017-05-12T09:48:00.0000000Z"
     }
 }

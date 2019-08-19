@@ -34,6 +34,7 @@ class CoinAPI():
 			response.raise_for_status()
 		except HTTPError as http_err:
 			print(f'{http_err}')
+			raise ValueError('HTTPError: Killing Process')
 		except Exception as err:
 			print(f'{err}')
 		else:
