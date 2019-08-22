@@ -20,4 +20,8 @@
 
  - for timestamps, if data from coin_api is given to us with a value other than 0 in the ten millions place (possible) it will raise an error in database.BackfillHistoricalData(). As I write this entry, we currently have that digit hard-coded as 0 right before the Z "0Z". For example, if coin_api sends 2016-02-07T09:17:00.0000004Z my program will convert it to unix and compare for validity but will output 2016-02-07T09:17:00.0000000Z since that last digit is hard-coded to 0. The program will think the data has been altered (and it was) in the unix time conversion, killing the process.
 
- - implement database.ReloadHistoricalIndex()
+ - implement database.ReloadHistoricalIndex() and database.ReloadTrainingIndex(). If the data in any index.json files are corrupted or altered to not match the actual data, there needs to be a way of reloading that index. Currently there is none so if that happens we are SOL.
+
+ - ideally, historical_index and training_index are just a list of all index_data regardless of exchange_id. This way you can loop through them will a single for loop (rather than nested loop). Not to mention the fact that loading a specific index is self.historical_index[filename] instead of self.historical_index[exchange_id][filename]. Plus you can still isolate them in the directory when storing the files since the exchange_id data is within each index_item anyway.
+
+- optimize historical backfill time-step verification (takes way to long)

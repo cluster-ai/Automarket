@@ -13,6 +13,7 @@ class Database():
 	def __init__(self):
 		self.coin_api = coin_api.CoinAPI()
 		self.historical_base_path = "database/historical_data/"
+		self.training_base_path = "database/training_data/"
 		self.handbook_path = f'{self.historical_base_path}handbook.json'
 		self.config_path = 'database/config.json'
 		self.missing_data = False
@@ -104,16 +105,12 @@ class Database():
 		print("Finished: handbook.json up to date, next update after",
 				self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency'] - 36000), "HST")
 
-	def ReloadHistoricalIndex(self):
-		#only use this function to verify all exchange indexes (goes through all historical data)
-		#it also clears out any indexes of files that no longer exist
-		pass
 
 	def UpdateHistoricalIndex(self):
-		#use to update all (exchange_id)_index.json files with newest self.historical_index data
+		#use to update all historical_data/(exchange_id)/(exchange_id)_index.json files
 		for exchange_id, index_data in self.historical_index.items():
-			index_file_path = self.historical_base_path+f"{exchange_id}/{exchange_id}_index.json"
-			with open(index_file_path, 'w') as file:
+			index_path = self.historical_base_path+f"{exchange_id}/{exchange_id}_index.json"
+			with open(index_path, 'w') as file:
 				#when it is in the file, it will not have the "exchange_id" dictionary layer
 				json.dump(index_data, file, indent=4)
 
@@ -131,8 +128,8 @@ class Database():
 		'''
 
 		self.historical_index = {}
-		#if you change index_data_keys, you must change if statments accordingly below
-		self.index_data_keys = ['filepath',
+		#if you change historical_index_keys, you must change if statments accordingly below
+		self.historical_index_keys = ['filepath',
 								'symbol_id',
 								'exchange',
 								'symbol_type',
@@ -181,7 +178,7 @@ class Database():
 					open(coin_data_path, 'w')
 
 					coin_data = {coin_data_filename: {}}
-					for key in self.index_data_keys:
+					for key in self.historical_index_keys:
 						if key == 'filepath':
 							coin_data[coin_data_filename].update({key: coin_data_path})
 						elif key == 'exchange':
@@ -195,9 +192,9 @@ class Database():
 						elif key == 'asset_id_quote':
 							coin_data[coin_data_filename].update({key: item[key]})
 						elif key == 'data_start':
-							coin_data[coin_data_filename].update({key: item[key]})
+							coin_data[coin_data_filename].update({key: item[key]+"T00:00:00:00.0000000Z"})
 						elif key == 'data_end':
-							coin_data[coin_data_filename].update({key: item['data_start']})#this is because it is made with no data
+							coin_data[coin_data_filename].update({key: item['data_start']+"T00:00:00:00.0000000Z"})
 					self.historical_index[exchange_id].update(coin_data)
 
 		self.UpdateHistoricalIndex()
@@ -214,7 +211,7 @@ class Database():
 
 		#the current version only supports 'balanced' backfilling of data
 		#in other words it updates all currencies in all exchanges evenly and at the same time
-		if self.config['backfill_historical'] == True:
+		if self.config['backfill_historical_data'] == True:
 			print('----------------------------------------------------')
 			print('Backfilling Historical Data')
 			print('----------------------------------------------------')
@@ -235,7 +232,6 @@ class Database():
 			print(f'{total_requests} total requests\n')
 			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / total_requests * 100)
 			limit_per_request = limit_per_request - (limit_per_request % 100)
-			limit_per_request = 1000
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
 
 			#the following goes through each indexed historical dataset
@@ -298,7 +294,7 @@ class Database():
 							elif row[col] != response_data.iloc[index][col]:
 								raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
 						count += 1
-						if count == 2000:
+						if count == 5000:
 							current_time = time.time()
 							delay = current_time - prev_time
 							print(f"index: {index} || delay: {delay}")
@@ -334,7 +330,126 @@ class Database():
 					self.historical_index[exchange_id][filename]['data_end'] = time_end
 					self.UpdateHistoricalIndex()
 		else:
-			print('config.backfill_historical = false: not updating historical data')
+			print('config.backfill_historical_data = false: not updating historical data')
 
 
 
+def UpdateTrainingIndex(self):
+	#use to update all training_data/(exchange_id)/(exchange_id)_index.json files
+	for exchange_id, index_data in self.training_index.items():
+		index_path = self.training_base_path+f"{exchange_id}/{exchange_id}_index.json"
+		with open(index_path, 'w') as file:
+			#when it is in the file, it will not have the "exchange_id" dictionary layer
+			json.dump(index_data, file, indent=4)
+	
+def __InitTrainingDir(self):
+	'''
+	(This function is very similar to database.__InitHistoricalDir())
+	Instead of looking at config.json tracked exchanges and cryptocurrencies for what data to grab
+	(as does database.__InitHistoricalDir()) this function looks at self.historical_index for 
+	what data there is locally. 
+	'''
+
+	self.training_index = {}
+	#if you change training_index_keys, you must change if statments accordingly below
+	self.training_index_keys = ['filepath',
+							'symbol_id',
+							'exchange',
+							'symbol_type',
+							'asset_id_base',
+							'asset_id_quote',
+							'datapoints',
+							'data_start',
+							'data_end']
+
+	#looks through all tracked exchanges in self.historical_index
+	for exchange_id, exchange_index in self.historical_index.items():
+
+		#checks for training_data/(exchange_id), creates dir if not found
+		exchange_path = self.training_base_path+f"{exchange_id}"
+		if os.path.isdir(exchange_path) == False:
+			os.mkdir(exchange_path)
+
+		#checks for training_data/(exchange_id)/(exchange_id)_index.json, creates file if not found
+		index_path = self.training_base_path+f'{exchange_id}/{exchange_id}_index.json'
+		if os.path.exists(index_path) == True:
+			#if file is found, it loads its contents
+			with open(index_path, 'r') as file:
+				try:
+					exchange_index = {exchange_id: json.load(file)}
+				except:
+					exchange_index = {exchange_id: {}}
+				self.training_index.update(exchange_index)
+		else:
+			#if no file is found it creates one
+			open(index_path, 'w')
+			exchange_index = {exchange_id: {}}
+			self.training_index.update(exchange_index)
+
+		#extracts data from individual index items, the key for each item is the filename
+		for filename, index_item in exchange_index.items():
+
+			coin_data_path = self.training_base_path+f"{exchange_id}/{filename}"
+			#checks for training_data/{exchange_id}/{filename}.csv, creates file if not found
+			if os.path.exists(coin_data_path) == False:
+				open(coin_data_path, 'w')
+
+				coin_data = {filename: {}}
+				for key in self.training_index_keys:
+					if key == 'filepath':
+						coin_data[filename].update({key: coin_data_path})
+					elif key == 'exchange':
+						coin_data[filename].update({key: exchange_id})
+					elif key == 'symbol_id':
+						coin_data[filename].update({key: index_item[key]})
+					elif key == 'symbol_type':
+						coin_data[filename].update({key: index_item[key]})
+					elif key == 'asset_id_base':
+						coin_data[filename].update({key: index_item[key]})
+					elif key == 'asset_id_quote':
+						coin_data[filename].update({key: index_item[key]})
+					elif key == 'datapoints':
+						coin_data[filename].update({key: 0})
+					elif key == 'data_start':
+						coin_data[filename].update({key: index_item[key]+"T00:00:00:00.0000000Z"})
+					elif key == 'data_end':
+						coin_data[filename].update({key: index_item['data_start']+"T00:00:00:00.0000000Z"})
+				self.training_index[exchange_id].update(coin_data)
+
+	self.UpdateTrainingIndex()
+
+def UpdateTrainingData(self):
+	#this function processes historical_data so that no further data processing is required for the 
+	#network to run effectively. The only thing left to do after is set the index and drop unneccesary columns
+
+	'''
+	Since many datapoints are missing in early parts of historical_data, the program will likely need to omit
+	the beginning of that data until the frequency of missing points is below a specified threshold. 
+	When updating the training_index, this function will change data_end according to the latest historical
+	datapoint it saw even if no data was actually saved to a training_data folder (due to missing datapoints).
+	In order to track how many datapoints we have to train from, I have added a 'datapoints' item to index for
+	each training_index item to track exactly how much reliable data we have to train from. It will also update
+	data_start to be in accordance with first training_data datapoint and not with first historical_data datapoint.
+	If no data is present, data_start will continue to equal data_end.
+	'''
+
+	if self.config['update_training_data'] == True:
+
+
+		print('----------------------------------------------------')
+		print('Updating Training Data')
+		print('----------------------------------------------------')
+
+	
+		for exchange_id, index_data in self.training_index.items():
+			for filename, index_item in index_data.items():
+
+				if index_item['data_end'] < self.historical_index[exchange_id][filename]['data_end']:
+					pass
+				elif index_item['data_end'] > self.historical_index[exhcange_id][filename]['data_end']:
+					#Obviously training_data should not be ahead of historical_data, this flags that
+					raise TypeError(f"Error: training_data is ahead of historical_data for {filename} ['data_end']")
+				else:
+					print(f'{filename} is up to date with historical_data, data_end:', index_item['data_end'])
+	else:
+		print('config.update_training_data = false: not updating training data')

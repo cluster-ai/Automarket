@@ -50,11 +50,11 @@ class CoinAPI():
 
 	#this filters through list of dictionaries based on given filter values 
 	#example: (filters={filter_key: filter_item, ...})
-	def JsonFilter(self, dict_list, filters, omit_filtered):
+	def JsonFilter(self, raw_json, filters, omit_filtered):
 		requested_data = []
 
 		if omit_filtered == True:
-			for item in dict_list:
+			for item in raw_json:
 				item_score = 0#if it equals zero, it appends to requested_data
 
 				for key, filter_values in filters.items():#for each filter
@@ -62,11 +62,11 @@ class CoinAPI():
 						for filter_item in filter_values:#compare item to each filter_item
 							if item[key] == filter_item:
 								item_score += 1#if they have the same value, add one to score
-				if item_score == 0:#if any dict_list is equal to any filter, it is omitted
+				if item_score == 0:#if any raw_json value is equal to any filter value, it is omitted
 					requested_data.append(item)
 
 		elif omit_filtered == False:
-			for item in dict_list:
+			for item in raw_json:
 				item_score = 0#if it equals to number of filters it appends to requested_data
 
 				for key, filter_values in filters.items():#for each filter
