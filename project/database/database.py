@@ -13,7 +13,9 @@ class Database():
 	def __init__(self):
 		self.coin_api = coin_api.CoinAPI()
 		self.historical_base_path = "database/historical_data/"
+		self.historical_index_path = f"{self.historical_base_path}historical_index.json"
 		self.training_base_path = "database/training_data/"
+		self.training_index_path = f"{self.training_base_path}training_index.json"
 		self.handbook_path = f'{self.historical_base_path}handbook.json'
 		self.config_path = 'database/config.json'
 		self.missing_data = False
@@ -40,7 +42,6 @@ class Database():
 				 self.SetUnixToDate(self.config['last_update'] + self.config['update_frequency'] - 36000), "HST")
 
 		self.BackfillHistoricalData()
-
 		self.UpdateTrainingData()
 
 
@@ -109,12 +110,11 @@ class Database():
 
 
 	def UpdateHistoricalIndex(self):
-		#use to update all historical_data/(exchange_id)/(exchange_id)_index.json files
-		for exchange_id, index_data in self.historical_index.items():
-			index_path = self.historical_base_path+f"{exchange_id}/{exchange_id}_index.json"
-			with open(index_path, 'w') as file:
+		#updates historical_data/historical_index.json file with self.historical_index
+		with open(self.historical_index_path, 'w') as file:
 				#when it is in the file, it will not have the "exchange_id" dictionary layer
-				json.dump(index_data, file, indent=4)
+				json.dump(self.historical_index, file, indent=4)
+
 
 	def __InitHistoricalDir(self):
 
@@ -133,7 +133,7 @@ class Database():
 		#if you change historical_index_keys, you must change if statments accordingly below
 		self.historical_index_keys = ['filepath',
 								'symbol_id',
-								'exchange',
+								'exchange_id',
 								'symbol_type',
 								'asset_id_base',
 								'asset_id_quote',
@@ -141,41 +141,37 @@ class Database():
 								'data_start',
 								'data_end']
 
+		#checks for self.historical_index_path defined in database.__init__()
+		#creates file if not found
+		if os.path.exists(self.historical_index_path) == True:
+			#if file is found, it loads its contents
+			with open(self.historical_index_path, 'r') as file:
+				index = json.load(file)
+				self.historical_index.update(index)
+		else:
+			#if no file is found it creates one
+			open(self.historical_index_path, 'w')
+			index = {}
+			self.historical_index.update(index)
+
+
 		#looks through all tracked exchanges in self.exchange_handbook 
 		#(exchange_handbook == handbook['exchange_data'])
 		for exchange_id, exchange_data in self.exchange_handbook.items():
 			#following uses coin_api function to filter through exchange contents by specified filter.
 			#contents of self.exchange_handbook are already filtered by asset_id_quote & tracked_exchanges
-			exchange_items = self.coin_api.JsonFilter(exchange_data, 
+			exchange_data = self.coin_api.JsonFilter(exchange_data, 
 												{'asset_id_base': self.config['tracked_crypto']}, False)
 
-			#checks for historical/(exchange_id), creates dir if not found
+			#checks for historical_data/(exchange_id), creates dir if not found
 			exchange_path = self.historical_base_path+f"{exchange_id}"
 			if os.path.isdir(exchange_path) == False:
 				os.mkdir(exchange_path)
 
-			#checks for data/(exchange_id)/(exchange_id)_index.json, creates file if not found
-			index_path = self.historical_base_path+f'{exchange_id}/{exchange_id}_index.json'
-			if os.path.exists(index_path) == True:
-				#if file is found, it loads its contents
-				with open(index_path, 'r') as file:
-					try:
-						exchange_index = {exchange_id: json.load(file)}
-					except:
-						exchange_index = {exchange_id: {}}
-					self.historical_index.update(exchange_index)
-			else:
-				#if no file is found it creates one
-				open(index_path, 'w')
-				exchange_index = {exchange_id: {}}
-				self.historical_index.update(exchange_index)
-
 			#extracts data from each item and uses it to create/load historical data files
-			for item in exchange_items:
-				coin_data_filename = ("{}_{}_{}").format(item['symbol_type'], 
-												   item['asset_id_base'], 
-												   item['asset_id_quote'])+".csv"
-				coin_data_path = self.historical_base_path+f"{exchange_id}/{coin_data_filename}"
+			for item in exchange_data:
+				coin_data_filename = item['symbol_id']+".csv"
+				coin_data_path = exchange_path+f"/{coin_data_filename}"
 				#checks for historical/{exchange_id}/{symbol_id}.csv, creates file if not found
 				if os.path.exists(coin_data_path) == False:
 					open(coin_data_path, 'w')
@@ -184,7 +180,7 @@ class Database():
 					for key in self.historical_index_keys:
 						if key == 'filepath':
 							coin_data[coin_data_filename].update({key: coin_data_path})
-						elif key == 'exchange':
+						elif key == 'exchange_id':
 							coin_data[coin_data_filename].update({key: exchange_id})
 						elif key == 'symbol_id':
 							coin_data[coin_data_filename].update({key: item[key]})
@@ -200,7 +196,10 @@ class Database():
 							coin_data[coin_data_filename].update({key: item[key]+"T00:00:00:00.0000000Z"})
 						elif key == 'data_end':
 							coin_data[coin_data_filename].update({key: item['data_start']+"T00:00:00:00.0000000Z"})
-					self.historical_index[exchange_id].update(coin_data)
+					self.historical_index.update(coin_data)
+
+		print("Historical Index:") 
+		print(self.historical_index)
 
 		self.UpdateHistoricalIndex()
 
@@ -232,11 +231,9 @@ class Database():
 			#self.historical_index.items() that are needed via backfill_index.
 			backfill_index = {}
 			print('Backfill List:')
-			for exchange_id, exchange_index in self.historical_index.items():
-				print('   ', exchange_id)
-				for filename, index_item in exchange_index.items():
-					print('      ', filename)
-					backfill_index.update({filename: index_item})
+			for filename, index_item in self.historical_index.items():
+				print('   ', filename)
+				backfill_index.update({filename: index_item})
 
 			backfill_count = len(backfill_index)
 			print(f'{backfill_count} total requests\n')
@@ -245,6 +242,7 @@ class Database():
 			#available with one iteration
 			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100)
 			limit_per_request = limit_per_request - (limit_per_request % 100)
+			limit_per_request = 1
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
 			#because of this it rounds to the nearest 100 in order to maximize data given per api request used
 
@@ -345,8 +343,8 @@ class Database():
 				index_item['data_end'] = self.SetUnixToDate(existing_data.iloc[-1]['time_period_end'])
 
 
-				#This updates self.historical_index() with index_item
-				self.historical_index[index_item['exchange_id']][filename] = index_item
+				#This updates self.historical_index['symbol_id.csv'] (symbol_id.csv = filename) with index_item
+				self.historical_index[filename] = index_item
 
 				self.UpdateHistoricalIndex()
 		else:
@@ -355,12 +353,10 @@ class Database():
 
 
 	def UpdateTrainingIndex(self):
-		#use to update all training_data/(exchange_id)/(exchange_id)_index.json files
-		for exchange_id, index_data in self.training_index.items():
-			index_path = self.training_base_path+f"{exchange_id}/{exchange_id}_index.json"
-			with open(index_path, 'w') as file:
-				#when it is in the file, it will not have the "exchange_id" dictionary layer
-				json.dump(index_data, file, indent=4)
+		#updates historical_data/training_index.json file with self.training_index
+		with open(self.training_index_path, 'w') as file:
+			#when it is in the file, it will not have the "exchange_id" dictionary layer
+			json.dump(self.training_index, file, indent=4)
 		
 	def __InitTrainingDir(self):
 		'''
@@ -368,11 +364,11 @@ class Database():
 		currencies for each exchange being tracked as defined within config.json.
 		'''
 
-		self.training_index = {}
 		#if you change training_index_keys, you must change the "if statments below accordingly
+		self.training_index = {}
 		self.training_index_keys = ['filepath',
 								'symbol_id',
-								'exchange',
+								'exchange_id',
 								'symbol_type',
 								'asset_id_base',
 								'asset_id_quote',
@@ -380,41 +376,16 @@ class Database():
 								'data_start',
 								'data_end']
 
-		#instead of grabbing all handbook data for each available exchange and currency then filtering
-		#based on tracked exchange like self.__InitHistoricalDir(). This function grabs all 
-		#historical_index data and filters based on tracked data.
 
-		#looks through all tracked exchanges in self.historical_index
-		for exchange_id, exchange_index in self.historical_index.items():
+		#training_index is only the tracked_exchanges/crypto from historical_index
+		#in order to filter out items using existing coin_api.JsonFilter() we need to 
+		#iterate over each element of self.historical_index
+		for filename, index_item in self.training_index.items():
 
-			#exchange_index = self.coin_api.JsonFilter(exchange_data, {''}, False)
+			if (index_item['exchange_id'] in self.config['tracked_exchanges'] and
+				index_item['asset_id_base'] in self.config['tracked_crypto']):
 
-			#checks for training_data/(exchange_id), creates dir if not found
-			exchange_path = self.training_base_path+f"{exchange_id}"
-			if os.path.isdir(exchange_path) == False:
-				os.mkdir(exchange_path)
-
-			#checks for training_data/(exchange_id)/(exchange_id)_index.json, creates file if not found
-			index_path = self.training_base_path+f'{exchange_id}/{exchange_id}_index.json'
-			if os.path.exists(index_path) == True:
-				#if file is found, it loads its contents
-				with open(index_path, 'r') as file:
-					try:
-						exchange_index = {exchange_id: json.load(file)}
-					except:
-						exchange_index = {exchange_id: {}}
-						print(f"{index_path} not found")
-					self.training_index.update(exchange_index)
-			else:
-				#if no file is found it creates one
-				open(index_path, 'w')
-				exchange_index = {exchange_id: {}}
-				self.training_index.update(exchange_index)
-
-			#extracts data from individual index items, the key for each item is the filename
-			for filename, index_item in exchange_index.items():
-
-				coin_data_path = self.training_base_path+f"{exchange_id}/{filename}"
+				coin_data_path = self.training_base_path+index_item['exchange_id']+f"/{filename}"
 				#checks for training_data/{exchange_id}/{filename}.csv, creates file if not found
 				if os.path.exists(coin_data_path) == False:
 					open(coin_data_path, 'w')
@@ -423,7 +394,7 @@ class Database():
 					for key in self.training_index_keys:
 						if key == 'filepath':
 							coin_data[filename].update({key: coin_data_path})
-						elif key == 'exchange':
+						elif key == 'exchange_id':
 							coin_data[filename].update({key: exchange_id})
 						elif key == 'symbol_id':
 							coin_data[filename].update({key: index_item[key]})
@@ -439,7 +410,34 @@ class Database():
 							coin_data[filename].update({key: index_item[key]+"T00:00:00:00.0000000Z"})
 						elif key == 'data_end':
 							coin_data[filename].update({key: index_item['data_start']+"T00:00:00:00.0000000Z"})
-					self.training_index[exchange_id].update(coin_data)
+
+					self.training_index.update(coin_data)
+
+
+		#checks for training_index.json, creates file if not found
+		#this will overwrite any existing data in memory with the correct self.training_index data
+		if os.path.exists(self.training_index_path) == True:
+			#if file is found, it loads its contents
+			with open(self.training_index_path, 'r') as file:
+				index = json.load(file)
+				self.training_index.update(index)
+		else:
+			#if no file is found it creates one
+			open(self.training_index_path, 'w')
+			index = {}
+			self.training_index.update(index)
+
+
+		#checks for training_data/(exchange_id), creates dir if not found
+		#since non-tracked data is not deleted they should already have directories
+		#because of this we only need to worry about tracked assets in self.config
+		for exchange_id in self.config['tracked_exchanges']:
+			exchange_path = self.training_base_path+f"{exchange_id}"
+			if os.path.isdir(exchange_path) == False:
+				os.mkdir(exchange_path)
+
+		print("Training Index:")
+		print(self.training_index)
 
 		self.UpdateTrainingIndex()
 

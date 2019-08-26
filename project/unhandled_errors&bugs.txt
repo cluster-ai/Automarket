@@ -29,3 +29,5 @@
 - SERIOUS FLAW in database.__InitHistoricalDir() and database.InitTrainingDir() when they initialize the index.json file. If an exception is thrown while reading the file the index in memory will be erased. Since there is no ReloadIndex() functionality the data is lost and the program will not work.
 
 - in database.__InitHistoricalDir() and database.InitTrainingDir(), if there is no data for them to work off of in an entire exchange, they will make a blank file database/training_data/(exchange_id) or database/historical_data/(exchange_id)
+
+- if an empty dictionary is passed to coin_apiCheckForKey(), particularly in coin_api.FilterJson() then the function may crash
