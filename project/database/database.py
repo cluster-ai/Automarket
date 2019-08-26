@@ -41,6 +41,8 @@ class Database():
 
 		self.BackfillHistoricalData()
 
+		self.UpdateTrainingData()
+
 
 
 
@@ -135,6 +137,7 @@ class Database():
 								'symbol_type',
 								'asset_id_base',
 								'asset_id_quote',
+								'datapoints,'
 								'data_start',
 								'data_end']
 
@@ -191,6 +194,8 @@ class Database():
 							coin_data[coin_data_filename].update({key: item[key]})
 						elif key == 'asset_id_quote':
 							coin_data[coin_data_filename].update({key: item[key]})
+						elif key == 'datapoints':
+							coin_data[filename].update({key: 0})
 						elif key == 'data_start':
 							coin_data[coin_data_filename].update({key: item[key]+"T00:00:00:00.0000000Z"})
 						elif key == 'data_end':
@@ -222,234 +227,288 @@ class Database():
 			#the following finds the total number of backfilling request we are making
 			#it then finds the limit on each request needed to use all remaining api requests
 			#so that only one iteration is needed
-			total_requests = 0
+			#
+			#It also provides the next part of the algorithm with all the index_items from 
+			#self.historical_index.items() that are needed via backfill_index.
+			backfill_index = {}
 			print('Backfill List:')
-			for exchange_id, exchange in self.historical_index.items():
+			for exchange_id, exchange_index in self.historical_index.items():
 				print('   ', exchange_id)
-				for coin in exchange:
-					print('      ', coin)
-					total_requests += 1
-			print(f'{total_requests} total requests\n')
-			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / total_requests * 100)
+				for filename, index_item in exchange_index.items():
+					print('      ', filename)
+					backfill_index.update({filename: index_item})
+
+			backfill_count = len(backfill_index)
+			print(f'{backfill_count} total requests\n')
+
+			#calculate number of datapoints each backfill_item needs to request to max out available api_requests
+			#available with one iteration
+			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100)
 			limit_per_request = limit_per_request - (limit_per_request % 100)
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
+			#because of this it rounds to the nearest 100 in order to maximize data given per api request used
 
-			#the following goes through each indexed historical dataset
-			for exchange_id, exchange_indexes in self.historical_index.items():
-				#the key for each dataset's index is the filename
-				for filename, dataset in exchange_indexes.items():
+			#the following goes through each item within backfill_index
+			#the key for each index_item's index is the filename
+			for filename, index_item in backfill_index.items():
 
-					#settings for the historical data requests
-					url_ext = self.config['historical_url_ext'].format(dataset['symbol_id'])
-					queries = {'time_start': dataset['data_end'],
-							   'limit': limit_per_request,
-							   'period_id': self.FindPeriodId(self.historical_time_interval)}
+				#settings for the historical data requests
+				url_ext = self.config['historical_url_ext'].format(index_item['symbol_id'])
+				queries = {'time_start': index_item['data_end'],
+						   'limit': limit_per_request,
+						   'period_id': self.FindPeriodId(self.historical_time_interval)}
 
-					print(queries)
+				print(queries)
 
-					#no filter, the default request size is 100 (100 datapoints: uses one request)
-					response = self.coin_api.MakeRequest(url_ext=url_ext, queries=queries, api_key_id='startup_key')
+				#no filter, the default request size is 100 (100 datapoints: uses one request)
+				response = self.coin_api.MakeRequest(url_ext=url_ext, queries=queries, api_key_id='startup_key')
 
-					#puts response into an array and adds it to existing data for current dataset
-					response_data = pd.DataFrame.from_dict(response, orient='columns')
+				#puts response into an array and adds it to existing data for current index_item
+				response_data = pd.DataFrame.from_dict(response, orient='columns')
 
-					#==============================================================
-					#SET DATES TO UNIX START
-					#==============================================================
-					count = 0
-					prev_time = time.time()
-					start_time = time.time()
-					new_df = response_data.copy()
+				#==============================================================
+				#SET DATES TO UNIX START
+				#==============================================================
+				count = 0
+				prev_time = time.time()
+				start_time = time.time()
+				new_df = response_data.copy()
 
-					print('changing time values to unix')
-					for index, row in new_df.iterrows():
-						for col in new_df.columns:
+				print('changing time values to unix')
+				for index, row in new_df.iterrows():
+					for col in new_df.columns:
 
-							if 'time' in col:#if true, needs to be changed to unix time
-								new_df.at[index, col] = self.SetDateToUnix(row[col])
-						count += 1
-						if count == 5000:
-							current_time = time.time()
-							delay = current_time - prev_time
-							print(f"index: {index} || delay: {delay}")
-							count = 0
-							prev_time = current_time
+						if 'time' in col:#if true, needs to be changed to unix time
+							new_df.at[index, col] = self.SetDateToUnix(row[col])
+					count += 1
+					if count == 5000:
+						current_time = time.time()
+						delay = current_time - prev_time
+						print(f"index: {index} || delay: {delay}")
+						count = 0
+						prev_time = current_time
 
-					#it then verifies the data has not changed
-					print('verifying unix dates')
+				#it then verifies the data has not changed
+				print('verifying unix dates')
 
-					timestamp = 1000000
-					new_timestamp = self.SetUnixToDate(timestamp)
-					new_timestamp = self.SetDateToUnix(new_timestamp)
-					print(f'timestamp convertion test: {timestamp} || {new_timestamp}')
+				timestamp = 1000000
+				new_timestamp = self.SetUnixToDate(timestamp)
+				new_timestamp = self.SetDateToUnix(new_timestamp)
+				print(f'timestamp convertion test: {timestamp} || {new_timestamp}')
 
-					count = 0
-					prev_time = time.time()
-					for index, row in new_df.iterrows():
-						for col in new_df.columns:
-							#print(self.SetUnixToDate(new_df.iloc[index][col]), " || ", response_data.iloc[index][col])
-							if 'time' in col:
-								if self.SetUnixToDate(row[col]) != response_data.iloc[index][col]:
-									raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
-							elif row[col] != response_data.iloc[index][col]:
+				count = 0
+				prev_time = time.time()
+				for index, row in new_df.iterrows():
+					for col in new_df.columns:
+						#print(self.SetUnixToDate(new_df.iloc[index][col]), " || ", response_data.iloc[index][col])
+						if 'time' in col:
+							if self.SetUnixToDate(row[col]) != response_data.iloc[index][col]:
 								raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
-						count += 1
-						if count == 5000:
-							current_time = time.time()
-							delay = current_time - prev_time
-							print(f"index: {index} || delay: {delay}")
-							count = 0
-							prev_time = current_time
+						elif row[col] != response_data.iloc[index][col]:
+							raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
+					count += 1
+					if count == 5000:
+						current_time = time.time()
+						delay = current_time - prev_time
+						print(f"index: {index} || delay: {delay}")
+						count = 0
+						prev_time = current_time
 
 
-					total_time = time.time() - start_time
-					print(f'Time Format Change Duration: {total_time} seconds')
+				total_time = time.time() - start_time
+				print(f'Time Format Change Duration: {total_time} seconds')
 
-					response_data = new_df
-					#==============================================================
-					#SET DATES TO UNIX END
-					#==============================================================
+				response_data = new_df
+				#==============================================================
+				#SET DATES TO UNIX END
+				#==============================================================
 
-					#loads existing data if any
-					try:
-						existing_data = pd.read_csv(dataset['filepath'])
-						existing_data = existing_data.append(response_data, ignore_index=True, sort=False)
-					except(pd.errors.EmptyDataError):
-						print('No existing data for:', dataset['filepath'])
-						print('Creating New Dataframe')
-						existing_data = response_data
+				#loads existing data if any
+				try:
+					existing_data = pd.read_csv(index_item['filepath'])
+					existing_data = existing_data.append(response_data, ignore_index=True, sort=False)
+				except(pd.errors.EmptyDataError):
+					print('No existing data for:', index_item['filepath'])
+					print('Creating New Dataframe')
+					existing_data = response_data
 
-					existing_data.to_csv(dataset['filepath'], index=False)
+				existing_data.to_csv(index_item['filepath'], index=False)
 
-					print(filename, 'updated to: ', self.SetUnixToDate(existing_data.iloc[-1]['time_period_end']))
-					print('----------------------------------------------------')
+				#update datapoints value for this item
+				index_item['datapoints'] = existing_data.count
 
-					#update currency index for current dataset
-					#ONLY CHANGE TIME_END
-					time_end = self.SetUnixToDate(existing_data.iloc[-1]['time_period_end'])
-					self.historical_index[exchange_id][filename]['data_end'] = time_end
-					self.UpdateHistoricalIndex()
+				print(filename, 'updated to: ', self.SetUnixToDate(existing_data.iloc[-1]['time_period_end']))
+				print('----------------------------------------------------')
+
+				#update currency index for current index_item
+				#ONLY CHANGE TIME_END
+				index_item['data_end'] = self.SetUnixToDate(existing_data.iloc[-1]['time_period_end'])
+
+
+				#This updates self.historical_index() with index_item
+				self.historical_index[index_item['exchange_id']][filename] = index_item
+
+				self.UpdateHistoricalIndex()
 		else:
 			print('config.backfill_historical_data = false: not updating historical data')
 
 
 
-def UpdateTrainingIndex(self):
-	#use to update all training_data/(exchange_id)/(exchange_id)_index.json files
-	for exchange_id, index_data in self.training_index.items():
-		index_path = self.training_base_path+f"{exchange_id}/{exchange_id}_index.json"
-		with open(index_path, 'w') as file:
-			#when it is in the file, it will not have the "exchange_id" dictionary layer
-			json.dump(index_data, file, indent=4)
-	
-def __InitTrainingDir(self):
-	'''
-	(This function is very similar to database.__InitHistoricalDir())
-	Instead of looking at config.json tracked exchanges and cryptocurrencies for what data to grab
-	(as does database.__InitHistoricalDir()) this function looks at self.historical_index for 
-	what data there is locally. 
-	'''
-
-	self.training_index = {}
-	#if you change training_index_keys, you must change if statments accordingly below
-	self.training_index_keys = ['filepath',
-							'symbol_id',
-							'exchange',
-							'symbol_type',
-							'asset_id_base',
-							'asset_id_quote',
-							'datapoints',
-							'data_start',
-							'data_end']
-
-	#looks through all tracked exchanges in self.historical_index
-	for exchange_id, exchange_index in self.historical_index.items():
-
-		#checks for training_data/(exchange_id), creates dir if not found
-		exchange_path = self.training_base_path+f"{exchange_id}"
-		if os.path.isdir(exchange_path) == False:
-			os.mkdir(exchange_path)
-
-		#checks for training_data/(exchange_id)/(exchange_id)_index.json, creates file if not found
-		index_path = self.training_base_path+f'{exchange_id}/{exchange_id}_index.json'
-		if os.path.exists(index_path) == True:
-			#if file is found, it loads its contents
-			with open(index_path, 'r') as file:
-				try:
-					exchange_index = {exchange_id: json.load(file)}
-				except:
-					exchange_index = {exchange_id: {}}
-				self.training_index.update(exchange_index)
-		else:
-			#if no file is found it creates one
-			open(index_path, 'w')
-			exchange_index = {exchange_id: {}}
-			self.training_index.update(exchange_index)
-
-		#extracts data from individual index items, the key for each item is the filename
-		for filename, index_item in exchange_index.items():
-
-			coin_data_path = self.training_base_path+f"{exchange_id}/{filename}"
-			#checks for training_data/{exchange_id}/{filename}.csv, creates file if not found
-			if os.path.exists(coin_data_path) == False:
-				open(coin_data_path, 'w')
-
-				coin_data = {filename: {}}
-				for key in self.training_index_keys:
-					if key == 'filepath':
-						coin_data[filename].update({key: coin_data_path})
-					elif key == 'exchange':
-						coin_data[filename].update({key: exchange_id})
-					elif key == 'symbol_id':
-						coin_data[filename].update({key: index_item[key]})
-					elif key == 'symbol_type':
-						coin_data[filename].update({key: index_item[key]})
-					elif key == 'asset_id_base':
-						coin_data[filename].update({key: index_item[key]})
-					elif key == 'asset_id_quote':
-						coin_data[filename].update({key: index_item[key]})
-					elif key == 'datapoints':
-						coin_data[filename].update({key: 0})
-					elif key == 'data_start':
-						coin_data[filename].update({key: index_item[key]+"T00:00:00:00.0000000Z"})
-					elif key == 'data_end':
-						coin_data[filename].update({key: index_item['data_start']+"T00:00:00:00.0000000Z"})
-				self.training_index[exchange_id].update(coin_data)
-
-	self.UpdateTrainingIndex()
-
-def UpdateTrainingData(self):
-	#this function processes historical_data so that no further data processing is required for the 
-	#network to run effectively. The only thing left to do after is set the index and drop unneccesary columns
-
-	'''
-	Since many datapoints are missing in early parts of historical_data, the program will likely need to omit
-	the beginning of that data until the frequency of missing points is below a specified threshold. 
-	When updating the training_index, this function will change data_end according to the latest historical
-	datapoint it saw even if no data was actually saved to a training_data folder (due to missing datapoints).
-	In order to track how many datapoints we have to train from, I have added a 'datapoints' item to index for
-	each training_index item to track exactly how much reliable data we have to train from. It will also update
-	data_start to be in accordance with first training_data datapoint and not with first historical_data datapoint.
-	If no data is present, data_start will continue to equal data_end.
-	'''
-
-	if self.config['update_training_data'] == True:
-
-
-		print('----------------------------------------------------')
-		print('Updating Training Data')
-		print('----------------------------------------------------')
-
-	
+	def UpdateTrainingIndex(self):
+		#use to update all training_data/(exchange_id)/(exchange_id)_index.json files
 		for exchange_id, index_data in self.training_index.items():
-			for filename, index_item in index_data.items():
+			index_path = self.training_base_path+f"{exchange_id}/{exchange_id}_index.json"
+			with open(index_path, 'w') as file:
+				#when it is in the file, it will not have the "exchange_id" dictionary layer
+				json.dump(index_data, file, indent=4)
+		
+	def __InitTrainingDir(self):
+		'''
+		This function is similar to self.__InitHistoricalDir in that it only updates 
+		currencies for each exchange being tracked as defined within config.json.
+		'''
 
-				if index_item['data_end'] < self.historical_index[exchange_id][filename]['data_end']:
-					pass
-				elif index_item['data_end'] > self.historical_index[exhcange_id][filename]['data_end']:
-					#Obviously training_data should not be ahead of historical_data, this flags that
-					raise TypeError(f"Error: training_data is ahead of historical_data for {filename} ['data_end']")
-				else:
-					print(f'{filename} is up to date with historical_data, data_end:', index_item['data_end'])
-	else:
-		print('config.update_training_data = false: not updating training data')
+		self.training_index = {}
+		#if you change training_index_keys, you must change the "if statments below accordingly
+		self.training_index_keys = ['filepath',
+								'symbol_id',
+								'exchange',
+								'symbol_type',
+								'asset_id_base',
+								'asset_id_quote',
+								'datapoints',
+								'data_start',
+								'data_end']
+
+		#instead of grabbing all handbook data for each available exchange and currency then filtering
+		#based on tracked exchange like self.__InitHistoricalDir(). This function grabs all 
+		#historical_index data and filters based on tracked data.
+
+		#looks through all tracked exchanges in self.historical_index
+		for exchange_id, exchange_index in self.historical_index.items():
+
+			#exchange_index = self.coin_api.JsonFilter(exchange_data, {''}, False)
+
+			#checks for training_data/(exchange_id), creates dir if not found
+			exchange_path = self.training_base_path+f"{exchange_id}"
+			if os.path.isdir(exchange_path) == False:
+				os.mkdir(exchange_path)
+
+			#checks for training_data/(exchange_id)/(exchange_id)_index.json, creates file if not found
+			index_path = self.training_base_path+f'{exchange_id}/{exchange_id}_index.json'
+			if os.path.exists(index_path) == True:
+				#if file is found, it loads its contents
+				with open(index_path, 'r') as file:
+					try:
+						exchange_index = {exchange_id: json.load(file)}
+					except:
+						exchange_index = {exchange_id: {}}
+						print(f"{index_path} not found")
+					self.training_index.update(exchange_index)
+			else:
+				#if no file is found it creates one
+				open(index_path, 'w')
+				exchange_index = {exchange_id: {}}
+				self.training_index.update(exchange_index)
+
+			#extracts data from individual index items, the key for each item is the filename
+			for filename, index_item in exchange_index.items():
+
+				coin_data_path = self.training_base_path+f"{exchange_id}/{filename}"
+				#checks for training_data/{exchange_id}/{filename}.csv, creates file if not found
+				if os.path.exists(coin_data_path) == False:
+					open(coin_data_path, 'w')
+
+					coin_data = {filename: {}}
+					for key in self.training_index_keys:
+						if key == 'filepath':
+							coin_data[filename].update({key: coin_data_path})
+						elif key == 'exchange':
+							coin_data[filename].update({key: exchange_id})
+						elif key == 'symbol_id':
+							coin_data[filename].update({key: index_item[key]})
+						elif key == 'symbol_type':
+							coin_data[filename].update({key: index_item[key]})
+						elif key == 'asset_id_base':
+							coin_data[filename].update({key: index_item[key]})
+						elif key == 'asset_id_quote':
+							coin_data[filename].update({key: index_item[key]})
+						elif key == 'datapoints':
+							coin_data[filename].update({key: 0})
+						elif key == 'data_start':
+							coin_data[filename].update({key: index_item[key]+"T00:00:00:00.0000000Z"})
+						elif key == 'data_end':
+							coin_data[filename].update({key: index_item['data_start']+"T00:00:00:00.0000000Z"})
+					self.training_index[exchange_id].update(coin_data)
+
+		self.UpdateTrainingIndex()
+
+	def UpdateTrainingData(self):
+		#this function processes historical_data so that no further data processing is required for the 
+		#network to run effectively. The only thing left to do after is set the index and drop unneccesary columns
+
+		'''
+		Since many datapoints are missing in early parts of historical_data, the program will likely need to omit
+		the beginning of that data until the frequency of missing points is below a specified threshold. 
+		When updating the training_index, this function will change data_end according to the latest historical
+		datapoint it saw even if no data was actually saved to a training_data folder (due to missing datapoints).
+		In order to track how many datapoints we have to train from, I have added a 'datapoints' item to index for
+		each training_index item to track exactly how much reliable data we have to train from. It will also update
+		data_start to be in accordance with first training_data datapoint and not with first historical_data datapoint.
+		If no data is present, data_start will continue to equal data_end.
+		'''
+
+
+		self.__InitTrainingDir()
+
+
+		if self.config['update_training_data'] == True:
+
+
+			print('----------------------------------------------------')
+			print('Updating Training Data')
+			print('----------------------------------------------------')
+
+
+			update_index = {}
+			print('Update List:')
+			for exchange_id, exchange_index in self.training_index.items():
+				print('   ', exchange_id)
+				for filename, index_item in exchange_index.items():
+					print('      ', filename)
+
+					#the following if statements compare training data_end with the historical data_end
+					#
+					#since training data works directly from the local database of historical data
+					#it should only ever be less than or equal to historical data in regards to the data_end
+					if index_item['data_end'] < self.historical_index[exchange_id][filename]['data_end']:
+						update_index.update({filename: index_item})
+
+					if index_item['data_end'] > self.historical_index[exhcange_id][filename]['data_end']:
+						#Obviously training_data should not be ahead of historical_data, this flags that
+						raise TypeError(f"Error: training_data is ahead of historical_data for {filename} ['data_end']")
+
+					if index_item['data_end'] == self.historical_index[exhcange_id][filename]['data_end']:
+						print(f'{filename} is up to date with historical_data, data_end:', index_item['data_end'])
+
+			update_count = len(update_index)
+			print(f'{update_count} total requests\n')
+
+
+
+			#This portion does the actual preprocessing of historical_data, save the resulting data
+			#and updates the trainings index of that data
+			for filename, index_item in update_index.items():
+
+				#training data file names are direct copies of the data they interpret so you can call 
+				#both historical_index and training_index items by the same identifier
+				#
+				#the following loads the data for the current {filename: index_time}
+				historical_file_path = self.historical_base_path+index_item['exchange']+"/"+filename
+				print(historical_file_path)
+				#historical_data = pd.read_csv()
+
+
+					
+		else:
+			print('config.update_training_data = false: not updating training data')

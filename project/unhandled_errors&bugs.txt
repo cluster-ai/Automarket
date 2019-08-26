@@ -25,3 +25,7 @@
  - ideally, historical_index and training_index are just a list of all index_data regardless of exchange_id. This way you can loop through them will a single for loop (rather than nested loop). Not to mention the fact that loading a specific index is self.historical_index[filename] instead of self.historical_index[exchange_id][filename]. Plus you can still isolate them in the directory when storing the files since the exchange_id data is within each index_item anyway.
 
 - optimize historical backfill time-step verification (takes way to long)
+
+- SERIOUS FLAW in database.__InitHistoricalDir() and database.InitTrainingDir() when they initialize the index.json file. If an exception is thrown while reading the file the index in memory will be erased. Since there is no ReloadIndex() functionality the data is lost and the program will not work.
+
+- in database.__InitHistoricalDir() and database.InitTrainingDir(), if there is no data for them to work off of in an entire exchange, they will make a blank file database/training_data/(exchange_id) or database/historical_data/(exchange_id)
