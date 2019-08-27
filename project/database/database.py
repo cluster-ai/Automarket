@@ -137,7 +137,7 @@ class Database():
 								'symbol_type',
 								'asset_id_base',
 								'asset_id_quote',
-								'datapoints,'
+								'datapoints',
 								'data_start',
 								'data_end']
 
@@ -191,11 +191,11 @@ class Database():
 						elif key == 'asset_id_quote':
 							coin_data[coin_data_filename].update({key: item[key]})
 						elif key == 'datapoints':
-							coin_data[filename].update({key: 0})
+							coin_data[coin_data_filename].update({key: 0})
 						elif key == 'data_start':
-							coin_data[coin_data_filename].update({key: item[key]+"T00:00:00:00.0000000Z"})
+							coin_data[coin_data_filename].update({key: item[key]+"T00:00:00.0000000Z"})
 						elif key == 'data_end':
-							coin_data[coin_data_filename].update({key: item['data_start']+"T00:00:00:00.0000000Z"})
+							coin_data[coin_data_filename].update({key: item['data_start']+"T00:00:00.0000000Z"})
 					self.historical_index.update(coin_data)
 
 		print("Historical Index:") 
@@ -242,7 +242,7 @@ class Database():
 			#available with one iteration
 			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100)
 			limit_per_request = limit_per_request - (limit_per_request % 100)
-			limit_per_request = 1
+			limit_per_request = 100
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
 			#because of this it rounds to the nearest 100 in order to maximize data given per api request used
 
@@ -265,9 +265,8 @@ class Database():
 				response_data = pd.DataFrame.from_dict(response, orient='columns')
 
 				#==============================================================
-				#SET DATES TO UNIX START
+				#SET DATES TO UNIX
 				#==============================================================
-				count = 0
 				prev_time = time.time()
 				start_time = time.time()
 				new_df = response_data.copy()
@@ -278,38 +277,40 @@ class Database():
 
 						if 'time' in col:#if true, needs to be changed to unix time
 							new_df.at[index, col] = self.SetDateToUnix(row[col])
-					count += 1
-					if count == 5000:
+					if index == 5000:
 						current_time = time.time()
 						delay = current_time - prev_time
 						print(f"index: {index} || delay: {delay}")
-						count = 0
 						prev_time = current_time
 
-				#it then verifies the data has not changed
+				#==============================================================
+				#VERIFY CONTINUITY OF UNIX TIME CONVERSION
+				#==============================================================
 				print('verifying unix dates')
 
+				#timestamp = arbitrary unix number to test date-unix conversion
 				timestamp = 1000000
 				new_timestamp = self.SetUnixToDate(timestamp)
 				new_timestamp = self.SetDateToUnix(new_timestamp)
 				print(f'timestamp convertion test: {timestamp} || {new_timestamp}')
 
-				count = 0
+				#the following goes back and converters the unix time back to date in memory 
+				#and compares to original request data
 				prev_time = time.time()
 				for index, row in new_df.iterrows():
 					for col in new_df.columns:
-						#print(self.SetUnixToDate(new_df.iloc[index][col]), " || ", response_data.iloc[index][col])
+
 						if 'time' in col:
-							if self.SetUnixToDate(row[col]) != response_data.iloc[index][col]:
-								raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
-						elif row[col] != response_data.iloc[index][col]:
-							raise ValueError('An Error Occured: SetDataFrameToUnix is different from argument: response_data')
-					count += 1
-					if count == 5000:
+							if self.SetUnixToDate(row[col]) != response_data.at[index, col]:
+								raise ValueError(
+									'An Error Occured: SetDataFrameToUnix is different from argument: response_data')
+						elif row[col] != response_data.at[index, col]:
+							raise ValueError(
+								'An Error Occured: SetDataFrameToUnix is different from argument: response_data')
+					if index == 5000:
 						current_time = time.time()
 						delay = current_time - prev_time
 						print(f"index: {index} || delay: {delay}")
-						count = 0
 						prev_time = current_time
 
 
@@ -318,8 +319,7 @@ class Database():
 
 				response_data = new_df
 				#==============================================================
-				#SET DATES TO UNIX END
-				#==============================================================
+
 
 				#loads existing data if any
 				try:
@@ -333,7 +333,7 @@ class Database():
 				existing_data.to_csv(index_item['filepath'], index=False)
 
 				#update datapoints value for this item
-				index_item['datapoints'] = existing_data.count
+				index_item['datapoints'] = len(existing_data.index)
 
 				print(filename, 'updated to: ', self.SetUnixToDate(existing_data.iloc[-1]['time_period_end']))
 				print('----------------------------------------------------')
@@ -345,6 +345,7 @@ class Database():
 
 				#This updates self.historical_index['symbol_id.csv'] (symbol_id.csv = filename) with index_item
 				self.historical_index[filename] = index_item
+				#print(self.historical_index)
 
 				self.UpdateHistoricalIndex()
 		else:
@@ -407,9 +408,9 @@ class Database():
 						elif key == 'datapoints':
 							coin_data[filename].update({key: 0})
 						elif key == 'data_start':
-							coin_data[filename].update({key: index_item[key]+"T00:00:00:00.0000000Z"})
+							coin_data[filename].update({key: index_item[key]+"T00:00:00.0000000Z"})
 						elif key == 'data_end':
-							coin_data[filename].update({key: index_item['data_start']+"T00:00:00:00.0000000Z"})
+							coin_data[filename].update({key: index_item['data_start']+"T00:00:00.0000000Z"})
 
 					self.training_index.update(coin_data)
 
@@ -467,7 +468,7 @@ class Database():
 			print('Updating Training Data')
 			print('----------------------------------------------------')
 
-
+			#the following appends all symbol_id's that are going to be updated
 			update_index = {}
 			print('Update List:')
 			for exchange_id, exchange_index in self.training_index.items():
@@ -494,8 +495,10 @@ class Database():
 
 
 
-			#This portion does the actual preprocessing of historical_data, save the resulting data
-			#and updates the trainings index of that data
+			#This portion does the actual preprocessing of data
+			#
+			#It firsts requests historical_data after each update_index items 'data_end' (if any).
+			#Then processes it and appends new data to the corresponding ".csv" file
 			for filename, index_item in update_index.items():
 
 				#training data file names are direct copies of the data they interpret so you can call 

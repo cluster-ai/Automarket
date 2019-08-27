@@ -6,7 +6,9 @@
         "symbol_type": "SPOT",
         "asset_id_base": "BTC",
         "asset_id_quote": "USD",
-        "data_end": "2014-01-07T00:00:00:00.0000000Z"
+        "datapoints": 400,
+        "data_start": "2014-01-07T00:00:00.0000000Z",
+        "data_end": "2014-01-12T14:44:00.0000000Z"
     },
     "KRAKEN_SPOT_ETH_USD.csv": {
         "filepath": "database/historical_data/KRAKEN/KRAKEN_SPOT_ETH_USD.csv",
@@ -15,7 +17,9 @@
         "symbol_type": "SPOT",
         "asset_id_base": "ETH",
         "asset_id_quote": "USD",
-        "data_end": "2015-08-10T00:00:00:00.0000000Z"
+        "datapoints": 400,
+        "data_start": "2015-08-10T00:00:00.0000000Z",
+        "data_end": "2016-10-18T22:06:00.0000000Z"
     },
     "KRAKEN_SPOT_LTC_USD.csv": {
         "filepath": "database/historical_data/KRAKEN/KRAKEN_SPOT_LTC_USD.csv",
@@ -24,6 +28,8 @@
         "symbol_type": "SPOT",
         "asset_id_base": "LTC",
         "asset_id_quote": "USD",
-        "data_end": "2014-06-02T00:00:00:00.0000000Z"
+        "datapoints": 400,
+        "data_start": "2014-06-02T00:00:00.0000000Z",
+        "data_end": "2014-10-11T18:41:00.0000000Z"
     }
 }
