@@ -198,9 +198,6 @@ class Database():
 							coin_data[coin_data_filename].update({key: item['data_start']+"T00:00:00.0000000Z"})
 					self.historical_index.update(coin_data)
 
-		print("Historical Index:") 
-		print(self.historical_index)
-
 		self.UpdateHistoricalIndex()
 
 	def FindPeriodId(self, unix):
@@ -240,7 +237,7 @@ class Database():
 
 			#calculate number of datapoints each backfill_item needs to request to max out available api_requests
 			#available with one iteration
-			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100)
+			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100 * 0.95)
 			limit_per_request = limit_per_request - (limit_per_request % 100)
 			limit_per_request = 100
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
@@ -377,11 +374,18 @@ class Database():
 								'data_start',
 								'data_end']
 
+		#checks for training_data/(exchange_id), creates dir if not found
+		#since non-tracked data is not deleted they should already have directories
+		#because of this we only need to worry about tracked assets in self.config
+		for exchange_id in self.config['tracked_exchanges']:
+			exchange_path = self.training_base_path+f"{exchange_id}"
+			if os.path.isdir(exchange_path) == False:
+				os.mkdir(exchange_path)
 
-		#training_index is only the tracked_exchanges/crypto from historical_index
-		#in order to filter out items using existing coin_api.JsonFilter() we need to 
-		#iterate over each element of self.historical_index
-		for filename, index_item in self.training_index.items():
+
+		#this adds elements to training_data according to elements in tracked_crypto
+		#that are also in historical_index
+		for filename, index_item in self.historical_index.items():
 
 			if (index_item['exchange_id'] in self.config['tracked_exchanges'] and
 				index_item['asset_id_base'] in self.config['tracked_crypto']):
@@ -396,7 +400,7 @@ class Database():
 						if key == 'filepath':
 							coin_data[filename].update({key: coin_data_path})
 						elif key == 'exchange_id':
-							coin_data[filename].update({key: exchange_id})
+							coin_data[filename].update({key: index_item[key]})
 						elif key == 'symbol_id':
 							coin_data[filename].update({key: index_item[key]})
 						elif key == 'symbol_type':
@@ -408,9 +412,9 @@ class Database():
 						elif key == 'datapoints':
 							coin_data[filename].update({key: 0})
 						elif key == 'data_start':
-							coin_data[filename].update({key: index_item[key]+"T00:00:00.0000000Z"})
+							coin_data[filename].update({key: index_item['data_start']})
 						elif key == 'data_end':
-							coin_data[filename].update({key: index_item['data_start']+"T00:00:00.0000000Z"})
+							coin_data[filename].update({key: index_item['data_start']})
 
 					self.training_index.update(coin_data)
 
@@ -427,18 +431,6 @@ class Database():
 			open(self.training_index_path, 'w')
 			index = {}
 			self.training_index.update(index)
-
-
-		#checks for training_data/(exchange_id), creates dir if not found
-		#since non-tracked data is not deleted they should already have directories
-		#because of this we only need to worry about tracked assets in self.config
-		for exchange_id in self.config['tracked_exchanges']:
-			exchange_path = self.training_base_path+f"{exchange_id}"
-			if os.path.isdir(exchange_path) == False:
-				os.mkdir(exchange_path)
-
-		print("Training Index:")
-		print(self.training_index)
 
 		self.UpdateTrainingIndex()
 
@@ -471,24 +463,25 @@ class Database():
 			#the following appends all symbol_id's that are going to be updated
 			update_index = {}
 			print('Update List:')
-			for exchange_id, exchange_index in self.training_index.items():
-				print('   ', exchange_id)
-				for filename, index_item in exchange_index.items():
-					print('      ', filename)
+			for filename, index_item in self.training_index.items():
+				print('      ', filename)
 
-					#the following if statements compare training data_end with the historical data_end
-					#
-					#since training data works directly from the local database of historical data
-					#it should only ever be less than or equal to historical data in regards to the data_end
-					if index_item['data_end'] < self.historical_index[exchange_id][filename]['data_end']:
-						update_index.update({filename: index_item})
+				training_data_end = self.SetDateToUnix(index_item['data_end'])
+				historical_data_end = self.SetDateToUnix(self.historical_index[filename]['data_end'])
 
-					if index_item['data_end'] > self.historical_index[exhcange_id][filename]['data_end']:
-						#Obviously training_data should not be ahead of historical_data, this flags that
-						raise TypeError(f"Error: training_data is ahead of historical_data for {filename} ['data_end']")
+				#the following if statements compare training data_end with the historical data_end
+				#
+				#since training data works directly from the local database of historical data
+				#it should only ever be less than or equal to historical data in regards to the data_end
+				if training_data_end < historical_data_end:
+					update_index.update({filename: index_item})
 
-					if index_item['data_end'] == self.historical_index[exhcange_id][filename]['data_end']:
-						print(f'{filename} is up to date with historical_data, data_end:', index_item['data_end'])
+				if training_data_end > historical_data_end:
+					#Obviously training_data should not be ahead of historical_data, this flags that
+					raise TypeError(f"Error: training_data is ahead of historical_data for {filename} ['data_end']")
+
+				if training_data_end == historical_data_end:
+					print(f'{filename} is up to date with historical_data, data_end:', index_item['data_end'])
 
 			update_count = len(update_index)
 			print(f'{update_count} total requests\n')
@@ -497,19 +490,18 @@ class Database():
 
 			#This portion does the actual preprocessing of data
 			#
-			#It firsts requests historical_data after each update_index items 'data_end' (if any).
-			#Then processes it and appends new data to the corresponding ".csv" file
+			#It only executes the update process if the data_end value matches historical_data
 			for filename, index_item in update_index.items():
 
-				#training data file names are direct copies of the data they interpret so you can call 
-				#both historical_index and training_index items by the same identifier
-				#
-				#the following loads the data for the current {filename: index_time}
-				historical_file_path = self.historical_base_path+index_item['exchange']+"/"+filename
-				print(historical_file_path)
-				#historical_data = pd.read_csv()
+				#All items in update_index are not up to date:
+				#	training_item['data_end'] < historical_item['data_end']
 
+				#loads the historical_data of the same filename as current update_index item
+				#(training_index and historical_index filenames are identical for the same symbol_id)
+				historical_path = self.historical_index[filename]['filepath']
+				historical_data = pd.read_csv(historical_path)
 
-					
+				
+				
 		else:
 			print('config.update_training_data = false: not updating training data')

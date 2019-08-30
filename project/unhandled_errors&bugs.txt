@@ -31,3 +31,8 @@
 - in database.__InitHistoricalDir() and database.InitTrainingDir(), if there is no data for them to work off of in an entire exchange, they will make a blank file database/training_data/(exchange_id) or database/historical_data/(exchange_id)
 
 - if an empty dictionary is passed to coin_apiCheckForKey(), particularly in coin_api.FilterJson() then the function may crash
+
+
+///EFFICIENCY GAINS///
+
+- training_index and historical_index start with an empty dictionary at startup within database.__InitHistoricalDir() and database.__InitTrainingDir(). It then loads all tracked exchanges regardless of whether or not we hae that data already. It finally loads all **_index.json files and overwrites any items that were created at initialization.
