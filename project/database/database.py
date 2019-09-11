@@ -18,15 +18,16 @@ class Database():
 		self.training_index_path = f"{self.training_base_path}training_index.json"
 		self.handbook_path = f'{self.historical_base_path}handbook.json'
 		self.config_path = 'database/config.json'
-		self.missing_data = False
+		self.data_interval = 300
 
+		missing_handbook_data = False
 		with open(self.handbook_path) as file:
 			self.handbook = json.load(file)
 			try:
 				self.exchange_handbook = self.handbook['exchange_data']
 				self.period_handbook = self.handbook['period_data']
 			except:
-				self.missing_data = True
+				missing_handbook_data = True
 				print('missing handbook.json data')
 
 		with open(self.config_path) as file:
@@ -34,7 +35,7 @@ class Database():
 		
 
 		if ((self.config['last_update'] + self.config['update_frequency']) < time.time() 
-			or self.config['update_limiter'] == False or self.missing_data == True):
+			or self.config['update_limiter'] == False or missing_handbook_data == True):
 			print('Updating handbook.json...')
 			self.UpdateHandbook()
 		else:
@@ -217,9 +218,6 @@ class Database():
 			print('Backfilling Historical Data')
 			print('----------------------------------------------------')
 
-			#NOTE: all data is in increments of 60 seconds exclusively
-			self.historical_time_interval = 60
-
 			#the following finds the total number of backfilling request we are making
 			#it then finds the limit on each request needed to use all remaining api requests
 			#so that only one iteration is needed
@@ -237,9 +235,9 @@ class Database():
 
 			#calculate number of datapoints each backfill_item needs to request to max out available api_requests
 			#available with one iteration
-			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100 * 0.95)
+			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100 * 0.985)
 			limit_per_request = limit_per_request - (limit_per_request % 100)
-			limit_per_request = 100
+			#limit_per_request = 100
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
 			#because of this it rounds to the nearest 100 in order to maximize data given per api request used
 
@@ -251,7 +249,7 @@ class Database():
 				url_ext = self.config['historical_url_ext'].format(index_item['symbol_id'])
 				queries = {'time_start': index_item['data_end'],
 						   'limit': limit_per_request,
-						   'period_id': self.FindPeriodId(self.historical_time_interval)}
+						   'period_id': self.FindPeriodId(self.data_interval)}
 
 				print(queries)
 
@@ -274,7 +272,7 @@ class Database():
 
 						if 'time' in col:#if true, needs to be changed to unix time
 							new_df.at[index, col] = self.SetDateToUnix(row[col])
-					if index == 5000:
+					if index % 5000 == 0 and index != 0:
 						current_time = time.time()
 						delay = current_time - prev_time
 						print(f"index: {index} || delay: {delay}")
@@ -304,7 +302,7 @@ class Database():
 						elif row[col] != response_data.at[index, col]:
 							raise ValueError(
 								'An Error Occured: SetDataFrameToUnix is different from argument: response_data')
-					if index == 5000:
+					if index % 5000 == 0 and index != 0:
 						current_time = time.time()
 						delay = current_time - prev_time
 						print(f"index: {index} || delay: {delay}")
@@ -346,7 +344,7 @@ class Database():
 
 				self.UpdateHistoricalIndex()
 		else:
-			print('config.backfill_historical_data = false: not updating historical data')
+			print('database.config[\'backfill_historical_data\'] = false: not updating historical data')
 
 
 
@@ -488,10 +486,25 @@ class Database():
 
 
 
-			#This portion does the actual preprocessing of data
-			#
-			#It only executes the update process if the data_end value matches historical_data
+			'''
+			There are many ways to interpret the data for training so it does not seem 
+			worthwhile to create a structure in which all variations are accounted for.
+			Because of this, training_data within database will only provide preprocessing
+			is shared between all variations in the data that will be used.
+
+			Preprocessing:
+			 1. converts market value of cryptocurrency to a slope value that is calculated
+			 	finding the difference between point x in relation to point x-1 and getting 
+			 	the percent change. (ex: if f(x-1)=2 and f(x)=1 then f(x)=-0.5)
+			 2. 
+			'''
+
 			for filename, index_item in update_index.items():
+
+				print(f"Updating {filename}")
+				historical_start = self.historical_index[filename]['data_start']
+				historical_end = self.historical_index[filename]['data_end']
+				print(f"Interval: [{historical_start}, {historical_end}]")
 
 				#All items in update_index are not up to date:
 				#	training_item['data_end'] < historical_item['data_end']
@@ -501,7 +514,55 @@ class Database():
 				historical_path = self.historical_index[filename]['filepath']
 				historical_data = pd.read_csv(historical_path)
 
-				
+
+				#The following iterates through historical_data starting at index_item['data_end']
+				# until historical_data['data_end']. Since the market data is being converted to 
+				# slope values (secant slope calculated between adjacent points). If there is a missing point,
+				# the next datapoint will not be able to calculate the proper slope since the 
+				# previous point does not exist. If this happens that next point will be assigned NaN on
+				# all market data values (high, low, open, close). It can be thought of as a flag for missing data
+				new_data = historical_data.copy()
+				init_time = time.time()
+				previous_time = init_time
+				delay = 0
+				for index, row in historical_data.iterrows():
+					if row['time_period_start'] >= self.SetDateToUnix(index_item['data_end']):
+						for col in historical_data.columns:
+
+							#this part is exclusively for cryptocurrency market value, hence 'price'
+							if 'price' in col:
+								#if it is the first item there is no x-1 value so x=NaN
+								if index == 0:
+									new_data.at[index, col] = float('NaN')
+								elif (abs(historical_data.at[index-1, 'time_period_start'] - row['time_period_start']) 
+																								== self.data_interval):
+									new_data.at[index, col] = row[col] / historical_data.at[index-1, col] - 1
+								else:
+									new_data.at[index, col] = float('NaN')
+
+						if index % 20000 == 0 and index != 0:
+							delay = time.time() - previous_time
+							previous_time = delay + previous_time
+							print(f"index: {index} || delay: {delay}")
+
+
+				#This overwrites all new data to corresponding .csv file and updates index
+				new_data.to_csv(index_item['filepath'], index=False)
+
+				#update datapoints value for this item
+				index_item['datapoints'] = len(new_data.index)
+				index_item['data_end'] = self.SetUnixToDate(new_data.iloc[-1]['time_period_end'])
+
+
+				print(f"{filename} Update Duration:", (time.time() - init_time))
+				print(f"{filename} up to date with historical_data at:", index_item['data_end'])
+				print('----------------------------------------------------')
+
+
+				#This updates self.training_index['symbol_id.csv'] (symbol_id.csv = filename) with index_item
+				self.training_index[filename] = index_item
+
+				self.UpdateTrainingIndex()
 				
 		else:
-			print('config.update_training_data = false: not updating training data')
+			print('database.config[\'update_training_data\'] = false: not updating training data')
