@@ -16,9 +16,6 @@ class CoinAPI():
 		self.api_index_path = 'database/api_index.json'
 		with open(self.api_index_path, 'r') as file:
 			self.api_index = json.load(file)
-		'''self.free_key = {'X-CoinAPI-Key': '4364DC07-0336-4C8A-A43C-2BD216B1B285'}
-		self.startup_key = {'X-CoinAPI-Key': '9C28A83A-B213-4A7A-9B13-BE5540AAC57F'}
-		self.api_keys = {'free_key': self.free_key, 'startup_key': self.startup_key}'''
 
 
 	'''kwargs: NOT AN ACTUAL KWARG, it just gets handed kwargs from self.MakeRequest
