@@ -6,30 +6,30 @@
         "symbol_type": "SPOT",
         "asset_id_base": "BTC",
         "asset_id_quote": "USD",
-        "datapoints": 165000,
+        "datapoints": 0,
         "data_start": "2014-01-07T00:00:00.0000000Z",
-        "data_end": "2017-11-07T10:05:00.0000000Z"
+        "data_end": "2014-01-07T00:00:00.0000000Z"
     },
-    "KRAKEN_SPOT_ETH_USD.csv": {
-        "filepath": "database/training_data/KRAKEN/KRAKEN_SPOT_ETH_USD.csv",
-        "symbol_id": "KRAKEN_SPOT_ETH_USD",
+    "KRAKEN_SPOT_XRP_USD.csv": {
+        "filepath": "database/training_data/KRAKEN/KRAKEN_SPOT_XRP_USD.csv",
+        "symbol_id": "KRAKEN_SPOT_XRP_USD",
         "exchange_id": "KRAKEN",
         "symbol_type": "SPOT",
-        "asset_id_base": "ETH",
+        "asset_id_base": "XRP",
         "asset_id_quote": "USD",
-        "datapoints": 165000,
-        "data_start": "2015-08-10T00:00:00.0000000Z",
-        "data_end": "2018-08-30T23:50:00.0000000Z"
+        "datapoints": 0,
+        "data_start": "2017-05-19T00:00:00.0000000Z",
+        "data_end": "2017-05-19T00:00:00.0000000Z"
     },
-    "KRAKEN_SPOT_LTC_USD.csv": {
-        "filepath": "database/training_data/KRAKEN/KRAKEN_SPOT_LTC_USD.csv",
-        "symbol_id": "KRAKEN_SPOT_LTC_USD",
+    "KRAKEN_SPOT_DASH_USD.csv": {
+        "filepath": "database/training_data/KRAKEN/KRAKEN_SPOT_DASH_USD.csv",
+        "symbol_id": "KRAKEN_SPOT_DASH_USD",
         "exchange_id": "KRAKEN",
         "symbol_type": "SPOT",
-        "asset_id_base": "LTC",
+        "asset_id_base": "DASH",
         "asset_id_quote": "USD",
-        "datapoints": 165000,
-        "data_start": "2014-06-02T00:00:00.0000000Z",
-        "data_end": "2019-01-04T13:10:00.0000000Z"
+        "datapoints": 0,
+        "data_start": "2017-04-20T00:00:00.0000000Z",
+        "data_end": "2017-04-20T00:00:00.0000000Z"
     }
 }

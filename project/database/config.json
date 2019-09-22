@@ -1,20 +1,20 @@
 {
-    "last_update": 1568193428.317727,
+    "last_update": 1569054896.0781622,
     "update_frequency": 86400,
-    "update_limiter": true,
     "backfill_historical_data": false,
-    "update_training_data": true,
+    "update_training_data": false,
+    "overwrite_training_data": true,
     "exchanges_url_ext": "symbols",
     "periods_url_ext": "ohlcv/periods",
     "historical_url_ext": "ohlcv/{}/history",
-    "historical_url_ref": "ohlcv/{symbol_id}/history |Not Used In Program",
+    "historical_url_ref": "ohlcv/{symbol_id}/history |For User Reference Only",
     "asset_id_quote": "USD",
     "tracked_exchanges": [
         "KRAKEN"
     ],
     "tracked_crypto": [
-        "BTC",
-        "ETH",
-        "LTC"
+        "XRP",
+        "DASH",
+        "BTC"
     ]
 }
