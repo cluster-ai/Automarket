@@ -32,7 +32,7 @@
 
 - if an empty dictionary is passed to coin_apiCheckForKey(), particularly in coin_api.FilterJson() then the function may crash
 
-
+- I ran a backfill on XRP for the most recent data at 9:13 but it gave me data for 9:15, MAKE SURE the data is not partial for that time period (I think they just send what they have so far instead of waiting for the full period to elapse)
 ///EFFICIENCY GAINS///
 
 - training_index and historical_index start with an empty dictionary at startup within database.__InitHistoricalDir() and database.__InitTrainingDir(). It then loads all tracked exchanges regardless of whether or not we hae that data already. It finally loads all **_index.json files and overwrites any items that were created at initialization.

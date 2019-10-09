@@ -40,9 +40,9 @@ class Database():
 
 				#makes sure the dictionary has these two keys
 				self.handbook['period_data']
-				self.handbook['excahnge_data']
+				self.handbook['exchange_data']
 			except:
-				print(f'self.handbook_data failed to load, resetting...')
+				print(f'self.handbook data failed to load, resetting...')
 				reset_handbook = True
 		else:
 			open(self.handbook_path, 'w')
@@ -253,7 +253,7 @@ class Database():
 			limit_per_request = int(self.coin_api.api_index['startup_key']['limit'] / backfill_count * 100 * 0.98)
 			#one request is 100 datapoints so limit_per_request is made a multiple of 100
 			limit_per_request = limit_per_request - (limit_per_request % 100)
-			#limit_per_request = 100
+			limit_per_request = 100
 
 			#the following goes through each item within backfill_list
 			#the key for each backfill_item is the filename (filename = f'{symbol_id}.csv')
@@ -344,13 +344,18 @@ class Database():
 					print('Creating New Dataframe')
 					existing_data = response_data
 
+
 				#existing_data is then saved to the proper csv file
 				existing_data.to_csv(backfill_item['filepath'], index=False)
 
 				#this updates the number of datapoints in backfill_item
 				backfill_item['datapoints'] = len(existing_data.index)
 
-				print(filename, 'updated to: ', self.SetUnixToDate(existing_data.iloc[-1]['time_period_end']))
+				#changes data_start to reflect actual first datapoint
+				backfill_item['data_start'] = self.SetUnixToDate(existing_data.at[0, 'time_period_start'])
+
+				#this message is offset to the timezone UTC-36000 (HST)
+				print(filename, 'updated to: ', self.SetUnixToDate(existing_data.iloc[-1]['time_period_end'] - 36000))
 				print('----------------------------------------------------')
 
 				#update currency index for current backfill_item
@@ -377,6 +382,7 @@ class Database():
 		with open(self.training_index_path, 'w') as file:
 			#when it is in the file, it will not have the "exchange_id" dictionary layer
 			json.dump(self.training_index, file, indent=4)
+
 		
 	def __InitTrainingDir(self):
 		'''
@@ -483,9 +489,7 @@ class Database():
 
 		self.__InitTrainingDir()
 
-
 		if self.config['update_training_data'] == True:
-
 
 			print('----------------------------------------------------')
 			print('Updating Training Data')
@@ -530,7 +534,7 @@ class Database():
 					#Obviously training_data should not be ahead of historical_data
 					raise TypeError(f"Error: training_data is ahead of historical_data for {filename} ['data_end']")
 				elif training_unix_end == historical_unix_end:
-					print(f'{filename} is up to date with historical_data, data_end:', update_item['data_end'])
+					print(f'{filename} is up to date with historical_data, data_end:', update_item['data_end'], "UTC")
 
 			#number of items in update_list
 			update_count = len(update_list)
@@ -553,6 +557,16 @@ class Database():
 				historical_path = self.historical_index[filename]['filepath']
 				historical_data = pd.read_csv(historical_path)
 
+				#converts time_period_start column (soon to be index) to int
+				historical_data.time_period_start = historical_data.time_period_start.astype(int)
+
+				#sets the index to the time_period_start column
+				historical_data = historical_data.set_index('time_period_start', drop=False)
+
+				#this drops all unused columns in local historical_data variable
+				# so that training_data does not "contract it"
+				historical_data = historical_data.drop(columns=['time_close', 'time_open'])
+
 				'''
 				The following iterates through historical_data starting at update_item['data_end']
 				until historical_data['data_end']. Since the market prices are being converted to 
@@ -562,51 +576,79 @@ class Database():
 				It can be thought of as a flag for gaps in the data.
 				'''
 
-				#New_data is declared as a copy of historical_data.
-				#That way historical_data can be used as a reference
-				new_data = historical_data.copy()
+				#New_data is declared with the same columns as historical_data
+				# but has a NaN value for each cell at initialization. The index
+				# count is also made to reflect the total number of timesteps
+				# independent of any missing data.
+				historical_data_start = self.SetDateToUnix(self.historical_index[filename]['data_start'])
+				historical_data_end = self.SetDateToUnix(self.historical_index[filename]['data_end'])
+				total_datapoints = int((historical_data_end - historical_data_start) / self.data_increment)
+
+				#init_index is a list with length total_datapoints
+				#Initializing the new_data with values increases compute time
+				# by several orders of magnitude because all the memory addresses 
+				# needed for the list have been registered before the loop rather
+				# than during each iteration of it.
+				init_index = []
+				for x in range(total_datapoints):
+					time_increment = int(x * self.data_increment + historical_data_start)
+					init_index.append(time_increment)
+				new_data = pd.DataFrame(columns=historical_data.columns, index=init_index)
+				new_data['time_period_start'] = init_index
 
 				init_time = time.time()
 				previous_time = init_time
+
+				#used to calculate the density
+				prev_density_date = historical_data_start
 				delay = 0
+				missing_rows = 0
+
+				prev_index = 0
+				count = 0
+
+				total_columns = len(historical_data.columns)
 				for index, row in historical_data.iterrows():
-					if row['time_period_start'] >= self.SetDateToUnix(update_item['data_end']):
+					if index >= self.SetDateToUnix(update_item['data_end']):
+
 						for col in historical_data.columns:
 
-							#this part is exclusively for cryptocurrency market price, hence 'price'
 							if 'price' in col:
-								#if it is the first item there is no x-1 value so x=NaN
-								if index == 0:
-									new_data.at[index, col] = 0#float('NaN')
-								elif (abs(historical_data.at[index-1, 'time_period_start'] - row['time_period_start']) 
-																								== self.data_increment):
-									new_data.at[index, col] = row[col] / historical_data.at[index-1, col] - 1
-								else:
-									new_data.at[index, col] = 0#float('NaN')
+								if index == historical_data_start:
+									pass
+								elif prev_index == index - self.data_increment and prev_index != 0:
+									prev_index = index - self.data_increment
+									new_data.at[index, col] = row[col] / historical_data.at[prev_index, col] - 1
+							else:
+								new_data.at[index, col] = row[col]
 
-					if index % 20000 == 0 and index != 0:
-						density_start = historical_data.at[index-20000, 'time_period_start']
-						density_end = historical_data.at[index, 'time_period_start']
-						density = 20000 * self.data_increment / (density_end - density_start)
+
+					if count % 20000 == 0 and count != 0:
+						current_density_date = index
+						density = 20000 * self.data_increment / (current_density_date - prev_density_date)
 						density = density * 100 #to get density, it divides the number of points there are
+						prev_density_date = current_density_date
 						# in a given time frame by how many there should be in the same interval and multiplies 
 						# by 100 to have a maximum 100 (perfect) and a minimum of 0 
 						#(just approaches zero if data is missing)
 						delay = time.time() - previous_time
 						previous_time = delay + previous_time
-						print(f"index: {index} || delay: {delay} || density: {density}")
+						date = self.SetUnixToDate(index)
+						print(f"date: {date} || delay: {delay} || density: {density}")
 
+					prev_index = index
+					count += 1
 
 				#This saves new_data to the f"{symbol_id}.csv" file
 				new_data.to_csv(update_item['filepath'], index=False)
 
 				#Updates datapoints and data_end values in update_item
 				update_item['datapoints'] = len(new_data.index)
-				update_item['data_end'] = self.SetUnixToDate(new_data.iloc[-1]['time_period_end'])
+				update_item['data_end'] = self.SetUnixToDate(new_data['time_period_end'].tail(1))
 
 
 				print(f"{filename} Update Duration:", (time.time() - init_time))
-				print(f"{filename} up to date with historical_data at:", update_item['data_end'])
+				print(f"{filename} up to date with historical_data at:", update_item['data_end'], "UTC")
 				print('----------------------------------------------------')
 
 

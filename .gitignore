@@ -3,3 +3,4 @@ __pycache__
 **/api_index.json
 *.csv
 project/changes.txt
+project/working_lstm.py
