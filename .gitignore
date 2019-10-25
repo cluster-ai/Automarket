@@ -4,3 +4,5 @@ __pycache__
 *.csv
 project/changes.txt
 project/working_lstm.py
+project/test.py
+project/ideas.txt

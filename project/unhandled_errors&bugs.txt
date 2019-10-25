@@ -30,7 +30,7 @@
 
 - in database.__InitHistoricalDir() and database.InitTrainingDir(), if there is no data for them to work off of in an entire exchange, they will make a blank file database/training_data/(exchange_id) or database/historical_data/(exchange_id)
 
-- if an empty dictionary is passed to coin_apiCheckForKey(), particularly in coin_api.FilterJson() then the function may crash
+- if an empty dictionary is passed to coin_api.CheckForKey(), particularly in coin_api.FilterJson() then the function may crash
 
 - I ran a backfill on XRP for the most recent data at 9:13 but it gave me data for 9:15, MAKE SURE the data is not partial for that time period (I think they just send what they have so far instead of waiting for the full period to elapse)
 ///EFFICIENCY GAINS///

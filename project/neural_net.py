@@ -41,7 +41,7 @@ class NeuralNet():
 		self.TrainNetwork()
 
 	def TrainNetwork(self):
-		self.SEQ_LEN = 20
+		self.SEQ_LEN = 250
 
 		self.training_data = self.database.LoadTrainingData('KRAKEN_SPOT_BTC_USD.csv')
 		print(self.training_data.columns)
@@ -87,21 +87,18 @@ class NeuralNet():
 
 
 		self.model = tf.keras.Sequential([
-			LSTM(150, input_shape=[self.SEQ_LEN, 2], return_sequences=True),
+			LSTM(100, input_shape=[self.SEQ_LEN, 2], return_sequences=True),
 			Dropout(0.2),
 			BatchNormalization(),
-			LSTM(150, input_shape=[self.SEQ_LEN, 2], return_sequences=True),
+			LSTM(100, input_shape=[self.SEQ_LEN, 2], return_sequences=True),
 			Dropout(0.2),
 			BatchNormalization(),
-			LSTM(150, input_shape=[self.SEQ_LEN, 2]),
-			Dropout(0.2),
-			BatchNormalization(),
-			Dense(150, activation='tanh'),
+			Dense(200, activation='tanh'),
 			Dense(100, activation='tanh'),
 			Dense(1, activation='tanh')
 			])
 
-		opt = tf.keras.optimizers.Adam(lr=0.0025, decay=1e-6)
+		opt = tf.keras.optimizers.Adam(lr=0.002, decay=1e-5)
 		self.model.compile(loss='mean_squared_error', optimizer=opt)
 
 		history = self.model.fit(

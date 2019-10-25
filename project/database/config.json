@@ -1,9 +1,7 @@
 {
-    "last_update": 1570518969.377988,
+    "last_update": 1571984288.9310243,
     "update_frequency": 86400,
     "backfill_historical_data": false,
-    "update_training_data": false,
-    "overwrite_training_data": true,
     "exchanges_url_ext": "symbols",
     "periods_url_ext": "ohlcv/periods",
     "historical_url_ext": "ohlcv/{}/history",
@@ -13,10 +11,10 @@
         "KRAKEN"
     ],
     "tracked_crypto": [
-        "DASH",
-        "XRP",
         "BTC",
         "ETH",
-        "LTC"
+        "LTC",
+        "DASH",
+        "XRP"
     ]
 }

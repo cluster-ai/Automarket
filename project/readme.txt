@@ -48,3 +48,37 @@ config.json --- Program initialization parameters and behavior patterns (tracked
 The API class in this program is meant to offer the database a streamlined use of the api with needed error handling, request limit monitoring, request filtering, etc.
 
 NOTE: all timestamps are stored as UTC. The time is then translated to the specified time zone (currently hard coded as HST) when printing to the console.
+
+
+//training_index format//
+
+NOTE: The filename has each coin in order of tracked crypto in confing.json.
+	  If the order or quantity of tracked crypto changes all training_data must be reset
+
+	  All supported columns will be in the training_data. Only the requested columns will
+	  be returned by the QueryTrainingData() function
+
+training_index format: 
+filename == {exchange_id}_{asset_id_quote}_(max_filler_gap)_(currencies)
+ex: filename == "KRAKEN_USD_1_BTC_ETH.csv"
+
+[
+	"KRAKEN_USD_1_BTC_ETH.csv" : {
+		"filepath" : "database/training_data/KRAKEN/KRAKEN_USD_1_BTC_ETH.csv",
+		"exchange_id" : "KRAKEN"
+		"asset_id_quote" : "USD",
+		"max_filler_gap" : 1,
+		"currencies" : {
+			"KRAKEN_SPOT_BTC_USD.csv" : 0, (order of currencies in neural net output left to right)
+			"KRAKEN_SPOT_ETH_USD.csv": 1
+		}
+		"density" : {
+			timestamp : 0.2345, (1 is no missing data, 0 is no data)
+			(timestamp + 3months) : 0.6970,
+			...
+		},
+		"datapoints" : 324425, (only counts data with no missing data)
+		"data_start" : timestamp,
+		"data_end" : timestamp
+	}	
+] 
