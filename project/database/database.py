@@ -10,6 +10,8 @@ import database.coin_api as coin_api
 import pandas as pd
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 class Database():
 	def __init__(self):
 		print('----------------------------------------------------')
@@ -384,7 +386,7 @@ class Database():
 
 	def QueryTrainingData(self, **kwargs):
 		print('----------------------------------------------------')
-		print('Request Made For Training Data, max_filler_gap does nothing')
+		print('Making Request For Training Data')
 		print('----------------------------------------------------')
 
 		#this loads training_index
@@ -404,22 +406,22 @@ class Database():
 		then the item will be generated or updated as needed.
 
 		Parameters: (kwargs)
-		- max_filler_gap (maximum number of data fills in a row, this is because it loses accuracy
+		- prediction_steps (maximum number of data fills in a row, this is because it loses accuracy
 																					larger the gap)
 		- exchange_id ('KRAKEN')
 		- currencies (['BTC', 'ETH']) #order does not matter
 		'''
 
 		#Default Kwargs
-		if 'max_filler_gap' not in kwargs:
-			kwargs['max_filler_gap'] = 1
+		if 'prediction_steps' not in kwargs:
+			kwargs['prediction_steps'] = 1
 		if 'exchange_id' not in kwargs:
 			kwargs['exchange_id'] = 'KRAKEN'
 		if 'currencies' not in kwargs:
 			kwargs['currencies'] = ['BTC', 'ETH']
 
 		print(f"Query Parameters:")
-		print(" - max_filler_gap =", kwargs['max_filler_gap'])
+		print(" - prediction_steps =", kwargs['prediction_steps'])
 		print(" - exchange_id =", kwargs['exchange_id'])
 		print(" - currencies =", kwargs['currencies'], '\n')
 
@@ -446,8 +448,8 @@ class Database():
 				if matches != len(kwargs['currencies']):
 					continue;
 
-				#max_filler_gap
-				if kwargs['max_filler_gap'] != index_item['max_filler_gap']:
+				#prediction_steps
+				if kwargs['prediction_steps'] != index_item['prediction_steps']:
 					continue;
 
 				matched_filename = filename
@@ -460,10 +462,12 @@ class Database():
 		#generates new index if one wasn't found above
 		if matched_filename == '':
 			matched_filename = self.__AddTrainingIndex(kwargs['exchange_id'],
-													   kwargs['max_filler_gap'],
+													   kwargs['prediction_steps'],
 													   kwargs['currencies'])
 
-		self.__LoadTrainingData(matched_filename)
+		training_data = self.__LoadTrainingData(matched_filename)
+
+
 
 
 	def __LoadTrainingData(self, filename_param):
@@ -499,7 +503,9 @@ class Database():
 		#time_period_start is the first column by default and so not included
 		used_columns = ['price_high',
 						'price_low',
-						'is_nan']
+						'average_price',
+						'is_nan',
+						'trend']
 						#if this is changed, a training_data reset is required
 
 		#Goes through currencies and loads historical data into historical_data var
@@ -665,11 +671,13 @@ class Database():
 
 		#historical_data becomes a copy of new_data without the preproccessing changes
 		historical_data = new_data.copy()
-
-		print(new_data.head(20))
+		new_data = new_data.drop(columns=['BTC_0|price_high', 
+										  'BTC_0|price_low', 
+										  'ETH_1|price_low', 
+										  'ETH_1|price_high'])
 
 		#used to calculate the density
-		prev_density_date = start_time
+		density_sum = 0
 		#used to calculate time delay between iterations of following loop
 		init_time = time.time()
 		previous_time = init_time
@@ -677,6 +685,7 @@ class Database():
 		prev_index = 0
 
 		count = 0
+		is_nan_total = 0
 		for index, row in new_data.iterrows():
 			if index >= self.SetDateToUnix(index_item['data_end']):#only iterates on new data
 
@@ -685,9 +694,67 @@ class Database():
 					if 'is_nan' in col:
 						if np.isnan(row[col]):
 							new_data.at[index, col] = 1 #is_nan = true
+							is_nan_total += 1
+
+					if 'average_price' in col:
+						low = historical_data.at[index, col.replace('average_price', 'price_low')]
+						high = historical_data.at[index, col.replace('average_price', 'price_high')]
+						average = (low + high) / 2
+						if np.isnan(average):
+							average = 0
+						new_data.at[index, col] = average
 					elif 'price' in col:
 						if np.isnan(row[col]):
 							new_data.at[index, col] = 0
+
+					if 'trend' in col:
+						trend_index = index - (index_item['prediction_steps'] * self.data_increment)
+						if trend_index in new_data.index:
+							#this gathers all relevant points between current index and trend_index
+							average_col =  col.replace('trend', 'average_price')
+							is_nan_col = col.replace('trend', 'is_nan')
+							data = {'y_values': list(new_data.loc[trend_index:index, average_col]),
+									'is_nan': list(new_data.loc[trend_index:index, is_nan_col])}
+							trend_data = pd.DataFrame(data)
+							#this drops all rows where is_nan == 1 
+							trend_data = trend_data[trend_data.is_nan != 1]#drops all is_nan==1 rows
+
+							n = len(trend_data.index)
+							data_density = n / index_item['prediction_steps']
+							if data_density < .1:
+								new_data.at[trend_index, col] = np.nan
+								data_density = n / index_item['prediction_steps']
+								#print(f'{data_density}%')
+								continue
+
+							x_values = np.array(trend_data.index)
+							y_values = np.array(trend_data.y_values)
+							#components
+							x_mean = np.mean(x_values, dtype=np.float64)
+							y_mean = np.mean(y_values, dtype=np.float64)
+							x_sum = np.sum(x_values)
+							y_sum = np.sum(y_values)
+							xy_sum = np.sum((x_values*y_values))
+							x_sqr_sum = np.sum((x_values**2))
+							x_sum_sqr = np.sum(x_values) ** 2
+							#slope
+							m = (xy_sum - (x_sum*y_sum)/n)/(x_sqr_sum - x_sum_sqr/n)
+							new_data.at[trend_index, col] = m
+							'''
+							b = y_mean - m*x_mean
+							print(m)
+							print(b)
+							#apply value to new_data
+							new_data.at[trend_index, col] = b
+
+							plt.scatter(x_custom, y_custom)
+							x = np.linspace(0,index_item['prediction_steps'])
+							y = m*x+b
+							plt.plot(x, y, '-r', label='trend')
+							plt.show()
+							var = input('>>>')
+							'''
+
 					'''if 'price' in col:
 						if index == start_time:
 							new_data.at[index, col] = 0
@@ -696,17 +763,15 @@ class Database():
 					else:
 						new_data.at[index, col] = row[col]'''
 
-			if count % 20000 == 0 and count != 0:
-				current_density_date = index
-				density = 20000 * self.data_increment / (current_density_date - prev_density_date)
-				density = int(density * 100) #to get density, it divides the number of points there are
-				prev_density_date = current_density_date
+			if count % 5000 == 0 and count != 0:
+				density = 100 - is_nan_total / 100
+				is_nan_total = 0
 				# in a given time frame by how many there should be in the same interval and multiplies 
 				# by 100 to have a maximum 100 (no missing points) and a minimum of 0 (no data)
 				delay = int(time.time() - previous_time)
 				previous_time = delay + previous_time
 				date = self.SetUnixToDate(index)
-				print(f"date: {date} || delay: {delay} || density: {density}")
+				print(f"date: {date} || delay: {delay} sec || density: {density}%")
 
 			prev_index = index
 			count += 1
@@ -730,12 +795,12 @@ class Database():
 
 
 
-	def __AddTrainingIndex(self, exchange_id, max_filler_gap, currencies):
+	def __AddTrainingIndex(self, exchange_id, prediction_steps, currencies):
 		'''
 		This function adds an index_item to training_index based on given parameters
 		parameters examples:
 		- exchange_id = 'KRAKEN'
-		- max_filler_gap = 1
+		- prediction_steps = 1
 		- currencies = ['BTC', 'ETH']
 
 		training_index format: 
@@ -745,7 +810,7 @@ class Database():
 				"filepath" : "database/training_data/KRAKEN/KRAKEN_USD_1_BTC_ETH.csv",
 				"exchange_id" : "KRAKEN"
 				"asset_id_quote" : "USD",
-				"max_filler_gap" : 1,
+				"prediction_steps" : 1,
 				"currencies" : {
 					"BTC_0" : "KRAKEN_SPOT_BTC_USD.csv", (order of currencies in neural net output left to right)
 					"ETH_1" : "KRAKEN_SPOT_ETH_USD.csv"
@@ -767,7 +832,7 @@ class Database():
 		self.training_index_keys = ['filepath',
 									'exchange_id',
 									'asset_id_quote',
-									'max_filler_gap',
+									'prediction_steps',
 									'currencies',
 									'density',
 									'datapoints',
@@ -805,7 +870,7 @@ class Database():
 
 		asset_id_quote = self.config['asset_id_quote']
 		#ex: filename == "KRAKEN_USD_1_BTC_ETH.csv"
-		filename = f"{exchange_id}_{asset_id_quote}_{max_filler_gap}_{currency_string}.csv"
+		filename = f"{exchange_id}_{asset_id_quote}_{prediction_steps}_{currency_string}.csv"
 		filepath = self.training_base_path+f'{exchange_id}/{filename}'
 
 		index_item = {}
@@ -817,8 +882,8 @@ class Database():
 				index_item.update({key: exchange_id})
 			if key == 'asset_id_quote':
 				index_item.update({key: self.config['asset_id_quote']})
-			if key == 'max_filler_gap':
-				index_item.update({key: max_filler_gap})
+			if key == 'prediction_steps':
+				index_item.update({key: prediction_steps})
 			if key == 'currencies':
 				index_item.update({key: formatted_currencies})
 			if key == 'density':
@@ -833,202 +898,3 @@ class Database():
 		self.UpdateTrainingIndex()
 
 		return filename
-
-
-	
-'''
-	def UpdateTrainingData(self):
-
-		
-		There are many ways to interpret the data for training so it does not seem 
-		worthwhile to create a structure in which all variations are accounted for.
-		Because of this, training_data within database will only provide preprocessing
-		that is shared between all variations in the data that will be used. Beyond that,
-		further developement will need to be done in order to have variable style of
-		preprocessing within the database class.
-
-		Preprocessing:
-		 1. converts market prices of cryptocurrency to a slope value that is calculated
-		 	finding the difference between point x in relation to point x-1 and getting 
-		 	the percent change with zero as the origin. 
-		 	(ex: if f(x-1)=2 and f(x)=1 then f'(x)=(1/2-1)=-0.5 [not actually a derivative])
-		 2. data averaging across gaps in the historical_data. This done by getting the 
-			average of adjecent known datapoints that are no more than max_filler_gap 
-			timesteps apart (larger gaps produce less reliable filler data)
-		 	(ex: If f(x-1)=4 and f(x+1)=6, approximate f(x))
-		 		f(x)=(6+4)/2
-		 		f(x)=5
-		
-
-		self.__InitTrainingDir()
-
-		if self.config['update_training_data'] == True:
-
-			print('----------------------------------------------------')
-			print('Updating Training Data')
-			#overwrite_training_data == True simply means that if any difference in
-			# data_end is found between training_data and historical_data. the training_data
-			# is conmpletely re-generated for that f"{symbol_id}.csv
-			if self.config['overwrite_training_data'] == True:
-				print('self.config[\'overwrite_training_data\'] = True')
-			else:
-				print('self.config[\'overwrite_training_data\'] = False')
-			print('----------------------------------------------------')
-
-			#the following appends all f"{symbol_id}.csv" filenames that are going to be updated
-			update_list = {}
-			print('Update List:')
-			for filename, update_item in self.training_index.items():
-				print('      ', filename)
-
-				#"unix" is the unix time variant and "date" refers to it being in the datetime format
-				historical_unix_end = self.SetDateToUnix(self.historical_index[filename]['data_end'])#unix time
-				historical_date_start = self.historical_index[filename]['data_start']#datetime
-
-				#This if statement will delete existing data for self.training_index[filename]
-				# if self.config['overwrite_training_data'] == True. Hence 'overwrite_training_data'
-				if self.config['overwrite_training_data']:
-					open(update_item['filepath'], 'w').close()
-					self.training_index[filename]['datapoints'] = 0
-					self.training_index[filename]['data_start'] = historical_date_start
-					self.training_index[filename]['data_end'] = historical_date_start
-					update_item = self.training_index[filename]#need this to update loop value for following code
-					self.UpdateTrainingIndex()
-
-				training_unix_end = self.SetDateToUnix(update_item['data_end'])#unix time
-				#this needs to be declared after the overwrite_training_data if statement
-
-				#The following "if" statements compare training_data['data_end'] with the historical_data['data_end'].
-				#Since training_data works directly from the local database of historical_data
-				# it should only ever be less than or equal to historical data in regards to the data_end
-				if training_unix_end < historical_unix_end:
-					update_list.update({filename: update_item})
-				elif training_unix_end > historical_unix_end:
-					#Obviously training_data should not be ahead of historical_data
-					raise TypeError(f"Error: training_data is ahead of historical_data for {filename} ['data_end']")
-				elif training_unix_end == historical_unix_end:
-					print(f'{filename} is up to date with historical_data, data_end:', update_item['data_end'], "UTC")
-
-			#number of items in update_list
-			update_count = len(update_list)
-			print(f'{update_count} total requests\n')
-
-			#==============================================================
-			#TRAINING DATA PREPROCESSING BEGINS
-			#==============================================================
-
-			for filename, update_item in update_list.items():
-
-				print(f"Updating {filename}")
-				historical_start = self.historical_index[filename]['data_start']
-				historical_end = self.historical_index[filename]['data_end']
-				print(f"Interval: [{historical_start}, {historical_end}]")
-
-
-				#Loads the historical_data of the same filename as current update_list item
-				# (training_index and historical_index filenames are identical for the same symbol_id)
-				historical_path = self.historical_index[filename]['filepath']
-				historical_data = pd.read_csv(historical_path)
-
-				#converts time_period_start column (soon to be index) to int
-				historical_data.time_period_start = historical_data.time_period_start.astype(int)
-
-				#sets the index to the time_period_start column
-				historical_data = historical_data.set_index('time_period_start', drop=False)
-
-				#this drops all unused columns in local historical_data variable
-				# so that training_data does not "contract it"
-				historical_data = historical_data.drop(columns=['time_close', 'time_open'])
-
-				
-				The following iterates through historical_data starting at update_item['data_end']
-				until historical_data['data_end']. Since the market prices are being converted to 
-				slope values (secant slope calculated between adjacent points). If there is a missing point,
-				the next datapoint will not be able to calculate the proper slope since there is a dependecy. 
-				If this happens that next point will be assigned NaN on all market price values (high, low, open, close). 
-				It can be thought of as a flag for gaps in the data.
-				
-
-				#New_data is declared with the same columns as historical_data
-				# but has a NaN value for each cell at initialization. The index
-				# count is also made to reflect the total number of timesteps
-				# independent of any missing data.
-				historical_data_start = self.SetDateToUnix(self.historical_index[filename]['data_start'])
-				historical_data_end = self.SetDateToUnix(self.historical_index[filename]['data_end'])
-				total_datapoints = int((historical_data_end - historical_data_start) / self.data_increment)
-
-				#init_index is a list with length total_datapoints
-				#Initializing the new_data with values increases compute time
-				# by several orders of magnitude because all the memory addresses 
-				# needed for the list have been registered before the loop rather
-				# than during each iteration of it.
-				init_index = []
-				for x in range(total_datapoints):
-					time_increment = int(x * self.data_increment + historical_data_start)
-					init_index.append(time_increment)
-				new_data = pd.DataFrame(columns=historical_data.columns, index=init_index)
-				new_data['time_period_start'] = init_index
-
-				init_time = time.time()
-				previous_time = init_time
-
-				#used to calculate the density
-				prev_density_date = historical_data_start
-				delay = 0
-				missing_rows = 0
-
-				prev_index = 0
-				count = 0
-
-				total_columns = len(historical_data.columns)
-				for index, row in historical_data.iterrows():
-					if index >= self.SetDateToUnix(update_item['data_end']):
-
-						for col in historical_data.columns:
-
-							if 'price' in col:
-								if index == historical_data_start:
-									pass
-								elif prev_index == index - self.data_increment and prev_index != 0:
-									prev_index = index - self.data_increment
-									new_data.at[index, col] = row[col] / historical_data.at[prev_index, col] - 1
-							else:
-								new_data.at[index, col] = row[col]
-
-
-					if count % 20000 == 0 and count != 0:
-						current_density_date = index
-						density = 20000 * self.data_increment / (current_density_date - prev_density_date)
-						density = density * 100 #to get density, it divides the number of points there are
-						prev_density_date = current_density_date
-						# in a given time frame by how many there should be in the same interval and multiplies 
-						# by 100 to have a maximum 100 (perfect) and a minimum of 0 
-						#(just approaches zero if data is missing)
-						delay = time.time() - previous_time
-						previous_time = delay + previous_time
-						date = self.SetUnixToDate(index)
-						print(f"date: {date} || delay: {delay} || density: {density}")
-
-					prev_index = index
-					count += 1
-
-				#This saves new_data to the f"{symbol_id}.csv" file
-				new_data.to_csv(update_item['filepath'], index=False)
-
-				#Updates datapoints and data_end values in update_item
-				update_item['datapoints'] = len(new_data.index)
-				update_item['data_end'] = self.SetUnixToDate(new_data['time_period_end'].tail(1))
-
-
-				print(f"{filename} Update Duration:", (time.time() - init_time))
-				print(f"{filename} up to date with historical_data at:", update_item['data_end'], "UTC")
-				print('----------------------------------------------------')
-
-
-				#The update_item (which now has the most recent changes) is saved to self.training_index
-				self.training_index[filename] = update_item
-				self.UpdateTrainingIndex()
-				
-		else:
-			print('database.config[\'update_training_data\'] = false: not updating training data')
-		'''
