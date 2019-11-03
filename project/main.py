@@ -17,8 +17,7 @@ so...
 class Main():
 	def __init__(self):
 		self.database = database.Database()
-		self.database.QueryTrainingData(prediction_steps=100, exchange_id='KRAKEN', currencies=['BTC', 'ETH'])
-		#self.neural_net = neural_net.NeuralNet(self.database)
+		self.neural_net = neural_net.NeuralNet(self.database)
 
 
 main = Main()

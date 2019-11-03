@@ -7,6 +7,8 @@ import datetime
 
 import database.coin_api as coin_api
 
+from sklearn import preprocessing
+
 import pandas as pd
 import numpy as np
 
@@ -467,7 +469,18 @@ class Database():
 
 		training_data = self.__LoadTrainingData(matched_filename)
 
+		#puts all trend data in x and all other data in y
+		x = training_data.copy()
+		y = training_data.copy()
+		for col in training_data.columns:
+			if 'trend' in col:
+				x = x.drop(columns=[col])
+			else:
+				y = y.drop(columns=[col])
 
+		training_data = {'x': x, 'y': y}
+
+		return training_data
 
 
 	def __LoadTrainingData(self, filename_param):
@@ -551,6 +564,7 @@ class Database():
 			existing_data = pd.read_csv(index_item['filepath'])
 
 			#verifies that existing_data is not missing_columns
+			'''
 			missing_columns = []
 			for col in columns:
 				if col not in existing_data.columns:
@@ -564,9 +578,9 @@ class Database():
 			if extra_columns > 0:
 				print(extra_columns, 'Extra Columns Found')
 				raise
+			'''
 		except:
 			existing_data = pd.DataFrame(columns=columns)
-
 
 
 		#returns data if the data is up to date
@@ -577,6 +591,7 @@ class Database():
 				matches += 1
 		if matches == len(currency_order):
 			print('training_data up to date')
+			print(existing_data.head(10))
 			return existing_data
 
 
@@ -672,9 +687,7 @@ class Database():
 		#historical_data becomes a copy of new_data without the preproccessing changes
 		historical_data = new_data.copy()
 		new_data = new_data.drop(columns=['BTC_0|price_high', 
-										  'BTC_0|price_low', 
-										  'ETH_1|price_low', 
-										  'ETH_1|price_high'])
+										  'BTC_0|price_low'])
 
 		#used to calculate the density
 		density_sum = 0
@@ -700,12 +713,7 @@ class Database():
 						low = historical_data.at[index, col.replace('average_price', 'price_low')]
 						high = historical_data.at[index, col.replace('average_price', 'price_high')]
 						average = (low + high) / 2
-						if np.isnan(average):
-							average = 0
 						new_data.at[index, col] = average
-					elif 'price' in col:
-						if np.isnan(row[col]):
-							new_data.at[index, col] = 0
 
 					if 'trend' in col:
 						trend_index = index - (index_item['prediction_steps'] * self.data_increment)
@@ -776,7 +784,20 @@ class Database():
 			prev_index = index
 			count += 1
 
-		print(new_data.head(50))
+		print(new_data.head(10))
+
+		#normalization
+		for col in new_data.columns:
+			if 'is_nan' not in col and 'trend' not in col:
+				print(new_data[col].values)
+				new_data[col] = preprocessing.scale(new_data[col].values)
+
+		#set nan values to 0 on specified columns
+		for index, row in new_data.iterrows():
+			for col in new_data.columns:
+				if 'price' in col:
+					if np.isnan(row[col]):
+						new_data.at[index, col] = 0
 
 		#updates local index variable on new data
 		index_item['datapoints'] = total_datapoints
