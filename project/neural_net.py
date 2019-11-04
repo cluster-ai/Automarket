@@ -66,6 +66,7 @@ class NeuralNet():
 
 		#TRAIN_DATA
 		training_batch = []
+		count = 0
 		prev_days = deque(maxlen=self.SEQ_LEN)
 		for index, row in train_data_x.iterrows():
 			prev_days.append([n for n in row])
@@ -75,8 +76,9 @@ class NeuralNet():
 				if np.isin(True, isnan_y) == False:
 					training_batch.append([np.array(prev_days), train_data_y.loc[index, :]])
 
-			if index % 50000 == 0 and index != 0:
-				print(index)
+			if count % 50000 == 0 and index != 0:
+				print(count)
+			count += 1
 
 		random.shuffle(training_batch)
 
@@ -93,6 +95,7 @@ class NeuralNet():
 
 		#TEST_DATA
 		testing_batch = []
+		count = 0
 		prev_days = deque(maxlen=self.SEQ_LEN)
 		for index, row in test_data_x.iterrows():
 			prev_days.append([n for n in row])
@@ -102,8 +105,9 @@ class NeuralNet():
 				if np.isin(True, isnan_y) == False:
 					testing_batch.append([np.array(prev_days), test_data_y.loc[index, :]])
 
-			if index % 50000 == 0 and index != 0:
-				print(index)
+			if count % 50000 == 0 and index != 0:
+				print(count)
+			count += 1
 
 		random.shuffle(testing_batch)
 

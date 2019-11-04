@@ -9,8 +9,15 @@ import database.coin_api as coin_api
 
 from sklearn import preprocessing
 
+import multiprocessing
+
+from multiprocessing import Process, Value, Lock, Manager
+from collections import deque
+
 import pandas as pd
 import numpy as np
+
+import math
 
 import matplotlib.pyplot as plt
 
@@ -517,6 +524,8 @@ class Database():
 		used_columns = ['price_high',
 						'price_low',
 						'average_price',
+						'trades_count',
+						'volume_traded',
 						'is_nan',
 						'trend']
 						#if this is changed, a training_data reset is required
@@ -527,7 +536,7 @@ class Database():
 		#	"BTC_0" : "KRAKEN_SPOT_BTC_USD.csv",
 		#	"ETH_1" : "KRAKEN_SPOT_ETH_USD.csv"						
 		#}
-		historical_data = {}
+		self.historical_data = {}
 		#this verifies that all currencies are being tracked
 		for key, filename in index_item['currencies'].items():
 			match = False
@@ -537,7 +546,7 @@ class Database():
 
 			if match == True:
 				#creates a dictionary of historical_data using coin name (ex: {"BTC": bitcoin_data, ...})
-				historical_data.update({key: self.LoadHistoricalData(filename)})
+				self.historical_data.update({key: self.LoadHistoricalData(filename)})
 			else:
 				print(f"Untracked currency in {filename}")
 				raise
@@ -546,8 +555,8 @@ class Database():
 		#The second loop is needed to make sure each item is in order
 		#The currency key list gives us accurate, in-order calling of historical_data
 		currency_order = []
-		for order_num in range(0, len(historical_data)):
-			for key, dataset in historical_data.items():
+		for order_num in range(0, len(self.historical_data)):
+			for key, dataset in self.historical_data.items():
 				if str(order_num) in key:
 					currency_order.append(key)
 		
@@ -647,157 +656,119 @@ class Database():
 			#=============================================================================
 			#=============================================================================
 			#converts time_period_start column (soon to be index) to int
-			historical_data[coin].time_period_start = historical_data[coin].time_period_start.astype(int)
+			self.historical_data[coin].time_period_start = self.historical_data[coin].time_period_start.astype(int)
 			
 			#sets the index to the time_period_start column and drops time_period_start
-			historical_data[coin] = historical_data[coin].set_index('time_period_start', drop=False)
+			self.historical_data[coin] = self.historical_data[coin].set_index('time_period_start', drop=False)
 
 			#adds used_columns to historical_data if not already included
 			for col in used_columns:
-				if col not in historical_data[coin].columns:
-					historical_data[coin][col] = np.nan
+				if col not in self.historical_data[coin].columns:
+					self.historical_data[coin][col] = np.nan
 			
 			#this drops all unused columns in local historical_data variable
 			# so that training_data does not have it
 			drop_columns = []
-			for col in historical_data[coin].columns:
+			for col in self.historical_data[coin].columns:
 				if col not in used_columns:
 					drop_columns.append(col)
-			historical_data[coin] = historical_data[coin].drop(columns=drop_columns)
+			self.historical_data[coin] = self.historical_data[coin].drop(columns=drop_columns)
 
 			#renames columns in local historical_data variable to match training_data
 			new_columns = {}
-			for col in historical_data[coin].columns:
+			for col in self.historical_data[coin].columns:
 				new_columns.update({col: f"{coin}|{col}"})
-			historical_data[coin] = historical_data[coin].rename(columns=new_columns)
+			self.historical_data[coin] = self.historical_data[coin].rename(columns=new_columns)
 
-			for col in historical_data[coin].columns:
+			for col in self.historical_data[coin].columns:
 				#BEFORE adding historical_data to new_data, this sets all historical_data is_nan to False (0)
 				#Additionally, all new_data is_nan is set to True (1)
 				#That way, when merged, new_data will start with False and only datapoints 
 				#  with data will be set to True
 				if 'is_nan' in col:
 					new_data[col] = 1 #True, is_nan
-					historical_data[coin][col] = 0 #False, not is_nan
+					self.historical_data[coin][col] = 0 #False, not is_nan
 
 				#adds values to new_data from historical_data
-				new_data.loc[:, col] = historical_data[coin].loc[:, col]
+				new_data.loc[:, col] = self.historical_data[coin].loc[:, col]
 
 
-		#historical_data becomes a copy of new_data without the preproccessing changes
-		historical_data = new_data.copy()
-		new_data = new_data.drop(columns=['BTC_0|price_high', 
-										  'BTC_0|price_low'])
-
-		#used to calculate the density
-		density_sum = 0
+		#new_data = new_data.head(300)
+		#total_datapoints = 300
+		self.historical_data = new_data.copy()
+	
 		#used to calculate time delay between iterations of following loop
 		init_time = time.time()
-		previous_time = init_time
-		#used to calculate sec value of previous index against current one (price col)
-		prev_index = 0
 
-		count = 0
-		is_nan_total = 0
-		for index, row in new_data.iterrows():
-			if index >= self.SetDateToUnix(index_item['data_end']):#only iterates on new data
+		#this sets up a batch of data for each processing thread so that all data is processed once
+		proc_length = math.ceil(total_datapoints / multiprocessing.cpu_count())
+		proc_interval = []
+		proc_intervals = []
+		last_index = self.historical_data.index[-1]
+		for index in self.historical_data.index:
+			proc_interval.append(index)
+			if len(proc_interval) == proc_length or index == last_index:
+				proc_intervals.append(proc_interval)
+				proc_interval = []
 
-				for col in new_data.columns:
+		manager = Manager()
+		new_proc_data = manager.dict()
+		lock = Lock()
 
-					if 'is_nan' in col:
-						if np.isnan(row[col]):
-							new_data.at[index, col] = 1 #is_nan = true
-							is_nan_total += 1
+		#uses proc_data_all in loop to set up each process for multithreading, order does not matter
+		#MULTIPROC SETUP
+		print("preping data..")
+		procs = []
+		for proc_num, proc_interval in enumerate(proc_intervals):
+			print(proc_num)
+			proc = Process(target=self.MultiprocSetup, args=(proc_interval, 
+															new_proc_data, 
+															lock,
+															proc_num,))
+			procs.append(proc)
+			proc.start()
+		#ends multithreaded processes
+		for proc in procs:
+			proc.join()
+		for proc_num, dataframe in new_proc_data.items():
+			new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
 
-					if 'average_price' in col:
-						low = historical_data.at[index, col.replace('average_price', 'price_low')]
-						high = historical_data.at[index, col.replace('average_price', 'price_high')]
-						average = (low + high) / 2
-						new_data.at[index, col] = average
 
-					if 'trend' in col:
-						trend_index = index - (index_item['prediction_steps'] * self.data_increment)
-						if trend_index in new_data.index:
-							#this gathers all relevant points between current index and trend_index
-							average_col =  col.replace('trend', 'average_price')
-							is_nan_col = col.replace('trend', 'is_nan')
-							data = {'y_values': list(new_data.loc[trend_index:index, average_col]),
-									'is_nan': list(new_data.loc[trend_index:index, is_nan_col])}
-							trend_data = pd.DataFrame(data)
-							#this drops all rows where is_nan == 1 
-							trend_data = trend_data[trend_data.is_nan != 1]#drops all is_nan==1 rows
+		self.historical_data = new_data.copy()
 
-							n = len(trend_data.index)
-							data_density = n / index_item['prediction_steps']
-							if data_density < .1:
-								new_data.at[trend_index, col] = np.nan
-								data_density = n / index_item['prediction_steps']
-								#print(f'{data_density}%')
-								continue
+		#wipes new_proc_data
+		new_proc_data = manager.dict()
 
-							x_values = np.array(trend_data.index)
-							y_values = np.array(trend_data.y_values)
-							#components
-							x_mean = np.mean(x_values, dtype=np.float64)
-							y_mean = np.mean(y_values, dtype=np.float64)
-							x_sum = np.sum(x_values)
-							y_sum = np.sum(y_values)
-							xy_sum = np.sum((x_values*y_values))
-							x_sqr_sum = np.sum((x_values**2))
-							x_sum_sqr = np.sum(x_values) ** 2
-							#slope
-							m = (xy_sum - (x_sum*y_sum)/n)/(x_sqr_sum - x_sum_sqr/n)
-							new_data.at[trend_index, col] = m
-							'''
-							b = y_mean - m*x_mean
-							print(m)
-							print(b)
-							#apply value to new_data
-							new_data.at[trend_index, col] = b
+		print("preprocessing...")
+		#MULTIPROC FINAL
+		procs = []
+		for proc_num, proc_interval in enumerate(proc_intervals):
+			proc = Process(target=self.MultiprocFinal, args=(proc_interval, 
+															index_item['prediction_steps'],
+															new_proc_data,
+															lock,
+															proc_num,))
+			procs.append(proc)
+			proc.start()
+		#ends multithreaded processes
+		for proc in procs:
+			proc.join()
+		for proc_num, dataframe in new_proc_data.items():
+			new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
 
-							plt.scatter(x_custom, y_custom)
-							x = np.linspace(0,index_item['prediction_steps'])
-							y = m*x+b
-							plt.plot(x, y, '-r', label='trend')
-							plt.show()
-							var = input('>>>')
-							'''
 
-					'''if 'price' in col:
-						if index == start_time:
-							new_data.at[index, col] = 0
-						elif prev_index == index - self.data_increment:
-							new_data.at[index, col] = row[col] / historical_data.at[prev_index, col] - 1
-					else:
-						new_data.at[index, col] = row[col]'''
+		total_time = time.time() - init_time
+		print(f"Total Duration: {total_time}")
 
-			if count % 5000 == 0 and count != 0:
-				density = 100 - is_nan_total / 100
-				is_nan_total = 0
-				# in a given time frame by how many there should be in the same interval and multiplies 
-				# by 100 to have a maximum 100 (no missing points) and a minimum of 0 (no data)
-				delay = int(time.time() - previous_time)
-				previous_time = delay + previous_time
-				date = self.SetUnixToDate(index)
-				print(f"date: {date} || delay: {delay} sec || density: {density}%")
-
-			prev_index = index
-			count += 1
-
-		print(new_data.head(10))
+		print(new_data.head(150))
 
 		#normalization
+		'''
 		for col in new_data.columns:
 			if 'is_nan' not in col and 'trend' not in col:
 				print(new_data[col].values)
 				new_data[col] = preprocessing.scale(new_data[col].values)
-
-		#set nan values to 0 on specified columns
-		for index, row in new_data.iterrows():
-			for col in new_data.columns:
-				if 'price' in col:
-					if np.isnan(row[col]):
-						new_data.at[index, col] = 0
+		'''
 
 		#updates local index variable on new data
 		index_item['datapoints'] = total_datapoints
@@ -810,10 +781,79 @@ class Database():
 		self.UpdateTrainingIndex()
 
 		#This saves new_data to the f"{symbol_id}.csv" file
-		new_data.to_csv(index_item['filepath'], index=False)
+		#new_data.to_csv(index_item['filepath'], index=False)
 
 		return new_data
 
+	def MultiprocSetup(self, proc_interval=[], proc_data=[], lock=0, proc_num=0):
+		count = 0
+		start = proc_interval[0]
+		end = proc_interval[-1]
+		historical_data = self.historical_data.loc[start:end, :]
+		new_data = historical_data.copy()
+		for index, row in historical_data.iterrows():
+			for col in historical_data.columns:
+
+				if 'is_nan' in col:
+					if np.isnan(row[col]):
+						new_data.at[index, col] = 1 #is_nan = true
+
+				if 'average_price' in col:
+					low = self.historical_data.at[index, col.replace('average_price', 'price_low')]
+					high = self.historical_data.at[index, col.replace('average_price', 'price_high')]
+					average = (low + high) / 2
+					new_data.at[index, col] = average
+			count += 1
+		proc_data[proc_num] = new_data
+
+	def MultiprocFinal(self, proc_interval=[], prediction_steps=0, proc_data=[], lock=0, proc_num=0):
+		if prediction_steps == 0:
+			print("database.MultiprocFinal argument, prediction_steps, cannot be 0")
+			raise
+
+		start = proc_interval[0]
+		end = proc_interval[-1]
+		print(start)
+		start = start - (prediction_steps * self.data_increment)
+		historical_data = self.historical_data.loc[start:end, :]
+		new_data = historical_data.copy()
+		for index, row in historical_data.iterrows():
+			for col in historical_data.columns:
+
+				if 'trend' in col:
+					trend_index = index - (prediction_steps * self.data_increment)
+					if trend_index in proc_interval:
+						#this gathers all relevant points between current index and trend_index
+						average_col =  col.replace('trend', 'average_price')
+						is_nan_col = col.replace('trend', 'is_nan')
+						data = {'y_values': list(historical_data.loc[trend_index:index, average_col]),
+								'is_nan': list(historical_data.loc[trend_index:index, is_nan_col])}
+						trend_data = pd.DataFrame(data)
+						#this drops all rows where is_nan == 1 
+						trend_data = trend_data[trend_data.is_nan == 0]#drops all is_nan==1 rows
+
+						n = len(trend_data.index)
+						data_density = n / prediction_steps
+						if data_density < .1:
+							new_data.at[trend_index, col] = np.nan
+							data_density = n / prediction_steps
+							#print(f'{data_density}%')
+							continue
+
+						x_values = np.array(trend_data.index)
+						y_values = np.array(trend_data['y_values'])
+						#components
+						x_mean = np.mean(x_values, dtype=np.float64)
+						y_mean = np.mean(y_values, dtype=np.float64)
+						x_sum = np.sum(x_values)
+						y_sum = np.sum(y_values)
+						xy_sum = np.sum((x_values*y_values))
+						x_sqr_sum = np.sum((x_values**2))
+						x_sum_sqr = np.sum(x_values) ** 2
+						#slope
+						m = (xy_sum - (x_sum*y_sum)/n)/(x_sqr_sum - x_sum_sqr/n)
+						new_data.at[trend_index, col] = m
+		proc_data[proc_num] = new_data
 
 
 	def __AddTrainingIndex(self, exchange_id, prediction_steps, currencies):

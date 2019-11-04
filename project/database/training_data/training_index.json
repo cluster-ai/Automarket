@@ -1,18 +1,4 @@
 {
-    "KRAKEN_USD_100_BTC_ETH.csv": {
-        "filepath": "database/training_data/KRAKEN/KRAKEN_USD_100_BTC_ETH.csv",
-        "exchange_id": "KRAKEN",
-        "asset_id_quote": "USD",
-        "prediction_steps": 100,
-        "currencies": {
-            "BTC_0": "KRAKEN_SPOT_BTC_USD.csv",
-            "ETH_1": "KRAKEN_SPOT_ETH_USD.csv"
-        },
-        "density": {},
-        "datapoints": 307012,
-        "data_start": "2016-10-17T14:00:00.0000000Z",
-        "data_end": "2019-09-18T14:20:00.0000000Z"
-    },
     "KRAKEN_USD_100_BTC.csv": {
         "filepath": "database/training_data/KRAKEN/KRAKEN_USD_100_BTC.csv",
         "exchange_id": "KRAKEN",
