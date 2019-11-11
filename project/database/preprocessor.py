@@ -22,7 +22,7 @@ class Preprocessor():
 
 	def __init__(self, conf={}):#initializes class variable config
 		#if class has been initialized already, ignore conf
-		if Preprocessor.config != {}:
+		if Preprocessor.config == {}:
 			print('Loading Preprocessor')
 			print('Processing Threads Found:', Preprocessor.thread_count)
 			Preprocessor.config = conf
@@ -38,6 +38,28 @@ class Preprocessor():
 		unix = unix.timestamp() - 36000#sets it to UTC
 		return unix
 
+	def PrintProgressBar(self, iteration, total, prefix = '', suffix = '', decimals = 1, length = 50, 
+																				fill = '/', printEnd = "\r"):
+		'''
+		Call in a loop to create terminal progress bar
+		@params:
+			iteration   - Required  : current iteration (Int)
+			total       - Required  : total iterations (Int)
+			prefix      - Optional  : prefix string (Str)
+			suffix      - Optional  : suffix string (Str)
+			decimals    - Optional  : positive number of decimals in percent complete (Int)
+			length      - Optional  : character length of bar (Int)
+			fill        - Optional  : bar fill character (Str)
+			printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+		'''
+		percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+		filledLength = int(length * iteration // total)
+		bar = fill * filledLength + '-' * (length - filledLength)
+		print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = printEnd)
+		# Print New Line on Complete
+		if iteration == total: 
+			print()
+
 
 	def Process(self, proc_type='', raw_data={}, data_index={}, historical_index={}):
 		'''
@@ -45,7 +67,7 @@ class Preprocessor():
 			ex: 'training_data' (all types are found in self.proc_types)
 		raw_data: complete pandas dataframe of data to be changed
 		data_index: literal index of the data used for preprocess parameters/settings 
-			(Note: in the case of training_data, it is a dictionary of each currencies historical_data
+			(Note: in the case of training_data, it is a dictionary of each currencies initial_data
 			format example: {'BTC', bitcoin_dataframe, 'ETH': ethereum_dataframe}	
 		'''
 
@@ -55,7 +77,7 @@ class Preprocessor():
 			raise
 
 		self.proc_type = proc_type
-		self.historical_data = raw_data
+		self.initial_data = raw_data
 		self.new_data = raw_data
 		self.data_index = data_index
 		self.historical_index = historical_index
@@ -67,106 +89,122 @@ class Preprocessor():
 		if self.proc_type == 'training_data':
 			self.TrainingDataSetup()
 
-			#this sets up a batch of data for each processing thread so that all data is processed once
-			proc_length = math.ceil(self.data_index['datapoints'] / Preprocessor.thread_count)
-			proc_interval = []
-			proc_intervals = []
-			last_index = self.historical_data.index[-1]
-			for index in self.historical_data.index:
-				proc_interval.append(index)
-				if len(proc_interval) == proc_length or index == last_index:
-					proc_intervals.append(proc_interval)
-					proc_interval = []
+		#this sets up a batch of data for each processing thread so that all data is processed once
+		#the last thread is reserved for monitoring progress and does not receive a batch of data
+		proc_length = math.ceil(self.data_index['datapoints'] / (Preprocessor.thread_count - 1))
+		proc_interval = []
+		proc_intervals = []
+		last_index = self.initial_data.index[-1]
+		for index in self.initial_data.index:
+			proc_interval.append(index)
+			if len(proc_interval) == proc_length or index == last_index:
+				proc_intervals.append(proc_interval)
+				proc_interval = []
 
-			manager = Manager()
-			new_proc_data = manager.dict()
-			lock = Lock()
+		manager = Manager()
+		new_proc_data = manager.dict()
+		proc_status = manager.dict()
 
-			#uses proc_data_all in loop to set up each process for multithreading, order does not matter
-			#MULTIPROC SETUP
-			print("preping data..")
-			procs = []
-			for proc_num, proc_interval in enumerate(proc_intervals):
-				print(proc_num)
+		#uses proc_data_all in loop to set up each process for multithreading, order does not matter
+		#MULTIPROC SETUP
+		print("Preping Data...")
+		procs = []
+
+		#initializes the monitoring thread
+		proc_monitor = Process(target=self.ProcMonitor, args=(proc_status,))
+		procs.append(proc_monitor)
+		procs[0].start()
+		for proc_num, proc_interval in enumerate(proc_intervals):
+			if self.proc_type == 'training_data':
 				proc = Process(target=self.MultiprocTrainingSetup, args=(proc_interval, 
-																new_proc_data, 
-																lock,
-																proc_num,))
-				procs.append(proc)
-				proc.start()
-			#ends multithreaded processes
-			for proc in procs:
-				proc.join()
-			for proc_num, dataframe in new_proc_data.items():
-				self.new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
+																		new_proc_data,
+																		proc_status,
+																		proc_num,))
+			procs.append(proc)
+			proc.start()
+		#ends multithreaded processes
+		for proc in procs:
+			proc.join()
+		for proc_num, dataframe in new_proc_data.items():
+			self.new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
 
 
-			self.historical_data = self.new_data.copy()
+		self.initial_data = self.new_data.copy()
 
-			#wipes new_proc_data
-			new_proc_data = manager.dict()
+		#wipes new_proc_data and proc_status
+		new_proc_data = manager.dict()
+		proc_status = manager.dict()
 
-			print("preprocessing...")
-			#MULTIPROC FINAL
-			procs = []
-			for proc_num, proc_interval in enumerate(proc_intervals):
+		print("\nProcessing Data...")
+		#MULTIPROC FINAL
+		procs = []
+		#initializes the monitoring thread
+		proc_monitor = Process(target=self.ProcMonitor, args=(proc_status,))
+		procs.append(proc_monitor)
+		procs[0].start()
+		for proc_num, proc_interval in enumerate(proc_intervals):
+			if self.proc_type == 'training_data':
 				proc = Process(target=self.MultiprocTrainingFinal, args=(proc_interval, 
-																self.data_index['prediction_steps'],
-																new_proc_data,
-																lock,
-																proc_num,))
-				procs.append(proc)
-				proc.start()
-			#ends multithreaded processes
-			for proc in procs:
-				proc.join()
-			for proc_num, dataframe in new_proc_data.items():
-				self.new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
+																		self.data_index['prediction_steps'],
+																		new_proc_data,
+																		proc_status,
+																		proc_num,))
+			procs.append(proc)
+			proc.start()
+		#ends multithreaded processes
+		for proc in procs:
+			proc.join()
+		for proc_num, dataframe in new_proc_data.items():
+			self.new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
 
 
-			total_time = time.time() - init_time
-			print(f"Total Duration: {total_time}")
+		total_time = time.time() - init_time
+		print(f"\nTotal Duration: {total_time}")
 
-			#==============================================================
-			#Data Processor End
-			#==============================================================
-
-			print(self.new_data.head(150))
-
-			#normalization
-			'''
-			for col in self.new_data.columns:
-				if 'is_nan' not in col and 'trend' not in col:
-					print(self.new_data[col].values)
-					self.new_data[col] = preprocessing.scale(self.new_data[col].values)
-			'''
+		print(self.new_data.head(150))
 
 		return self.new_data
 
 
+	def ProcMonitor(self, proc_status={}):
+		status = 0
+		while status < self.data_index['datapoints']:
+			if proc_status != {}:
+				self.PrintProgressBar(0, self.data_index['datapoints'], prefix = 'Progress:')
+				while status < self.data_index['datapoints']:
+					status = 0
+					for proc_num, count in proc_status.items():
+						status += count
+						time.sleep(0.1)
+					self.PrintProgressBar(status, self.data_index['datapoints'], prefix = 'Progress:')
 
-	def MultiprocTrainingSetup(self, proc_interval=[], proc_data=[], lock=0, proc_num=0):
+	def MultiprocTrainingSetup(self, proc_interval=[], proc_data={}, proc_status={}, proc_num=0):
 		count = 0
 		start = proc_interval[0]
 		end = proc_interval[-1]
-		historical_data = self.historical_data.loc[start:end, :]
-		new_data = historical_data.copy()
-		for index, row in historical_data.iterrows():
-			for col in historical_data.columns:
+		initial_data = self.initial_data.loc[start:end, :]
+		new_data = initial_data.copy()
+		for index, row in initial_data.iterrows():
+			for col in initial_data.columns:
 
 				if 'is_nan' in col:
 					if np.isnan(row[col]):
 						new_data.at[index, col] = 1 #is_nan = true
 
 				if 'average_price' in col:
-					low = historical_data.at[index, col.replace('average_price', 'price_low')]
-					high = historical_data.at[index, col.replace('average_price', 'price_high')]
+					low = initial_data.at[index, col.replace('average_price', 'price_low')]
+					high = initial_data.at[index, col.replace('average_price', 'price_high')]
 					average = (low + high) / 2
 					new_data.at[index, col] = average
+
+			if count % 1000 == 0:
+				proc_status[proc_num] = count
 			count += 1
+
+		proc_status[proc_num] = count
 		proc_data[proc_num] = new_data
 
-	def MultiprocTrainingFinal(self, proc_interval=[], prediction_steps=0, proc_data=[], lock=0, proc_num=0):
+	def MultiprocTrainingFinal(self, proc_interval=[], prediction_steps=0, proc_data={}, proc_status={}, proc_num=0):
 		if prediction_steps == 0:
 			print("database.MultiprocFinal argument, prediction_steps, cannot be 0")
 			raise
@@ -174,10 +212,11 @@ class Preprocessor():
 		start = proc_interval[0]
 		end = proc_interval[-1]
 		start = start - (prediction_steps * self.data_index['data_increment'])
-		historical_data = self.historical_data.loc[start:end, :]
-		new_data = historical_data.copy()
-		for index, row in historical_data.iterrows():
-			for col in historical_data.columns:
+		initial_data = self.initial_data.loc[start:end, :]
+		new_data = initial_data.copy()
+		count = 0
+		for index, row in initial_data.iterrows():
+			for col in initial_data.columns:
 
 				if 'trend' in col:
 					trend_index = index - (prediction_steps * self.data_index['data_increment'])
@@ -185,8 +224,8 @@ class Preprocessor():
 						#this gathers all relevant points between current index and trend_index
 						average_col =  col.replace('trend', 'average_price')
 						is_nan_col = col.replace('trend', 'is_nan')
-						data = {'y_values': list(historical_data.loc[trend_index:index, average_col]),
-								'is_nan': list(historical_data.loc[trend_index:index, is_nan_col])}
+						data = {'y_values': list(initial_data.loc[trend_index:index, average_col]),
+								'is_nan': list(initial_data.loc[trend_index:index, is_nan_col])}
 						trend_data = pd.DataFrame(data)
 						#this drops all rows where is_nan == 1 
 						trend_data = trend_data[trend_data.is_nan == 0]#drops all is_nan==1 rows
@@ -212,24 +251,30 @@ class Preprocessor():
 						#slope
 						m = (xy_sum - (x_sum*y_sum)/n)/(x_sqr_sum - x_sum_sqr/n)
 						new_data.at[trend_index, col] = m
+
+			if count % 1000 == 0:
+				proc_status[proc_num] = count
+			count += 1
+
+		proc_status[proc_num] = count
 		proc_data[proc_num] = new_data
 
 
 
 	def TrainingDataSetup(self):
 		'''
-		This function preps self.raw_data in the format {'BTC': bitcoin_historical_data, ...}
-		by consolidating it to the same self.historical_data pandas array with coin specific 
+		This function preps self.raw_data in the format {'BTC': bitcoin_initial_data, ...}
+		by consolidating it to the same self.initial_data pandas array with coin specific 
 		columns being prefaced with f"{coin}|{col}" ex: "BTC_0|price_high" where the number after 
 		BTC is the order of currencies left to right. EX: [BTC_0 columns, ETH_1 columns, DASH_2 columns]
 		'''
 
 		#creates currency key list IN ORDER OF CURRENCIES, NETWORK WILL FAIL WITHOUT ORDER
 		#The second loop is needed to make sure each item is in order
-		#The currency key list gives us accurate, in-order calling of historical_data
+		#The currency key list gives us accurate, in-order calling of initial_data
 		currency_order = []
-		for order_num in range(0, len(self.historical_data)):
-			for key, dataset in self.historical_data.items():
+		for order_num in range(0, len(self.initial_data)):
+			for key, dataset in self.initial_data.items():
 				if str(order_num) in key:
 					currency_order.append(key)
 		
@@ -278,7 +323,7 @@ class Preprocessor():
 		#This finds the interval where data from all coins overlap
 		#If there is existing_data, the start_data is self.data_index['data_end']
 		#Else, the start time must be found.
-		#  It must be the most recent historical_data data_start of all coins
+		#  It must be the most recent initial_data data_start of all coins
 		start_time = 0
 		end_time = 0
 		for coin in currency_order:
@@ -291,7 +336,7 @@ class Preprocessor():
 				end_time = coin_end_time
 
 		#SORT OF IRRELAVENT COMMENT
-		#self.new_data is declared with the same columns as historical_data
+		#self.new_data is declared with the same columns as initial_data
 		# but has a NaN value for each cell at initialization. The index
 		# count is also made to reflect the total number of timesteps
 		# independent of any missing data starting at start_time
@@ -325,47 +370,47 @@ class Preprocessor():
 
 		for coin in currency_order:
 
-			#The following changes the index of historical_data to equal time_period_start
+			#The following changes the index of initial_data to equal time_period_start
 			#=============================================================================
 			#=============================================================================
 			#converts time_period_start column (soon to be index) to int
-			self.historical_data[coin].time_period_start = self.historical_data[coin].time_period_start.astype(int)
+			self.initial_data[coin].time_period_start = self.initial_data[coin].time_period_start.astype(int)
 			
 			#sets the index to the time_period_start column and drops time_period_start
-			self.historical_data[coin] = self.historical_data[coin].set_index('time_period_start', drop=False)
+			self.initial_data[coin] = self.initial_data[coin].set_index('time_period_start', drop=False)
 
-			#adds self.data_index['currency_columns'] to historical_data if not already included
+			#adds self.data_index['currency_columns'] to initial_data if not already included
 			for col in self.data_index['currency_columns']:
-				if col not in self.historical_data[coin].columns:
-					self.historical_data[coin][col] = np.nan
+				if col not in self.initial_data[coin].columns:
+					self.initial_data[coin][col] = np.nan
 			
-			#this drops all unused columns in local historical_data variable
+			#this drops all unused columns in local initial_data variable
 			# so that training_data does not have it
 			drop_columns = []
-			for col in self.historical_data[coin].columns:
+			for col in self.initial_data[coin].columns:
 				if col not in self.data_index['currency_columns']:
 					drop_columns.append(col)
-			self.historical_data[coin] = self.historical_data[coin].drop(columns=drop_columns)
+			self.initial_data[coin] = self.initial_data[coin].drop(columns=drop_columns)
 
-			#renames columns in local historical_data variable to match training_data
+			#renames columns in local initial_data variable to match training_data
 			new_columns = {}
-			for col in self.historical_data[coin].columns:
+			for col in self.initial_data[coin].columns:
 				new_columns.update({col: f"{coin}|{col}"})
-			self.historical_data[coin] = self.historical_data[coin].rename(columns=new_columns)
+			self.initial_data[coin] = self.initial_data[coin].rename(columns=new_columns)
 
-			for col in self.historical_data[coin].columns:
-				#BEFORE adding historical_data to self.new_data, this sets all historical_data is_nan to False (0)
+			for col in self.initial_data[coin].columns:
+				#BEFORE adding initial_data to self.new_data, this sets all initial_data is_nan to False (0)
 				#Additionally, all self.new_data is_nan is set to True (1)
 				#That way, when merged,self.new_data will start with False and only datapoints 
 				#  with data will be set to True
 				if 'is_nan' in col:
 					self.new_data[col] = 1 #True, is_nan
-					self.historical_data[coin][col] = 0 #False, not is_nan
+					self.initial_data[coin][col] = 0 #False, not is_nan
 
-				#adds values to self.new_data from historical_data
-				self.new_data.loc[:, col] = self.historical_data[coin].loc[:, col]
+				#adds values to self.new_data from initial_data
+				self.new_data.loc[:, col] = self.initial_data[coin].loc[:, col]
 
 
 		#self.new_data = self.new_data.head(300)
 		#total_datapoints = 300
-		self.historical_data = self.new_data.copy()
+		self.initial_data = self.new_data.copy()

@@ -548,6 +548,14 @@ class Database():
 		#updates training_index file
 		self.UpdateTrainingIndex()
 
+		#normalization
+		'''
+		for col in self.new_data.columns:
+			if 'is_nan' not in col and 'trend' not in col:
+				print(self.new_data[col].values)
+				self.new_data[col] = preprocessing.scale(self.new_data[col].values)
+		'''
+
 		#This saves self.new_data to the f"{symbol_id}.csv" file
 		#self.new_data.to_csv(index_item['filepath'], index=False)
 
