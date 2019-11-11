@@ -3,10 +3,20 @@
         "filepath": "database/training_data/KRAKEN/KRAKEN_USD_100_BTC.csv",
         "exchange_id": "KRAKEN",
         "asset_id_quote": "USD",
+        "data_increment": 300,
         "prediction_steps": 100,
         "currencies": {
             "BTC_0": "KRAKEN_SPOT_BTC_USD.csv"
         },
+        "currency_columns": [
+            "price_high",
+            "price_low",
+            "average_price",
+            "trades_count",
+            "volume_traded",
+            "is_nan",
+            "trend"
+        ],
         "density": {},
         "datapoints": 0,
         "data_start": "1970-01-02T00:01:40.0000000Z",

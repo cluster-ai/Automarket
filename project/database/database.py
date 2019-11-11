@@ -6,40 +6,30 @@ import time
 import datetime
 
 import database.coin_api as coin_api
-import database.preprocess as preprocess
-
-from sklearn import preprocessing
-
-import multiprocessing
-
-from multiprocessing import Process, Value, Lock, Manager
-from collections import deque
+import database.preprocessor as preprocessor
 
 import pandas as pd
 import numpy as np
-
-import math
-
-import matplotlib.pyplot as plt
 
 class Database():
 	def __init__(self):
 		print('----------------------------------------------------')
 		print('Initializing Program')
 		print('----------------------------------------------------')
+
+		#loads config.json
+		self.config_path = 'database/config.json'
+		with open(self.config_path) as file:
+			self.config = json.load(file)
+
 		self.coin_api = coin_api.CoinAPI()
-		self.preprocess = preprocess.Preprocess()
+		self.preprocessor = preprocessor.Preprocessor(self.config)
 		self.historical_base_path = "database/historical_data/"
 		self.historical_index_path = f"{self.historical_base_path}historical_index.json"
 		self.training_base_path = "database/training_data/"
 		self.training_index_path = f"{self.training_base_path}training_index.json"
 		self.handbook_path = f'{self.historical_base_path}handbook.json'
-		self.config_path = 'database/config.json'
-		self.data_increment = 300 #5 minute data increment
-
-		#loads config.json
-		with open(self.config_path) as file:
-			self.config = json.load(file)
+		self.data_increment = 300 #5 minute data increment in seconds
 
 
 		#for self.next_update, the '- 36000' is for my current timezone relative to unix (HST)
@@ -168,6 +158,7 @@ class Database():
 									  'symbol_id',
 									  'exchange_id',
 									  'symbol_type',
+									  'data_increment',
 									  'asset_id_base',
 									  'asset_id_quote',
 									  'datapoints',
@@ -216,6 +207,8 @@ class Database():
 							coin_data[coin_data_filename].update({key: item[key]})
 						elif key == 'symbol_type':
 							coin_data[coin_data_filename].update({key: item[key]})
+						elif key == 'data_increment':
+							coin_data[coin_data_filename].update({key: self.data_increment})
 						elif key == 'asset_id_base':
 							coin_data[coin_data_filename].update({key: item[key]})
 						elif key == 'asset_id_quote':
@@ -280,7 +273,7 @@ class Database():
 				#this query data are used as parameters for the api request
 				queries = {'time_start': backfill_item['data_end'],
 						   'limit': limit_per_request,
-						   'period_id': self.FindPeriodId(self.data_increment)}
+						   'period_id': self.FindPeriodId(backfill_item['data_increment'])}
 
 				print(queries)
 
@@ -492,21 +485,21 @@ class Database():
 		return training_data
 
 
-	def __LoadTrainingData(self, filename_param):
+	def __LoadTrainingData(self, index_filename):
 		'''
 		This function updates the dataset associated to the given 
-		index identified by filename_param
+		index identified by index_filename
 
 		Every time this function is called. The dataset is completely reprocessed
 		'''
-
-		#verifies existance of given training_index key (filename_param)
-		if filename_param not in self.training_index:
-			print(f'Invalid filename "{filename_param}", database.__LoadTrainingData()')
+		
+		#verifies existance of given training_index key (index_filename)
+		if index_filename not in self.training_index:
+			print(f'Invalid filename "{index_filename}", database.__LoadTrainingData()')
 			raise
 
 		#loads contents of training_data index that will be updated
-		index_item = self.training_index[filename_param]
+		index_item = self.training_index[index_filename]
 
 		#generates the data file and enchange_id dir if it doesnt exist
 		exchange_path = self.training_base_path+index_item['exchange_id']
@@ -517,28 +510,14 @@ class Database():
 			open(index_item['filepath'], 'w')
 			print('Generating', index_item['filepath'])
 
-		#==============================================================
-		#Initializes column and historical_data for processing
-		#==============================================================
-
-		#These are all the columns that each currency has their own copy of
-		#time_period_start is the first column by default and so not included
-		used_columns = ['price_high',
-						'price_low',
-						'average_price',
-						'trades_count',
-						'volume_traded',
-						'is_nan',
-						'trend']
-						#if this is changed, a training_data reset is required
 
 		#Goes through currencies and loads historical data into historical_data var
-		#index_item['currencies'] format example:
+		#self.index_item['currencies'] format example:
 		#"currencies:" : {
 		#	"BTC_0" : "KRAKEN_SPOT_BTC_USD.csv",
 		#	"ETH_1" : "KRAKEN_SPOT_ETH_USD.csv"						
 		#}
-		self.historical_data = {}
+		historical_data = {}
 		#this verifies that all currencies are being tracked
 		for key, filename in index_item['currencies'].items():
 			match = False
@@ -548,317 +527,31 @@ class Database():
 
 			if match == True:
 				#creates a dictionary of historical_data using coin name (ex: {"BTC": bitcoin_data, ...})
-				self.historical_data.update({key: self.LoadHistoricalData(filename)})
+				historical_data.update({key: self.LoadHistoricalData(filename)})
 			else:
 				print(f"Untracked currency in {filename}")
 				raise
-
-		#creates currency key list IN ORDER OF CURRENCIES, NETWORK WILL FAIL WITHOUT ORDER
-		#The second loop is needed to make sure each item is in order
-		#The currency key list gives us accurate, in-order calling of historical_data
-		currency_order = []
-		for order_num in range(0, len(self.historical_data)):
-			for key, dataset in self.historical_data.items():
-				if str(order_num) in key:
-					currency_order.append(key)
 		
-		#Generates list of columns in order of currency_order
-		# starting with time_period_start
-		columns = ['time_period_start']
-		for coin in currency_order:
-			for col in used_columns:
-				columns.append(f"{coin}|{col}")
 
-		#loads existing data if any
-		existing_data = pd.DataFrame()
-		try:
-			existing_data = pd.read_csv(index_item['filepath'])
+		#initializes an instance of proprocessor
+		proc = preprocessor.Preprocessor()
+		#processes training_data
+		new_data = proc.Process(proc_type='training_data', 
+								raw_data=historical_data, 
+								data_index=index_item,
+								historical_index=self.historical_index)
+		#loads new index from proc
+		index_item = proc.data_index
+		#updates training_index in memory
+		self.training_index[index_filename] = index_item
 
-			#verifies that existing_data is not missing_columns
-			'''
-			missing_columns = []
-			for col in columns:
-				if col not in existing_data.columns:
-					missing_columns.append(col)
-			if len(missing_columns) > 0:
-				print('Existing data on', index_item['filename'], 'is missing columns:')
-				print(missing_columns)
-				raise
-			#there cannot be extra columns from here on
-			extra_columns = len(existing_data.columns) - len(columns)
-			if extra_columns > 0:
-				print(extra_columns, 'Extra Columns Found')
-				raise
-			'''
-		except:
-			existing_data = pd.DataFrame(columns=columns)
-
-
-		#returns data if the data is up to date
-		matches = 0
-		for coin in currency_order:
-			coin_index = self.historical_index[index_item['currencies'][coin]]
-			if index_item['data_end'] == coin_index['data_end']:
-				matches += 1
-		if matches == len(currency_order):
-			print('training_data up to date')
-			print(existing_data.head(10))
-			return existing_data
-
-
-		#This finds the interval where data from all coins overlap
-		#If there is existing_data, the start_data is index_item['data_end']
-		#Else, the start time must be found.
-		#  It must be the most recent historical_data data_start of all coins
-		start_time = 0
-		end_time = 0
-		for coin in currency_order:
-			coin_index = self.historical_index[index_item['currencies'][coin]]
-			coin_start_time = self.SetDateToUnix(coin_index['data_start'])
-			coin_end_time = self.SetDateToUnix(coin_index['data_end'])
-			if coin_start_time > start_time:
-				start_time = coin_start_time
-			if coin_end_time < end_time or end_time == 0:
-				end_time = coin_end_time
-
-
-		#SORT OF IRRELAVENT COMMENT
-		#New_data is declared with the same columns as historical_data
-		# but has a NaN value for each cell at initialization. The index
-		# count is also made to reflect the total number of timesteps
-		# independent of any missing data starting at start_time
-		total_datapoints = int(end_time - start_time) / self.data_increment
-		if total_datapoints - int(total_datapoints) != 0:
-			print('data_increment calculation error, database.__LoadTrainingData()')
-		else:
-			#this gets rid of .0 at the end of number so further calculations with
-			#it are not considered floating points
-			total_datapoints = int(total_datapoints)
-
-
-		#init_index is a list with length total_datapoints
-		#Initializing the new_data with values increases compute time
-		# by several orders of magnitude because all the memory addresses 
-		# needed for the list have been registered before the loop rather
-		# than during each iteration of it.
-		init_index = []
-		for x in range(total_datapoints):
-			time_increment = int(x * self.data_increment + start_time)
-			init_index.append(time_increment)
-		new_data = pd.DataFrame(columns=columns, index=init_index)
-		new_data.time_period_start = new_data.index
-
-		#==============================================================
-		#Data Processor
-		#==============================================================
-
-		for coin in currency_order:
-
-			#The following changes the index of historical_data to equal time_period_start
-			#=============================================================================
-			#=============================================================================
-			#converts time_period_start column (soon to be index) to int
-			self.historical_data[coin].time_period_start = self.historical_data[coin].time_period_start.astype(int)
-			
-			#sets the index to the time_period_start column and drops time_period_start
-			self.historical_data[coin] = self.historical_data[coin].set_index('time_period_start', drop=False)
-
-			#adds used_columns to historical_data if not already included
-			for col in used_columns:
-				if col not in self.historical_data[coin].columns:
-					self.historical_data[coin][col] = np.nan
-			
-			#this drops all unused columns in local historical_data variable
-			# so that training_data does not have it
-			drop_columns = []
-			for col in self.historical_data[coin].columns:
-				if col not in used_columns:
-					drop_columns.append(col)
-			self.historical_data[coin] = self.historical_data[coin].drop(columns=drop_columns)
-
-			#renames columns in local historical_data variable to match training_data
-			new_columns = {}
-			for col in self.historical_data[coin].columns:
-				new_columns.update({col: f"{coin}|{col}"})
-			self.historical_data[coin] = self.historical_data[coin].rename(columns=new_columns)
-
-			for col in self.historical_data[coin].columns:
-				#BEFORE adding historical_data to new_data, this sets all historical_data is_nan to False (0)
-				#Additionally, all new_data is_nan is set to True (1)
-				#That way, when merged, new_data will start with False and only datapoints 
-				#  with data will be set to True
-				if 'is_nan' in col:
-					new_data[col] = 1 #True, is_nan
-					self.historical_data[coin][col] = 0 #False, not is_nan
-
-				#adds values to new_data from historical_data
-				new_data.loc[:, col] = self.historical_data[coin].loc[:, col]
-
-
-		#new_data = new_data.head(300)
-		#total_datapoints = 300
-		self.historical_data = new_data.copy()
-	
-		#used to calculate time delay between iterations of following loop
-		init_time = time.time()
-
-		#this sets up a batch of data for each processing thread so that all data is processed once
-		proc_length = math.ceil(total_datapoints / multiprocessing.cpu_count())
-		proc_interval = []
-		proc_intervals = []
-		last_index = self.historical_data.index[-1]
-		for index in self.historical_data.index:
-			proc_interval.append(index)
-			if len(proc_interval) == proc_length or index == last_index:
-				proc_intervals.append(proc_interval)
-				proc_interval = []
-
-		manager = Manager()
-		new_proc_data = manager.dict()
-		lock = Lock()
-
-		#uses proc_data_all in loop to set up each process for multithreading, order does not matter
-		#MULTIPROC SETUP
-		print("preping data..")
-		procs = []
-		for proc_num, proc_interval in enumerate(proc_intervals):
-			print(proc_num)
-			proc = Process(target=self.MultiprocSetup, args=(proc_interval, 
-															new_proc_data, 
-															lock,
-															proc_num,))
-			procs.append(proc)
-			proc.start()
-		#ends multithreaded processes
-		for proc in procs:
-			proc.join()
-		for proc_num, dataframe in new_proc_data.items():
-			new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
-
-
-		self.historical_data = new_data.copy()
-
-		#wipes new_proc_data
-		new_proc_data = manager.dict()
-
-		print("preprocessing...")
-		#MULTIPROC FINAL
-		procs = []
-		for proc_num, proc_interval in enumerate(proc_intervals):
-			proc = Process(target=self.MultiprocFinal, args=(proc_interval, 
-															index_item['prediction_steps'],
-															new_proc_data,
-															lock,
-															proc_num,))
-			procs.append(proc)
-			proc.start()
-		#ends multithreaded processes
-		for proc in procs:
-			proc.join()
-		for proc_num, dataframe in new_proc_data.items():
-			new_data.loc[proc_intervals[proc_num], :] = dataframe.loc[proc_intervals[proc_num], :]
-
-
-		total_time = time.time() - init_time
-		print(f"Total Duration: {total_time}")
-
-		#==============================================================
-		#Data Processor End
-		#==============================================================
-
-		print(new_data.head(150))
-
-		#normalization
-		'''
-		for col in new_data.columns:
-			if 'is_nan' not in col and 'trend' not in col:
-				print(new_data[col].values)
-				new_data[col] = preprocessing.scale(new_data[col].values)
-		'''
-
-		#updates local index variable on new data
-		index_item['datapoints'] = total_datapoints
-		index_item['data_start'] = self.SetUnixToDate(start_time)
-		index_item['data_end'] = self.SetUnixToDate(end_time)
-
-		#updates training_index with newly updated local index_item data
-		# and saves it to file
-		self.training_index[filename_param] = index_item
+		#updates training_index file
 		self.UpdateTrainingIndex()
 
-		#This saves new_data to the f"{symbol_id}.csv" file
-		#new_data.to_csv(index_item['filepath'], index=False)
+		#This saves self.new_data to the f"{symbol_id}.csv" file
+		#self.new_data.to_csv(index_item['filepath'], index=False)
 
 		return new_data
-
-	def MultiprocSetup(self, proc_interval=[], proc_data=[], lock=0, proc_num=0):
-		count = 0
-		start = proc_interval[0]
-		end = proc_interval[-1]
-		historical_data = self.historical_data.loc[start:end, :]
-		new_data = historical_data.copy()
-		for index, row in historical_data.iterrows():
-			for col in historical_data.columns:
-
-				if 'is_nan' in col:
-					if np.isnan(row[col]):
-						new_data.at[index, col] = 1 #is_nan = true
-
-				if 'average_price' in col:
-					low = self.historical_data.at[index, col.replace('average_price', 'price_low')]
-					high = self.historical_data.at[index, col.replace('average_price', 'price_high')]
-					average = (low + high) / 2
-					new_data.at[index, col] = average
-			count += 1
-		proc_data[proc_num] = new_data
-
-	def MultiprocFinal(self, proc_interval=[], prediction_steps=0, proc_data=[], lock=0, proc_num=0):
-		if prediction_steps == 0:
-			print("database.MultiprocFinal argument, prediction_steps, cannot be 0")
-			raise
-
-		start = proc_interval[0]
-		end = proc_interval[-1]
-		start = start - (prediction_steps * self.data_increment)
-		historical_data = self.historical_data.loc[start:end, :]
-		new_data = historical_data.copy()
-		for index, row in historical_data.iterrows():
-			for col in historical_data.columns:
-
-				if 'trend' in col:
-					trend_index = index - (prediction_steps * self.data_increment)
-					if trend_index in proc_interval:
-						#this gathers all relevant points between current index and trend_index
-						average_col =  col.replace('trend', 'average_price')
-						is_nan_col = col.replace('trend', 'is_nan')
-						data = {'y_values': list(historical_data.loc[trend_index:index, average_col]),
-								'is_nan': list(historical_data.loc[trend_index:index, is_nan_col])}
-						trend_data = pd.DataFrame(data)
-						#this drops all rows where is_nan == 1 
-						trend_data = trend_data[trend_data.is_nan == 0]#drops all is_nan==1 rows
-
-						n = len(trend_data.index)
-						data_density = n / prediction_steps
-						if data_density < .1:
-							new_data.at[trend_index, col] = np.nan
-							data_density = n / prediction_steps
-							#print(f'{data_density}%')
-							continue
-
-						x_values = np.array(trend_data.index)
-						y_values = np.array(trend_data['y_values'])
-						#components
-						x_mean = np.mean(x_values, dtype=np.float64)
-						y_mean = np.mean(y_values, dtype=np.float64)
-						x_sum = np.sum(x_values)
-						y_sum = np.sum(y_values)
-						xy_sum = np.sum((x_values*y_values))
-						x_sqr_sum = np.sum((x_values**2))
-						x_sum_sqr = np.sum(x_values) ** 2
-						#slope
-						m = (xy_sum - (x_sum*y_sum)/n)/(x_sqr_sum - x_sum_sqr/n)
-						new_data.at[trend_index, col] = m
-		proc_data[proc_num] = new_data
 
 
 	def __AddTrainingIndex(self, exchange_id, prediction_steps, currencies):
@@ -898,12 +591,25 @@ class Database():
 		self.training_index_keys = ['filepath',
 									'exchange_id',
 									'asset_id_quote',
+									'data_increment',
 									'prediction_steps',
 									'currencies',
+									'currency_columns',
 									'density',
 									'datapoints',
 									'data_start',
 									'data_end']
+
+		#These are all the columns that each currency has their own copy of
+		#time_period_start is the first column by default and so not included
+		currency_columns = ['price_high',
+						'price_low',
+						'average_price',
+						'trades_count',
+						'volume_traded',
+						'is_nan',
+						'trend']
+						#if this is changed, a training_data reset is required
 
 		if exchange_id not in self.config['tracked_exchanges']:
 			print(f"{exchange_id} not in self.config['tracked_exchanges'], database.__AddTrainingIndex()")
@@ -948,10 +654,14 @@ class Database():
 				index_item.update({key: exchange_id})
 			if key == 'asset_id_quote':
 				index_item.update({key: self.config['asset_id_quote']})
+			if key == 'data_increment':
+				index_item.update({key: self.data_increment})
 			if key == 'prediction_steps':
 				index_item.update({key: prediction_steps})
 			if key == 'currencies':
 				index_item.update({key: formatted_currencies})
+			if key == 'currency_columns':
+				index_item.update({key: currency_columns})
 			if key == 'density':
 				index_item.update({key: {}})
 			if key == 'datapoints':
