@@ -6,6 +6,7 @@ import time
 import datetime
 
 import database.coin_api as coin_api
+import database.preprocess as preprocess
 
 from sklearn import preprocessing
 
@@ -27,6 +28,7 @@ class Database():
 		print('Initializing Program')
 		print('----------------------------------------------------')
 		self.coin_api = coin_api.CoinAPI()
+		self.preprocess = preprocess.Preprocess()
 		self.historical_base_path = "database/historical_data/"
 		self.historical_index_path = f"{self.historical_base_path}historical_index.json"
 		self.training_base_path = "database/training_data/"
@@ -760,6 +762,10 @@ class Database():
 		total_time = time.time() - init_time
 		print(f"Total Duration: {total_time}")
 
+		#==============================================================
+		#Data Processor End
+		#==============================================================
+
 		print(new_data.head(150))
 
 		#normalization
@@ -813,7 +819,6 @@ class Database():
 
 		start = proc_interval[0]
 		end = proc_interval[-1]
-		print(start)
 		start = start - (prediction_steps * self.data_increment)
 		historical_data = self.historical_data.loc[start:end, :]
 		new_data = historical_data.copy()
