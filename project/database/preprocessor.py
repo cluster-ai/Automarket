@@ -38,7 +38,7 @@ class Preprocessor():
 		unix = unix.timestamp() - 36000#sets it to UTC
 		return unix
 
-	def PrintProgressBar(self, iteration, total, prefix = '', suffix = '', decimals = 1, length = 50, 
+	def PrintProgressBar(self, iteration, total, prefix = '', suffix = '', decimals = 1, length = 49, 
 																				fill = '/', printEnd = "\r"):
 		'''
 		Call in a loop to create terminal progress bar
@@ -78,7 +78,7 @@ class Preprocessor():
 
 		self.proc_type = proc_type
 		self.initial_data = raw_data
-		self.new_data = raw_data
+		self.new_data = self.initial_data
 		self.data_index = data_index
 		self.historical_index = historical_index
 
@@ -89,17 +89,31 @@ class Preprocessor():
 		if self.proc_type == 'training_data':
 			self.TrainingDataSetup()
 
+
 		#this sets up a batch of data for each processing thread so that all data is processed once
 		#the last thread is reserved for monitoring progress and does not receive a batch of data
-		proc_length = math.ceil(self.data_index['datapoints'] / (Preprocessor.thread_count - 1))
-		proc_interval = []
+		proc_threads = Preprocessor.thread_count - 1
+		proc_length = math.ceil(self.data_index['datapoints'] / proc_threads)
 		proc_intervals = []
 		last_index = self.initial_data.index[-1]
-		for index in self.initial_data.index:
-			proc_interval.append(index)
-			if len(proc_interval) == proc_length or index == last_index:
-				proc_intervals.append(proc_interval)
-				proc_interval = []
+		start_index = 0
+		for thread in range(proc_threads):
+			end_index = start_index + proc_length
+			custom_start = start_index - self.data_index['prediction_steps']
+
+			if thread == 0:
+				proc_intervals.append(self.initial_data.index[start_index:end_index])
+			elif thread == proc_threads-1:
+				end_index = self.initial_data.index[-1]
+				#by default python array slicing ignores last point so add one index value worth
+				proc_intervals.append(self.initial_data.index[custom_start:end_index])
+			elif custom_start < 0:
+				custom_start = 0
+				proc_intervals.append(self.initial_data.index[custom_start:end_index])
+			else:
+				proc_intervals.append(self.initial_data.index[custom_start:end_index])
+
+			start_index = end_index
 
 		manager = Manager()
 		new_proc_data = manager.dict()
@@ -120,8 +134,9 @@ class Preprocessor():
 																		new_proc_data,
 																		proc_status,
 																		proc_num,))
-			procs.append(proc)
-			proc.start()
+				procs.append(proc)
+				proc.start()
+
 		#ends multithreaded processes
 		for proc in procs:
 			proc.join()
@@ -161,7 +176,7 @@ class Preprocessor():
 		total_time = time.time() - init_time
 		print(f"\nTotal Duration: {total_time}")
 
-		print(self.new_data.head(150))
+		print(self.new_data.head(30))
 
 		return self.new_data
 
@@ -170,13 +185,15 @@ class Preprocessor():
 		status = 0
 		while status < self.data_index['datapoints']:
 			if proc_status != {}:
-				self.PrintProgressBar(0, self.data_index['datapoints'], prefix = 'Progress:')
+				self.PrintProgressBar(0, self.data_index['datapoints'])
 				while status < self.data_index['datapoints']:
 					status = 0
 					for proc_num, count in proc_status.items():
 						status += count
-						time.sleep(0.1)
-					self.PrintProgressBar(status, self.data_index['datapoints'], prefix = 'Progress:')
+						time.sleep(0.05)
+					if status > self.data_index['datapoints']:
+						status = self.data_index['datapoints']
+					self.PrintProgressBar(status, self.data_index['datapoints'])
 
 	def MultiprocTrainingSetup(self, proc_interval=[], proc_data={}, proc_status={}, proc_num=0):
 		count = 0

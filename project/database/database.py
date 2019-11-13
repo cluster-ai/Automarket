@@ -471,6 +471,7 @@ class Database():
 
 		training_data = self.__LoadTrainingData(matched_filename)
 
+		'''
 		#puts all trend data in x and all other data in y
 		x = training_data.copy()
 		y = training_data.copy()
@@ -481,6 +482,7 @@ class Database():
 				y = y.drop(columns=[col])
 
 		training_data = {'x': x, 'y': y}
+		'''
 
 		return training_data
 
@@ -532,7 +534,6 @@ class Database():
 				print(f"Untracked currency in {filename}")
 				raise
 		
-
 		#initializes an instance of proprocessor
 		proc = preprocessor.Preprocessor()
 		#processes training_data
@@ -557,7 +558,7 @@ class Database():
 		'''
 
 		#This saves self.new_data to the f"{symbol_id}.csv" file
-		#self.new_data.to_csv(index_item['filepath'], index=False)
+		new_data.to_csv(index_item['filepath'], index=False)
 
 		return new_data
 
