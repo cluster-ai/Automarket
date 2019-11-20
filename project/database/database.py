@@ -8,6 +8,9 @@ import datetime
 import database.coin_api as coin_api
 import database.preprocessor as preprocessor
 
+from sklearn import preprocessing
+from sklearn.preprocessing import MinMaxScaler
+
 import pandas as pd
 import numpy as np
 
@@ -471,7 +474,32 @@ class Database():
 
 		training_data = self.__LoadTrainingData(matched_filename)
 
-		'''
+
+
+
+		training_data = training_data.drop(columns=['BTC_0|price_high', 
+													'BTC_0|price_low'])
+
+		#315360 datapoints in 3 years
+		training_data = training_data.tail(315360)
+
+		print(training_data.head(10))
+
+		#normalization
+		for col in training_data.columns:
+			if 'is_nan' not in col:#and 'trend' not in col:
+				values = training_data[col].values
+				values = values.reshape((len(training_data[col]), 1))
+				scaler = MinMaxScaler(feature_range=(-1,1))
+				#print(col, '| Min: %f, Max: %f' % (scaler.data_min_, scaler.data_max_))
+				normalized = np.squeeze(scaler.fit_transform(values))
+				training_data[col] = normalized
+				if 'trend' not in col:
+					training_data[col].fillna(0, inplace=True)
+
+		print(training_data.head(10))
+
+
 		#puts all trend data in x and all other data in y
 		x = training_data.copy()
 		y = training_data.copy()
@@ -482,7 +510,6 @@ class Database():
 				y = y.drop(columns=[col])
 
 		training_data = {'x': x, 'y': y}
-		'''
 
 		return training_data
 
@@ -533,14 +560,41 @@ class Database():
 			else:
 				print(f"Untracked currency in {filename}")
 				raise
-		
-		#initializes an instance of proprocessor
-		proc = preprocessor.Preprocessor()
-		#processes training_data
-		new_data = proc.Process(proc_type='training_data', 
-								raw_data=historical_data, 
-								data_index=index_item,
-								historical_index=self.historical_index)
+
+
+		off_sync_coins = []
+		regenerate_data = False
+		for coin_id, historical_key in index_item['currencies'].items():
+			coin_index = self.historical_index[historical_key]
+			
+			if coin_index['data_end'] != index_item['data_end']:
+				off_sync_coins.append(coin_id)
+
+		file_data = pd.DataFrame()
+		if len(off_sync_coins) == 0:
+			try:
+				file_data = pd.read_csv(index_item['filepath'])
+			except:
+				print('Failed to Load Content')
+				regenerate_data = True
+			else:
+				print('Loading Existing Content')
+				return file_data
+		else:
+			print(f'{off_sync_coins}\nThese coins are out of sync with historical_data')
+			print(f'Regenerating content')
+			regenerate_data = True
+
+		if regenerate_data == True:
+			#initializes an instance of proprocessor
+			proc = preprocessor.Preprocessor()
+			#processes training_data
+			new_data = proc.Process(proc_type='training_data', 
+									raw_data=historical_data, 
+									data_index=index_item,
+									historical_index=self.historical_index)
+
+
 		#loads new index from proc
 		index_item = proc.data_index
 		#updates training_index in memory
@@ -548,14 +602,6 @@ class Database():
 
 		#updates training_index file
 		self.UpdateTrainingIndex()
-
-		#normalization
-		'''
-		for col in self.new_data.columns:
-			if 'is_nan' not in col and 'trend' not in col:
-				print(self.new_data[col].values)
-				self.new_data[col] = preprocessing.scale(self.new_data[col].values)
-		'''
 
 		#This saves self.new_data to the f"{symbol_id}.csv" file
 		new_data.to_csv(index_item['filepath'], index=False)

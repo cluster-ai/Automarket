@@ -3,8 +3,6 @@ import time
 import datetime
 from multiprocessing import Process, Manager, Value
 
-from sklearn import preprocessing
-
 import multiprocessing
 
 from multiprocessing import Process, Value, Lock, Manager
@@ -87,7 +85,7 @@ class Preprocessor():
 
 
 		if self.proc_type == 'training_data':
-			self.TrainingDataSetup()
+			self.InitTrainingData()
 
 
 		#this sets up a batch of data for each processing thread so that all data is processed once
@@ -278,7 +276,7 @@ class Preprocessor():
 
 
 
-	def TrainingDataSetup(self):
+	def InitTrainingData(self):
 		'''
 		This function preps self.raw_data in the format {'BTC': bitcoin_initial_data, ...}
 		by consolidating it to the same self.initial_data pandas array with coin specific 
@@ -301,41 +299,6 @@ class Preprocessor():
 		for coin in currency_order:
 			for col in self.data_index['currency_columns']:
 				columns.append(f"{coin}|{col}")
-
-		#loads existing data if any
-		existing_data = pd.DataFrame()
-		try:
-			existing_data = pd.read_csv(self.data_index['filepath'])
-
-			#verifies that existing_data is not missing_columns
-			'''
-			missing_columns = []
-			for col in columns:
-				if col not in existing_data.columns:
-					missing_columns.append(col)
-			if len(missing_columns) > 0:
-				print('Existing data on', self.data_index['filename'], 'is missing columns:')
-				print(missing_columns)
-				raise
-			#there cannot be extra columns from here on
-			extra_columns = len(existing_data.columns) - len(columns)
-			if extra_columns > 0:
-				print(extra_columns, 'Extra Columns Found')
-				raise
-			'''
-		except:
-			existing_data = pd.DataFrame(columns=columns)
-
-		#returns data if the data is up to date
-		matches = 0
-		for coin in currency_order:
-			coin_index = self.historical_index[self.data_index['currencies'][coin]]
-			if self.data_index['data_end'] == coin_index['data_end']:
-				matches += 1
-		if matches == len(currency_order):
-			print('training_data up to date')
-			print(existing_data.head(10))
-			return existing_data
 
 		#This finds the interval where data from all coins overlap
 		#If there is existing_data, the start_data is self.data_index['data_end']

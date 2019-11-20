@@ -33,8 +33,17 @@
 - if an empty dictionary is passed to coin_api.CheckForKey(), particularly in coin_api.FilterJson() then the function may crash
 
 - I ran a backfill on XRP for the most recent data at 9:13 but it gave me data for 9:15, MAKE SURE the data is not partial for that time period (I think they just send what they have so far instead of waiting for the full period to elapse)
+
+- a system to monitor each coins data_end value so that only training_data files are only created when all included coins have the same data_end value and it is equivalent to the historical_data end value.
+
+
+
+
+
 ///EFFICIENCY GAINS///
 
 - training_index and historical_index start with an empty dictionary at startup within database.__InitHistoricalDir() and database.__InitTrainingDir(). It then loads all tracked exchanges regardless of whether or not we hae that data already. It finally loads all **_index.json files and overwrites any items that were created at initialization.
 
 - there are multiple copies of the SetDateToUnix and SetUnixToDate functions. They need to be consolidated to one spot somhow
+
+- a system to monitor each coins data_end value so that only training_data files are only created when all included coins have the same data_end value and it is equivalent to the historical_data end value.
