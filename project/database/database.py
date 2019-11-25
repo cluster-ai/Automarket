@@ -487,7 +487,7 @@ class Database():
 
 		#normalization
 		for col in training_data.columns:
-			if 'is_nan' not in col:#and 'trend' not in col:
+			if 'is_nan' not in col:
 				values = training_data[col].values
 				values = values.reshape((len(training_data[col]), 1))
 				scaler = MinMaxScaler(feature_range=(-1,1))
@@ -500,7 +500,7 @@ class Database():
 		print(training_data.head(10))
 
 
-		#puts all trend data in x and all other data in y
+		#puts all target data in y and all input data in x
 		x = training_data.copy()
 		y = training_data.copy()
 		for col in training_data.columns:
@@ -658,12 +658,12 @@ class Database():
 		#These are all the columns that each currency has their own copy of
 		#time_period_start is the first column by default and so not included
 		currency_columns = ['price_high',
-						'price_low',
-						'average_price',
-						'trades_count',
-						'volume_traded',
-						'is_nan',
-						'trend']
+							'price_low',
+							'average_price',
+							'trades_count',
+							'volume_traded',
+							'is_nan',
+							'trend']
 						#if this is changed, a training_data reset is required
 
 		if exchange_id not in self.config['tracked_exchanges']:

@@ -7,6 +7,12 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout, BatchNormalization
 
+import matplotlib.pyplot as plt
+
+from scipy.stats import norm
+from scipy.optimize import curve_fit
+
+
 import time
 
 import random
@@ -67,7 +73,7 @@ class NeuralNet():
 		self.test_data_x = self.training_data['x'].tail(self.test_datapoints)
 		self.test_data_y = self.training_data['y'].tail(self.test_datapoints)
 
-		self.data_cap = self.GenerateSequences(cap_multiplier=.5)
+		self.GenerateSequences(cap_multiplier=.5)
 
 		self.TrainNetwork()
 
@@ -100,7 +106,18 @@ class NeuralNet():
 		return estimated_index
 
 
-	def GenerateSequences(self, map_resolution=1000, cap_multiplier=1):
+	def InverseFunc(self, x, a, b):
+		return abs(a/np.add(x, b))
+
+
+	def BellFunc(self, x, a, b):
+		return a*np.exp(-np.power(np.subtract(x, self.midpoint), 2)/b)
+
+	def Func(self, x, a, b):
+		return np.exp(np.multiply(np.power(np.subtract(x, 0), a), b))+1170#2000 = 1170
+
+
+	def GenerateSequences(self, map_resolution=100, cap_multiplier=1):
 		#The data trend values are not evenly distributed across all its relative values
 		#EX:
 		#	Even distribution: [-1,3,0,2,-2,-3,1] (equal numbers of each between -3 and 3)
@@ -132,7 +149,6 @@ class NeuralNet():
 		for x in range(map_resolution):
 			new_min = prev_value
 			if x+1 == map_resolution:
-				print('FLAG')
 				new_max = max_trend
 			else:
 				new_max = prev_value + increment
@@ -177,9 +193,44 @@ class NeuralNet():
 			qty_total += qty
 			print(item)
 
-			percent_left = qty_total/(self.train_datapoints-isnan)
+		############################################################
+		###Grapher
 
-		print('data_cap:', data_cap, "||", "percent_left:", percent_left*100)
+		x = []
+		y = []
+
+		count = 0
+		for index, val in enumerate(balance_map):
+			x.append(index)
+			y.append(val['quantity'])
+
+		self.midpoint =  x[y.index(max(y))]
+		
+		x = []
+		y = []
+		for index, val in enumerate(balance_map):
+			if index <= self.midpoint and val['quantity'] > 1000:
+				x.append(index)
+				y.append(val['quantity'])
+
+		params, params_covariance = curve_fit(self.Func, x, y, method='lm')
+
+		print(f'parameters: {params}')
+
+		error = abs(np.subtract(y, self.Func(x, params[0], params[1]))) / y
+		error = np.sum(error) / len(x) * 100
+
+		print(f'Percent Error: {error}')
+
+		plt.plot(x, y)
+
+		data_x = np.linspace(x[0], x[-1], 100)
+		data = self.Func(data_x, params[0], params[1])
+		plt.plot(data_x, data)
+
+		plt.show()
+
+		var = input('>>>')
 
 
 		############################################################
@@ -190,7 +241,6 @@ class NeuralNet():
 		count = 0
 		prev_days = deque(maxlen=self.SEQ_LEN)
 		trend_nan_count = 0
-		print(len(self.train_data_x) * percent_left)
 		for index, row in self.train_data_x.iterrows():
 			prev_days.append([n for n in row])
 
@@ -216,21 +266,11 @@ class NeuralNet():
 		self.ys = []
 
 		for seq, target in self.training_batch:
-			map_index = self.EstimateMapIndex(target[0],
-												balance_map=balance_map,
-												map_resolution=map_resolution,
-												min_value=min_trend,
-												max_value=max_trend)
-
-			if tracking_map[map_index]['quantity'] < data_cap:
-				self.xs.append(seq)
-				self.ys.append(target)
-				tracking_map[map_index]['quantity'] += 1
+			self.xs.append(seq)
+			self.ys.append(target)
 
 		self.xs = np.array(self.xs)
 		self.ys = np.array(self.ys)
-
-		print("Balance Duration:", time.time() - init_time)
 
 
 		#TEST_DATA (NO BALANCING)
@@ -259,14 +299,12 @@ class NeuralNet():
 		self.xs_test = np.array(self.xs_test)
 		self.ys_test = np.array(self.ys_test)
 
-		return data_cap
-
 
 
 	def TrainNetwork(self):
 
 
-		for x in range(0, 1):
+		for x in range(0, 3):
 			self.model = Sequential([
 				LSTM(300,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
 				Dropout(0.2),
@@ -283,50 +321,15 @@ class NeuralNet():
 				Dense(len(self.train_data_y.columns), activation='tanh')
 				])
 
-			opt = tf.keras.optimizers.Adam(lr=0.0001, decay=1e-4)
+			opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-4)
 			self.model.compile(loss='mean_squared_error', optimizer=opt)
-			
-			epochs = 3
-			for x in range(epochs):
-				print('EPOCH:', x+1, "/", epochs)
 
-				###TEMPORARY
-				max_trend = self.training_data['y']['BTC_0|trend'].max()
-				min_trend = self.training_data['y']['BTC_0|trend'].min()
+			history = self.model.fit(
+					self.xs, self.ys,
+					epochs=4,
+					batch_size=50,
+					validation_data=(self.xs_test, self.ys_test))
 
-				random.shuffle(self.training_batch)
-
-				init_time = time.time()
-
-				self.xs = []
-				self.ys = []
-
-
-				tracking_map = copy.deepcopy(self.init_map)
-				for seq, target in self.training_batch:
-					map_index = self.EstimateMapIndex(target[0],
-														balance_map=tracking_map,
-														map_resolution=1000,
-														min_value=min_trend,
-														max_value=max_trend)
-
-					if tracking_map[map_index]['quantity'] < self.data_cap:
-						self.xs.append(seq)
-						self.ys.append(target)
-						tracking_map[map_index]['quantity'] += 1
-
-				self.xs = np.array(self.xs)
-				self.ys = np.array(self.ys)
-
-				###
-
-				history = self.model.fit(
-						self.xs, self.ys,
-						epochs=1,
-						batch_size=5,
-						validation_data=(self.xs_test, self.ys_test))
-
-				print('four')
 
 			#print(testing_batch)
 			init_index = []
