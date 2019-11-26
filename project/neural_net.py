@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 from scipy.optimize import curve_fit
 
+from sklearn import preprocessing
+from sklearn.preprocessing import MinMaxScaler
+
 
 import time
 
@@ -73,7 +76,7 @@ class NeuralNet():
 		self.test_data_x = self.training_data['x'].tail(self.test_datapoints)
 		self.test_data_y = self.training_data['y'].tail(self.test_datapoints)
 
-		self.GenerateSequences(cap_multiplier=.5)
+		self.GenerateSequences()
 
 		self.TrainNetwork()
 
@@ -90,108 +93,80 @@ class NeuralNet():
 			estimated_index = 0
 
 		#since estimated_index can be off by one, the following statement is needed
-		if value < balance_map[estimated_index]['min']:
+		if value < balance_map.at[estimated_index, 'min']:
 			estimated_index -= 1
-		elif value >= balance_map[estimated_index]['max'] and value != max_value:
+		elif value >= balance_map.at[estimated_index, 'max'] and value != max_value:
 			estimated_index += 1
 
 		#this verifies the value is actually in the correct category
-		if value < balance_map[estimated_index]['min']:
+		if value < balance_map.at[estimated_index, 'min']:
 			print(f"est_index: {estimated_index} | value: {value}")
 			print(balance_map[estimated_index])
 			raise
-		elif value >= balance_map[estimated_index]['max'] and value != max_value:
+		elif value >= balance_map.at[estimated_index, 'max'] and value != max_value:
 			raise
 
 		return estimated_index
 
 
-	def InverseFunc(self, x, a, b):
-		return abs(a/np.add(x, b))
-
-
-	def BellFunc(self, x, a, b):
-		return a*np.exp(-np.power(np.subtract(x, self.midpoint), 2)/b)
-
-	def Func(self, x, a, b):
-		return np.exp(np.multiply(np.power(np.subtract(x, 0), a), b))+1170#2000 = 1170
-
-
-	def GenerateSequences(self, map_resolution=100, cap_multiplier=1):
-		#The data trend values are not evenly distributed across all its relative values
-		#EX:
-		#	Even distribution: [-1,3,0,2,-2,-3,1] (equal numbers of each between -3 and 3)
-		#	un-even distribution: [-1,2,-1,-1,3,2] (unequal/missing numbers between -3 and 3)
-		#Since the model is more likely to favor or even exclusively choose one specific number 
-		#for all predictions if the data is unevenly distributed. We must omitt values of certain 
-		#categories to balance the data.
-		#The following evenly cuts the normalization feature_range (-1 to 1) into balance_res pieces
-
+	def MapDensity(self, target_array=[], map_resolution=100):
 		'''ONLY WORKS WITH ONE CURRENCY (and has to be BTC)'''
-		max_trend = self.training_data['y']['BTC_0|trend'].max()
-		min_trend = self.training_data['y']['BTC_0|trend'].min()
+		max_val = max(target_array)
+		min_val = min(target_array)
 
-		increment = abs(max_trend - min_trend) / map_resolution
-		#balance map is a dictionary of the trend distribution
-		#the keys are its value range and the value is number of self.datapoints in that category
-		#EX: 
-		#[
-		#	{
-		#		"min": -1, 
-		#		"max": -0.9,
-		#		"quantity": 45
-		#	},
-		#	...
-		#]
-		balance_map = []
-		#balance map initializer
-		prev_value = min_trend
-		for x in range(map_resolution):
-			new_min = prev_value
-			if x+1 == map_resolution:
-				new_max = max_trend
+		increment = abs(max_val - min_val) / map_resolution
+
+		balance_map = pd.DataFrame(columns=['max', 'min', 'quantity'], index=range(map_resolution))
+		for col in balance_map.columns:
+			balance_map[col].values[:] = 0
+
+		prev_max = min_val
+		for index, row in balance_map.iterrows():
+			new_min = prev_max
+			if index+1 == map_resolution:
+				new_max = max_val
 			else:
-				new_max = prev_value + increment
+				new_max = prev_max + increment
 
 			#values are >= min but < max. only the last index can be equal to max
-			new_value = {"min": new_min, "max": new_max, "quantity": 0}
-			balance_map.append(new_value)
+			balance_map.at[index, 'max'] = new_max
+			balance_map.at[index, 'min'] = new_min
 
-			prev_value = new_max
-
-		tracking_map = copy.deepcopy(balance_map)
-		self.init_map = copy.deepcopy(tracking_map)
+			prev_max = new_max
 
 		isnan = 0
 		#index quantity of data for each category
-		for value in self.train_data_y['BTC_0|trend']:
+		for value in target_array:
 
 			if np.isnan(value) == True:
 				isnan += 1
 				continue
 
-			map_index = self.EstimateMapIndex(value, 
-												balance_map=balance_map, 
-												map_resolution=map_resolution, 
-												min_value=min_trend,
-												max_value=max_trend)
+			index = self.EstimateMapIndex(value, 
+										balance_map=balance_map, 
+										map_resolution=map_resolution, 
+										min_value=min_val,
+										max_value=max_val)
 
-			balance_map[map_index]['quantity'] += 1
+			balance_map.at[index, 'quantity'] += 1
 
-		qty_sum = 0
-		for item in balance_map:
-			qty_sum += item['quantity']
+		values = balance_map['quantity'].values
+		values = values.reshape((len(balance_map['quantity']), 1))
+		scaler = MinMaxScaler(feature_range=(0,10000))
+		#print(col, '| Min: %f, Max: %f' % (scaler.data_min_, scaler.data_max_))
+		normalized = np.squeeze(scaler.fit_transform(values))
+		balance_map['quantity'] = normalized
 
-		average = qty_sum/len(balance_map)
-		data_cap = int(average * cap_multiplier)
+		return balance_map
 
-		qty_total = 0
-		for item in balance_map:
-			qty = item['quantity']
-			if qty > data_cap:
-				qty = data_cap
-			qty_total += qty
-			print(item)
+
+	def Func(self, x, a, b):
+		return np.exp(np.multiply(np.power(np.add(x, 25), a), b))
+
+
+	def GenerateSequences(self):
+
+		balance_map = self.MapDensity(self.train_data_y['BTC_0|trend'], map_resolution=100)
 
 		############################################################
 		###Grapher
@@ -200,21 +175,22 @@ class NeuralNet():
 		y = []
 
 		count = 0
-		for index, val in enumerate(balance_map):
-			x.append(index)
-			y.append(val['quantity'])
+		for index, row in balance_map.iterrows():
+			x_val = abs(row['max'] - row['min'])/2 + row['min']
+			x.append(x_val)
+			y.append(row['quantity'])
 
 		self.midpoint =  x[y.index(max(y))]
 		
 		x = []
 		y = []
-		for index, val in enumerate(balance_map):
-			if index <= self.midpoint and val['quantity'] > 1000:
-				x.append(index)
-				y.append(val['quantity'])
+		for index, row in balance_map.iterrows():
+			x_val = abs(row['max'] - row['min'])/2 + row['min']
+			if x_val <= self.midpoint and row['quantity'] >= 0:
+				x.append(x_val)
+				y.append(row['quantity'])
 
-		params, params_covariance = curve_fit(self.Func, x, y, method='lm')
-
+		params, params_covariance = curve_fit(self.Func, x, y)
 		print(f'parameters: {params}')
 
 		error = abs(np.subtract(y, self.Func(x, params[0], params[1]))) / y
