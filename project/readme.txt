@@ -1,7 +1,7 @@
 
 ////Cluster.Ai - Automarket//// v1.0 - Alpha (Pre-Launch)
 
-This program is meant to interact with cryptocurrency markets in a way that maximizes profits through trading between different crypto-coins (no fiat interaction). Using historical data of the desired currencies, a LSTM neural network takes historical data from a crypto API in order to improve its predictive ability as well as track its likelyhood of that prediction to be false. In doing so this model can intelligently intuit trading actions based on that model.
+This program is meant to interact with cryptocurrency markets in a way that maximizes profits through trading between different crypto-coins (no fiat currency interaction). Using historical data of the desired currencies, a LSTM neural network takes historical data from a crypto API in order to improve its predictive ability as well as track its likelyhood of that prediction to be false. In doing so this model can intelligently intuit trading actions based on that model.
 
 
 //Automarket Business Model - profit fees (revenue)//
@@ -12,13 +12,15 @@ Looking at the leading competitor in AI trading software, I noticed their revenu
 
 While it is true that if the customer were to eat the trading subscription fee of $150 dollars out of pocket instead of pulling it from crypto, it would eventually make money. but in my experience a very large portion of the population are not comfortable with AI and would be averse to the subscription fee that costs more than 3 internet lines for something they are not sure will work. Not to mention the fact that they are almost garanteed to bleed money for 24 months until they finally break even with an initial asset pool of $100. The model I want to base the program on is a 15-25% fee on profit from transactions and a minimum starting pool of ~$50 (depending on exchange). This does mean a reduced growth rate but is still an easy decision when compared to the 28 months of losing money on AI trader (with initial asset pool of $50).
 
-Now that I have established that $906.26 is roughly the "break even point" for AI trader using their best performing algorithm (assuming it never dips below an very unlikely growth rate of 18% every month) which is a profit margin of 0% vs my algorithms 15.3% (customer gains on my algorithm are growth_rate*0.85, since fee is ~15% of profit). In order for an AI trader client to make an equivalent amount as my program after the first month is for the customer assets to be a whopping $6040 to begin with.
+Now that I have established that $906.26 is roughly the "break even point" for AI trader using their best performing algorithm (assuming it never dips below a very unlikely growth rate of 18% every month) which is a profit margin of 0% vs my algorithms 15.3% (customer gains on my algorithm are growth_rate*0.85, since fee is ~15% of profit). In order for an AI trader client to make an equivalent amount as my program after the first month is for the customer assets to be a whopping $6040 to begin with.
+
+/conclusion/
 
 There is an entry gap for people to get value from the money they have dumped into the market. Most people are dissatisfied in the market and I believe a low risk value engine that only takes a small portion of profit as payment for the service is very attractive. This business model gives the customer a much higher confidence in our service, even if the algorithm is far worse than AI Trader. The profit margin is still positive beneath a total asset pool of $1000 vs the negative profit AI Trader will have with the same assets and growth rate. The higher growth rates below $6040 and the much lower risk nature of my program provides a service to the majority of people.
 
 /Algorithm performance targets/
 
-Taking a portion of profit on trades makes having an optimized and powerfull trading algorithm very important (business income is directly correlated to performance). In light of this, I do not want to launch this algorithm without at least an average 1.07% return per month because that is roughly the point a client would double their assets in one year. However, if there is a large enough "vaccuum" of business to be had in this niche and I am confident of at least 100 customers in growth a year in customers; I will certainly consider settling for a growth rate of less than 1.07%.
+Taking a portion of profit on trades makes having an optimized and powerfull trading algorithm very important ( overall revenue is tied very closely to performance). In light of this, I do not want to launch this algorithm without at least an average 1.07% return per month because that is roughly the point a client would double their assets in one year. However, if there is a large enough "vaccuum" of business to be had in this niche and I am confident of at least 100 customers in growth a year in customers; I will certainly consider settling for a growth rate of less than 1.07%.
 
 
 //Neural Network Architecture//
@@ -59,8 +61,8 @@ NOTE: The filename has each coin in order of tracked crypto in confing.json.
 	  be returned by the QueryTrainingData() function
 
 training_index format: 
-filename == {exchange_id}_{asset_id_quote}_(max_filler_gap)_(currencies)
-ex: filename == "KRAKEN_USD_1_BTC_ETH.csv"
+filename == {exchange_id}_{asset_id_quote}_(prediction_steps)_(currencies)
+ex: filename == "KRAKEN_USD_100_BTC_ETH.csv"
 
 [
 	"KRAKEN_USD_1_BTC_ETH.csv" : {
@@ -69,8 +71,8 @@ ex: filename == "KRAKEN_USD_1_BTC_ETH.csv"
 		"asset_id_quote" : "USD",
 		"max_filler_gap" : 1,
 		"currencies" : {
-			"KRAKEN_SPOT_BTC_USD.csv" : 0, (order of currencies in neural net output left to right)
-			"KRAKEN_SPOT_ETH_USD.csv": 1
+			"BTC_0" : "KRAKEN_SPOT_BTC_USD.csv",
+			"ETH_1" : "KRAKEN_SPOT_ETH_USD.csv"
 		}
 		"density" : {
 			timestamp : 0.2345, (1 is no missing data, 0 is no data)

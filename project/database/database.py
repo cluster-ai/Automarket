@@ -71,7 +71,7 @@ class Database():
 
 
 
-	def SetUnixToDate(self, unix):#input unix time as string or int
+	def SetUnixToDate(self, unix):#input unix time as int
 		#when using to display on screen, add to UTC unix param to offset for your timezone
 		return datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S.%f0Z')
 		#RETURNS UTC, confirmed
@@ -547,7 +547,7 @@ class Database():
 		#}
 		historical_data = {}
 		#this verifies that all currencies are being tracked
-		for key, filename in index_item['currencies'].items():
+		for coin_id, filename in index_item['currencies'].items():
 			match = False
 			for tracked_currency in self.config['tracked_crypto']:
 				if tracked_currency in filename:
@@ -555,7 +555,7 @@ class Database():
 
 			if match == True:
 				#creates a dictionary of historical_data using coin name (ex: {"BTC": bitcoin_data, ...})
-				historical_data.update({key: self.LoadHistoricalData(filename)})
+				historical_data.update({coin_id: self.LoadHistoricalData(filename)})
 			else:
 				print(f"Untracked currency in {filename}")
 				raise

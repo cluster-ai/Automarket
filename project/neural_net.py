@@ -31,7 +31,7 @@ from keras import backend as k
 config = tf.compat.v1.ConfigProto()
 
 config.gpu_options.allow_growth = True
-config.gpu_options.per_process_gpu_memory_fraction = 0.95#can only use up to 50% GPU-ram
+config.gpu_options.per_process_gpu_memory_fraction = 0.95 #percentage of max gpu memory allocation
 
 tf.compat.v1.Session(config=config)
 
@@ -39,17 +39,6 @@ tf.compat.v1.Session(config=config)
 
 import database.coin_api as coin_api
 import database.database as database
-
-'''
-To handle missing datapoints, use data from larger period_id to fill in the gaps of
-more specific data sequences.
-ex:
-period_id = 1
-1MIN = [n/a, n/a, 3, 3]
-2MIN = [6,        6]
-so...
-1MIN = [3, 3, 3, 3]
-'''
 
 class NeuralNet():
 	def __init__(self, database):
@@ -61,18 +50,17 @@ class NeuralNet():
 														currencies=['BTC'])
 
 		self.datapoints = len(self.training_data['x'].index)
-		datapoints_test = len(self.training_data['y'].index)
-		if self.datapoints != datapoints_test:
+		if self.datapoints != len(self.training_data['y'].index):
 			raise
 
 		self.train_datapoints = int(self.datapoints * 0.95)
 		self.test_datapoints = self.datapoints - self.train_datapoints
 
-		#local copy of training_data
+		#instance copy of train data (oldest 95% of self.training_data)
 		self.train_data_x = self.training_data['x'].head(self.train_datapoints)
 		self.train_data_y = self.training_data['y'].head(self.train_datapoints)
 		
-		#omitts the most recent 5% of data for use as a true predictions sample
+		#instance copy of test data (newest 95% of self.training_data)
 		self.test_data_x = self.training_data['x'].tail(self.test_datapoints)
 		self.test_data_y = self.training_data['y'].tail(self.test_datapoints)
 
@@ -82,17 +70,21 @@ class NeuralNet():
 
 
 	def EstimateMapIndex(self, value, balance_map=[], map_resolution=0, min_value=0, max_value=0):
-		#rel_value is value set to a range starting at zero
+		#rel_value is the value parameter translated along the "x-axis" so that min_value == 0
+		#EX: value_range == [-1, 1]   so...   rel_value_range == [0, 2]
+		#EX: value == 0               so...   rel_value == value - min_value == 1
 		value_range = abs(max_value - min_value)
 		rel_value = value - min_value
 		estimated_index = math.floor(rel_value / value_range * map_resolution)
 
+		#prevents index overflow
 		if estimated_index >= map_resolution:
 			estimated_index = map_resolution - 1
 		if estimated_index < 0:
 			estimated_index = 0
 
-		#since estimated_index can be off by one, the following statement is needed
+		#since estimated_index can be off by one,
+		#  this shifts the value to appropriate category if needed
 		if value < balance_map.at[estimated_index, 'min']:
 			estimated_index -= 1
 		elif value >= balance_map.at[estimated_index, 'max'] and value != max_value:
@@ -109,8 +101,9 @@ class NeuralNet():
 		return estimated_index
 
 
-	def MapDensity(self, target_array=[], map_resolution=100):
-		'''ONLY WORKS WITH ONE CURRENCY (and has to be BTC)'''
+	def CreateDensityMap(self, target_array=[], map_resolution=100):
+		#only works on a single dimension of data
+
 		max_val = max(target_array)
 		min_val = min(target_array)
 
@@ -166,12 +159,12 @@ class NeuralNet():
 
 	def GenerateSequences(self):
 
-		balance_map = self.MapDensity(self.train_data_y['BTC_0|trend'], map_resolution=100)
+		balance_map = self.CreateDensityMap(self.train_data_y['BTC_0|trend'])
 
 		############################################################
 		###Grapher
 
-		x = []
+		'''x = []
 		y = []
 
 		count = 0
@@ -206,13 +199,30 @@ class NeuralNet():
 
 		plt.show()
 
-		var = input('>>>')
+		var = input('>>>')'''
 
 
 		############################################################
 		###Sequence Generator
 
-		#TRAIN_DATA
+		'''
+		Balancing is essentially flattening the distribution of target values
+		(in this case trend values) so that any given float is equally likely to occur in the dataset
+		(or at least as even as possible).
+
+		My current method of doing this is categorizing the data based on value ranges into a balance_map
+		and fitting a differentiable curve to it. I then get the anti-derivative of that function
+		and apply a math equation that warps the values of datapoints so that the distribution is 
+		more even. Keep in mind this warping maintains the integrity of data and is reversable to 
+		within 1x10^-17 in testing (essentially perfect without floating point roundoff error).
+
+		The importance of this is to prevent the neural model from optimizing to the same
+		guess no matter what input is given. Currently, a non-balanced dataset
+		causes the model to converge as mentioned previously: I think target data balancing 
+		will help mitigate this effect. (has not been tested at the time of writing this)
+		'''
+
+		#TRAIN_DATA (MAY HAVE BALANCING)
 		self.training_batch = []
 		count = 0
 		prev_days = deque(maxlen=self.SEQ_LEN)
@@ -280,7 +290,7 @@ class NeuralNet():
 	def TrainNetwork(self):
 
 
-		for x in range(0, 3):
+		for x in range(0, 1):
 			self.model = Sequential([
 				LSTM(300,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
 				Dropout(0.2),
@@ -300,14 +310,14 @@ class NeuralNet():
 			opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-4)
 			self.model.compile(loss='mean_squared_error', optimizer=opt)
 
-			history = self.model.fit(
+			'''history = self.model.fit(
 					self.xs, self.ys,
-					epochs=4,
+					epochs=1,
 					batch_size=50,
-					validation_data=(self.xs_test, self.ys_test))
+					validation_data=(self.xs_test, self.ys_test))'''
 
 
-			#print(testing_batch)
+			#Model testing beyond this point
 			init_index = []
 			for x in range(0, len(self.xs_test)):
 				init_index.append(x)
@@ -344,8 +354,39 @@ class NeuralNet():
 
 			print(results)
 
-			open('0_epoch.csv', 'w')
-			results.to_csv('0_epoch.csv')
+			#prediction distribution
+			balance_map = self.CreateDensityMap(target_array=np.asarray(np.squeeze(predictions)))
+
+			x = []
+			y = []
+
+			count = 0
+			for index, row in balance_map.iterrows():
+				x_val = abs(row['max'] - row['min'])/2 + row['min']
+				x.append(x_val)
+				y.append(row['quantity'])
+
+			plt.plot(x, y)
+
+			plt.show()
+			var = input('>>>')
+
+			#prediction distribution
+			balance_map = self.CreateDensityMap(target_array=np.asarray(self.ys_test))
+
+			x = []
+			y = []
+
+			count = 0
+			for index, row in balance_map.iterrows():
+				x_val = abs(row['max'] - row['min'])/2 + row['min']
+				x.append(x_val)
+				y.append(row['quantity'])
+
+			plt.plot(x, y)
+
+			plt.show()
+
 			var = input('>>>')
 
 		#average_error = total_error / len(error_list) * 100
