@@ -15,6 +15,7 @@ from scipy.optimize import curve_fit
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler
 
+import os
 
 import time
 
@@ -109,7 +110,7 @@ class NeuralNet():
 
 		increment = abs(max_val - min_val) / map_resolution
 
-		balance_map = pd.DataFrame(columns=['max', 'min', 'quantity'], index=range(map_resolution))
+		balance_map = pd.DataFrame(columns=['max', 'min', 'x_val', 'quantity'], index=range(map_resolution))
 		for col in balance_map.columns:
 			balance_map[col].values[:] = 0
 
@@ -143,6 +144,9 @@ class NeuralNet():
 
 			balance_map.at[index, 'quantity'] += 1
 
+		for index, row in balance_map.iterrows():
+			balance_map.at[index, 'x_val'] = abs(row['max'] - row['min'])/2 + row['min']
+
 		values = balance_map['quantity'].values
 		values = values.reshape((len(balance_map['quantity']), 1))
 		scaler = MinMaxScaler(feature_range=(0,10000))
@@ -154,7 +158,7 @@ class NeuralNet():
 
 
 	def Func(self, x, a, b):
-		return np.exp(np.multiply(np.power(np.add(x, 25), a), b))
+		return np.exp(np.multiply(np.power(np.add(x, -1.1), a), b))
 
 
 	def GenerateSequences(self):
@@ -307,87 +311,85 @@ class NeuralNet():
 				Dense(len(self.train_data_y.columns), activation='tanh')
 				])
 
-			opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-4)
+			opt = tf.keras.optimizers.Adam(lr=0.0001, decay=1e-5)
 			self.model.compile(loss='mean_squared_error', optimizer=opt)
 
-			'''history = self.model.fit(
-					self.xs, self.ys,
-					epochs=1,
-					batch_size=50,
-					validation_data=(self.xs_test, self.ys_test))'''
+			if os.path.isdir('results') == False:
+				os.mkdir('results')
+
+			epochs = 5
+			for epoch in range(epochs):
+				print('----------------------------------------------------')
+				print(f"Epoch {epoch}")
+				print('----------------------------------------------------')
+
+				if epoch != 0:
+					history = self.model.fit(
+							self.xs, self.ys,
+							epochs=1,
+							batch_size=100,
+							validation_data=(self.xs_test, self.ys_test))
 
 
-			#Model testing beyond this point
-			init_index = []
-			for x in range(0, len(self.xs_test)):
-				init_index.append(x)
-			results = pd.DataFrame(columns=['inverse', 'actual', 'prediction'], index=init_index)
+				#Model testing beyond this point
+				init_index = []
+				for x in range(0, len(self.xs_test)):
+					init_index.append(x)
+				results = pd.DataFrame(columns=['inverse', 'actual', 'prediction'], index=init_index)
 
-			predictions = self.model.predict(self.xs_test)
-			error_list = []
-			error_list_inv = []
-			count = 0
-			for index, prediction in enumerate(predictions):
-				actual_ys = self.ys_test[index]
-				inv_index = -index-1
-				inv_ys = self.ys_test[inv_index]
+				predictions = self.model.predict(self.xs_test)
+				error_list = []
+				error_list_inv = []
+				count = 0
+				for index, prediction in enumerate(predictions):
+					actual_ys = self.ys_test[index]
+					inv_index = -index-1
+					inv_ys = self.ys_test[inv_index]
 
-				results.at[index, 'actual'] = actual_ys
-				results.at[index, 'inverse'] = inv_ys
-				results.at[index, 'prediction'] = prediction
+					results.at[index, 'actual'] = actual_ys
+					results.at[index, 'inverse'] = inv_ys
+					results.at[index, 'prediction'] = prediction
 
-				error = abs((actual_ys-prediction)/ actual_ys)
-				error_list.append(error)
-				
-				inv_error = abs((inv_ys-prediction)/inv_ys)
-				error_list_inv.append(inv_error)
+					error = abs((actual_ys-prediction)/ actual_ys)
+					error_list.append(error)
+					
+					inv_error = abs((inv_ys-prediction)/inv_ys)
+					error_list_inv.append(inv_error)
 
-				count += 1
+					count += 1
 
-			total_error = np.sum(np.array(error_list)) / len(np.array(error_list)) * 100
-			total_inv_error = np.sum(np.array(error_list_inv))/len(np.array(error_list_inv)) * 100
+				total_error = np.sum(np.array(error_list)) / len(np.array(error_list)) * 100
+				total_inv_error = np.sum(np.array(error_list_inv))/len(np.array(error_list_inv)) * 100
 
-			print('################')
-			print(f"average_error: {total_error}")
-			print(f"inverse error: {total_inv_error}")
-			print('################')
+				print('################')
+				print(f"average_error: {total_error}")
+				print(f"inverse error: {total_inv_error}")
+				print('################')
 
-			print(results)
+				print(results)
 
-			#prediction distribution
-			balance_map = self.CreateDensityMap(target_array=np.asarray(np.squeeze(predictions)))
+				#prediction distribution
+				balance_map = self.CreateDensityMap(target_array=np.asarray(np.squeeze(predictions)), 
+																					map_resolution=500)
+				open(f'results/pred_epoch{epoch}.csv', 'w')
+				balance_map.to_csv(f'results/pred_epoch{epoch}.csv', index=False)
 
-			x = []
-			y = []
+				'''plt.plot(x, y)
 
-			count = 0
-			for index, row in balance_map.iterrows():
-				x_val = abs(row['max'] - row['min'])/2 + row['min']
-				x.append(x_val)
-				y.append(row['quantity'])
+				plt.show()
+				var = input('>>>')'''
 
-			plt.plot(x, y)
+			#actual distribution
+			balance_map = self.CreateDensityMap(target_array=np.asarray(np.squeeze(self.ys_test)), 
+																				map_resolution=500)
+			open(f'results/actual.csv', 'w')
+			balance_map.to_csv(f'results/actual.csv', index=False)
 
-			plt.show()
-			var = input('>>>')
-
-			#prediction distribution
-			balance_map = self.CreateDensityMap(target_array=np.asarray(self.ys_test))
-
-			x = []
-			y = []
-
-			count = 0
-			for index, row in balance_map.iterrows():
-				x_val = abs(row['max'] - row['min'])/2 + row['min']
-				x.append(x_val)
-				y.append(row['quantity'])
-
-			plt.plot(x, y)
+			'''plt.plot(x, y)
 
 			plt.show()
 
-			var = input('>>>')
+			var = input('>>>')'''
 
 		#average_error = total_error / len(error_list) * 100
 

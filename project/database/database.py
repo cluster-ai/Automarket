@@ -487,14 +487,15 @@ class Database():
 
 		#normalization
 		for col in training_data.columns:
-			if 'is_nan' not in col and 'trend' not in col:
+			if 'is_nan' not in col:
 				values = training_data[col].values
 				values = values.reshape((len(training_data[col]), 1))
 				scaler = MinMaxScaler(feature_range=(-1,1))
 				#print(col, '| Min: %f, Max: %f' % (scaler.data_min_, scaler.data_max_))
 				normalized = np.squeeze(scaler.fit_transform(values))
 				training_data[col] = normalized
-				training_data[col].fillna(0, inplace=True)
+				if 'trend' not in col:
+					training_data[col].fillna(0, inplace=True)
 
 		print(training_data.head(10))
 
