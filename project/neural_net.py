@@ -70,12 +70,14 @@ class NeuralNet():
 		self.TrainNetwork()
 
 
-	def EstimateMapIndex(self, value, balance_map=[], map_resolution=0, min_value=0, max_value=0):
+	def EstimateMapIndex(self, value, balance_map=pd.DataFrame(), min_value=0, max_value=0):
+		map_resolution = len(balance_map.index)
 		#rel_value is the value parameter translated along the "x-axis" so that min_value == 0
 		#EX: value_range == [-1, 1]   so...   rel_value_range == [0, 2]
 		#EX: value == 0               so...   rel_value == value - min_value == 1
 		value_range = abs(max_value - min_value)
 		rel_value = value - min_value
+
 		estimated_index = math.floor(rel_value / value_range * map_resolution)
 
 		#prevents index overflow
@@ -88,7 +90,7 @@ class NeuralNet():
 		#  this shifts the value to appropriate category if needed
 		if value < balance_map.at[estimated_index, 'min']:
 			estimated_index -= 1
-		elif value >= balance_map.at[estimated_index, 'max'] and value != max_value:
+		elif value >= balance_map.at[estimated_index, 'max'] and estimated_index != map_resolution-1:
 			estimated_index += 1
 
 		#this verifies the value is actually in the correct category
@@ -96,13 +98,13 @@ class NeuralNet():
 			print(f"est_index: {estimated_index} | value: {value}")
 			print(balance_map[estimated_index])
 			raise
-		elif value >= balance_map.at[estimated_index, 'max'] and value != max_value:
+		elif value >= balance_map.at[estimated_index, 'max'] and estimated_index != map_resolution-1:
 			raise
 
 		return estimated_index
 
 
-	def CreateDensityMap(self, target_array=[], map_resolution=100):
+	def CreateDensityMap(self, target_array=[], map_resolution=1000):
 		#only works on a single dimension of data
 
 		max_val = max(target_array)
@@ -110,7 +112,8 @@ class NeuralNet():
 
 		increment = abs(max_val - min_val) / map_resolution
 
-		balance_map = pd.DataFrame(columns=['max', 'min', 'x_val', 'quantity'], index=range(map_resolution))
+		balance_map = pd.DataFrame(columns=['max', 'min', 'area', 'x_val', 'quantity'], 
+																index=range(map_resolution))
 		for col in balance_map.columns:
 			balance_map[col].values[:] = 0
 
@@ -136,20 +139,29 @@ class NeuralNet():
 				isnan += 1
 				continue
 
-			index = self.EstimateMapIndex(value, 
-										balance_map=balance_map, 
-										map_resolution=map_resolution, 
-										min_value=min_val,
-										max_value=max_val)
+			index = self.EstimateMapIndex(value, balance_map=balance_map, 
+														min_value=min_val, 
+														max_value=max_val)
 
 			balance_map.at[index, 'quantity'] += 1
 
+		area_under_curve = 0
+		prev_y = 0
 		for index, row in balance_map.iterrows():
-			balance_map.at[index, 'x_val'] = abs(row['max'] - row['min'])/2 + row['min']
+			x_diff = abs(row['max'] - row['min'])
+			balance_map.at[index, 'x_val'] = row['min']
+			#this gets the area under curve from 0 to x_val of each point.
+			low_y = min([prev_y, row['quantity']])
+			high_y = max([prev_y, row['quantity']])
+			y_diff = abs(low_y - high_y)
+			area_under_curve += y_diff*x_diff/2 + low_y*x_diff
+			balance_map.at[index, 'area'] = area_under_curve
+
+			prev_y = row['quantity']
 
 		values = balance_map['quantity'].values
 		values = values.reshape((len(balance_map['quantity']), 1))
-		scaler = MinMaxScaler(feature_range=(0,10000))
+		scaler = MinMaxScaler(feature_range=(0,100))
 		#print(col, '| Min: %f, Max: %f' % (scaler.data_min_, scaler.data_max_))
 		normalized = np.squeeze(scaler.fit_transform(values))
 		balance_map['quantity'] = normalized
@@ -158,53 +170,173 @@ class NeuralNet():
 
 
 	def Func(self, x, a, b):
-		return np.exp(np.multiply(np.power(np.add(x, -1.1), a), b))
+		return np.exp(np.multiply(np.power(np.add(x, 1.1), a), b)) + 150
+
+
+	def BalanceData(self, data, density_map):
+		init_time = time.time()
+
+		total_area = density_map.at[len(density_map.index)-1, 'area']
+		overall_min = min(list(density_map['x_val'].values))
+		overall_max = max(list(density_map['x_val'].values))
+		feature_range = abs(overall_min - overall_max)
+
+		new_data = []
+		map_indexes = []
+		for index, trend_x in enumerate(data):
+			if np.isnan(trend_x):
+				new_data.append(np.nan)
+				map_indexes.append(np.nan)
+				continue
+
+			map_index = self.EstimateMapIndex(trend_x, balance_map=density_map,
+															min_value=overall_min,
+															max_value=overall_max)
+
+			approx_area = density_map.at[map_index, 'area']
+
+			#x and y are the current points values. x2 and y2 are the next datapoints values
+			x = density_map.at[map_index, 'min']
+			x2 = density_map.at[map_index, 'max']
+
+			y = density_map.at[map_index, 'quantity']
+			y2 = 0
+			if map_index != len(density_map.index) - 1:
+				y2 = density_map.at[map_index+1, 'quantity']
+	
+			m = (y - y2) / (x - x2)
+			b = y
+			if m != 0:
+				b = y/m - x
+			#excess_area is the area between the actual point and the max of its category
+			trend_y = (m*trend_x + b)
+			area_offset = abs(trend_x-x)*min([trend_y, y]) + abs(trend_x-x)*abs(trend_y-y)/2
+
+			area = approx_area + area_offset
+
+			new_trend = (area / total_area) * feature_range + overall_min
+
+			new_data.append(new_trend)
+			map_indexes.append(map_index)
+
+			if index % 50000 == 0 and index != 0:
+				print(index)
+
+		duration = time.time() - init_time
+		print(f"Balance Duration: {duration}")
+
+		return new_data, map_indexes
+
+
+	def UnbalanceData(self, data, density_map, map_indexes):
+		init_time = time.time()
+
+		total_area = density_map.at[len(density_map.index)-1, 'area']
+		overall_min = min(list(density_map['x_val'].values))
+		overall_max = max(list(density_map['x_val'].values))
+		feature_range = abs(overall_min - overall_max)
+
+		min_value = min(data)
+		max_value = max(data)
+		value_range = abs(min_value - max_value)
+
+		new_data = []
+		for index, trend_x in enumerate(data):
+			if np.isnan(trend_x):
+				new_data.append(np.nan)
+				continue
+
+			total_area = density_map.at[len(density_map.index)-1, 'area']
+			area = ((trend_x - min_value) / value_range) * total_area
+
+			#finds map index
+			map_index = map_indexes[index]
+
+			x = density_map.at[map_index, 'min']
+			x2 = density_map.at[map_index, 'max']
+
+			y = density_map.at[map_index, 'quantity']
+			y2 = 0
+			if map_index != len(density_map.index):
+				y2 = density_map.at[map_index, 'quantity']
+
+			approx_area = density_map.at[map_index, 'area']
+
+			rel_total_area = abs(x-x2)*min([y,y2]) + abs(x-x2)*abs(y-y2)/2
+			rel_area = abs(area - approx_area)
+			
+			new_trend = x
+			if rel_total_area != 0:
+				new_trend = (rel_area / rel_total_area) * abs(x-x2) + x
+
+			new_data.append(new_trend)
+
+			if index % 50000 == 0 and index != 0:
+				print(index)
+
+		duration = time.time() - init_time
+		print(f"Unbalance Duration: {duration}")
+
+		return new_data
 
 
 	def GenerateSequences(self):
-
-		balance_map = self.CreateDensityMap(self.train_data_y['BTC_0|trend'])
+		
+		self.density_map = self.CreateDensityMap(list(self.train_data_y['BTC_0|trend'].values), 
+																				map_resolution=10000)
 
 		############################################################
 		###Grapher
 
-		'''x = []
-		y = []
 
-		count = 0
-		for index, row in balance_map.iterrows():
-			x_val = abs(row['max'] - row['min'])/2 + row['min']
-			x.append(x_val)
-			y.append(row['quantity'])
+		remapped_data, remapped_indexes = self.BalanceData(list(self.train_data_y['BTC_0|trend']), 
+																					self.density_map)
 
-		self.midpoint =  x[y.index(max(y))]
+		remapped_data = self.UnbalanceData(remapped_data, self.density_map, remapped_indexes)
+
+		error_list = []
+		for index, value in enumerate(remapped_data):
+			if np.isnan(value):
+				continue
+			init_train_index = self.train_data_y.index[0]
+			train_value = self.train_data_y.at[index+init_train_index, 'BTC_0|trend']
+			error = abs((value - train_value) / train_value)
+
+			error_list.append(error)
+
+		error = np.sum(error_list) / len(error_list) * 100
+
+		print(f"Balance Error: {error}")
+
+		max_error = max(error_list)
+		min_error = min(error_list)
+		print(f"Max Error: {max_error}")
+		print(f"Min Error: {min_error}")
+
+		var = input('>>>')
 		
-		x = []
-		y = []
-		for index, row in balance_map.iterrows():
-			x_val = abs(row['max'] - row['min'])/2 + row['min']
-			if x_val <= self.midpoint and row['quantity'] >= 0:
-				x.append(x_val)
-				y.append(row['quantity'])
-
-		params, params_covariance = curve_fit(self.Func, x, y)
-		print(f'parameters: {params}')
-
-		error = abs(np.subtract(y, self.Func(x, params[0], params[1]))) / y
-		error = np.sum(error) / len(x) * 100
-
-		print(f'Percent Error: {error}')
-
+		'''x = list(density_map['x_val'].values)
+		y = list(density_map['quantity'].values)
 		plt.plot(x, y)
 
-		data_x = np.linspace(x[0], x[-1], 100)
-		data = self.Func(data_x, params[0], params[1])
-		plt.plot(data_x, data)
+		
+		self.train_data_y.loc[:, 'BTC_0|trend'] = self.BalanceData(list(self.train_data_y['BTC_0|trend']), 
+																							self.density_map)
+
+		self.test_data_y.loc[:,'BTC_0|trend'] = self.BalanceData(list(self.test_data_y['BTC_0|trend']), 
+																							self.density_map)
+		
+
+		density_map = self.CreateDensityMap(self.train_data_y['BTC_0|trend'])
+
+		x = list(density_map['x_val'].values)
+		y = list(density_map['quantity'].values) 
+		
+		plt.plot(x, y)
 
 		plt.show()
 
 		var = input('>>>')'''
-
 
 		############################################################
 		###Sequence Generator
@@ -374,31 +506,9 @@ class NeuralNet():
 				open(f'results/pred_epoch{epoch}.csv', 'w')
 				balance_map.to_csv(f'results/pred_epoch{epoch}.csv', index=False)
 
-				'''plt.plot(x, y)
-
-				plt.show()
-				var = input('>>>')'''
 
 			#actual distribution
 			balance_map = self.CreateDensityMap(target_array=np.asarray(np.squeeze(self.ys_test)), 
 																				map_resolution=500)
 			open(f'results/actual.csv', 'w')
 			balance_map.to_csv(f'results/actual.csv', index=False)
-
-			'''plt.plot(x, y)
-
-			plt.show()
-
-			var = input('>>>')'''
-
-		#average_error = total_error / len(error_list) * 100
-
-
-		#print(f"\nAverage Error: {average_error}%")
-
-		#accuracy or %error for trend predictions is calculated by dividing the difference of 
-		#  prediction against the actual value divided by actual value, absolute value.
-		#		   |prediction - actual|
-		#  error = |-------------------|
-		#		   |      actual       |
-		
