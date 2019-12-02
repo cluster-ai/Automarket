@@ -480,6 +480,7 @@ class Database():
 		training_data = training_data.drop(columns=['BTC_0|price_high', 
 													'BTC_0|price_low'])
 
+
 		#315360 datapoints in 3 years
 		training_data = training_data.tail(315360)
 
