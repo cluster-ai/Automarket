@@ -70,8 +70,8 @@ class NeuralNet():
 		self.TrainNetwork()
 
 
-	def EstimateMapIndex(self, value, balance_map=pd.DataFrame(), min_value=0, max_value=0):
-		map_resolution = len(balance_map.index)
+	def EstimateMapIndex(self, value, balance_map=pd.DataFrame(), min_value=0, 
+															max_value=0, index_map={}, map_resolution=0):
 		#rel_value is the value parameter translated along the "x-axis" so that min_value == 0
 		#EX: value_range == [-1, 1]   so...   rel_value_range == [0, 2]
 		#EX: value == 0               so...   rel_value == value - min_value == 1
@@ -79,49 +79,55 @@ class NeuralNet():
 		rel_value = value - min_value
 
 		estimated_index = math.floor(rel_value / value_range * map_resolution)
+		og_index = estimated_index
 
 		#prevents index overflow
-		if estimated_index >= map_resolution:
-			estimated_index = map_resolution - 1
+		if estimated_index >= map_resolution-1:
+			estimated_index = map_resolution-1
 		if estimated_index < 0:
 			estimated_index = 0
+
+		if index_map != {}:
+			estimated_index = index_map[estimated_index]
 
 		#since estimated_index can be off by one,
 		#  this shifts the value to appropriate category if needed
 		if value < balance_map.at[estimated_index, 'min']:
 			estimated_index -= 1
-		elif value >= balance_map.at[estimated_index, 'max'] and estimated_index != map_resolution-1:
+		elif value >= balance_map.at[estimated_index, 'max'] and estimated_index != len(balance_map.index)-1:
 			estimated_index += 1
 
 		#this verifies the value is actually in the correct category
 		if value < balance_map.at[estimated_index, 'min']:
 			print(f"est_index: {estimated_index} | value: {value}")
-			print(balance_map[estimated_index])
+			print(balance_map.loc[estimated_index, :])
 			raise
-		elif value >= balance_map.at[estimated_index, 'max'] and estimated_index != map_resolution-1:
+		elif value >= balance_map.at[estimated_index, 'max'] and estimated_index != len(balance_map.index)-1:
+			max_index = len(balance_map.index) - 1
+			print(f"estimated_index: {estimated_index}, max_index: {max_index}, map_res: {map_resolution}")
 			raise
 
 		return estimated_index
 
 
-	def CreateDensityMap(self, target_array=[], map_resolution=1000):
+	def CreateDensityMap(self, target_array=[], map_resolution=1000, non_zero_values=False, return_index_map=False):
 		#only works on a single dimension of data
 
-		max_val = 1   #max(target_array)
-		min_val = -1  #min(target_array)
+		abs_max = 1   #max(target_array)
+		abs_min = -1  #min(target_array)
 
-		increment = abs(max_val - min_val) / map_resolution
+		increment = abs(abs_max - abs_min) / map_resolution
 
 		balance_map = pd.DataFrame(columns=['max', 'min', 'area', 'quantity'], 
 																index=range(map_resolution))
 		for col in balance_map.columns:
 			balance_map[col].values[:] = 0
 
-		prev_max = min_val
+		prev_max = abs_min
 		for index, row in balance_map.iterrows():
 			new_min = prev_max
 			if index+1 == map_resolution:
-				new_max = max_val
+				new_max = abs_max
 			else:
 				new_max = prev_max + increment
 
@@ -133,23 +139,67 @@ class NeuralNet():
 
 		isnan = 0
 		#index quantity of data for each category
-		for value in target_array:
+		for index, value in enumerate(target_array):
 
 			if np.isnan(value) == True:
 				isnan += 1
 				continue
 
 			index = self.EstimateMapIndex(value, balance_map=balance_map, 
-														min_value=min_val, 
-														max_value=max_val)
+														min_value=abs_min, 
+														max_value=abs_max,
+														map_resolution=map_resolution)
 
 			balance_map.at[index, 'quantity'] += 1
+
+
+		#This prevents values being zero so that any value in the domain can be represented.
+		#index map is used to keep track of what each index now maps to since its being changed
+		'''
+		index map format:
+		{estimated_index:actual_index(+/- 1), ...}
+		example:
+		{1:1, 2:1, 3:3, 4:4, 5:4}
+		'''
+		index_map = {}
+		if non_zero_values == True:
+			last_valid_index = np.nan
+			latest_zero_points = []
+			for index, row in balance_map.iterrows():
+				index_map.update({index: index})#may be changed if current index quantity is zero
+
+				if row['quantity'] <= 0:
+					balance_map.at[index, 'quantity'] = np.nan
+					latest_zero_points.append(index)
+					continue
+				elif np.isnan(last_valid_index) == False:
+					#wrap up the last valid index (max value needs to be set)
+					balance_map.at[last_valid_index, 'max'] = balance_map.at[index, 'min']
+
+					for zero_index in latest_zero_points:
+						index_map[zero_index] = last_valid_index
+					latest_zero_points = []
+
+					last_valid_index = index
+					continue
+				elif np.isnan(last_valid_index) == True:
+					last_valid_index = index
+					continue
+
+		balance_map.dropna(inplace=True)
+		balance_map.reset_index(inplace=True)
+
+		#this converts index map values within new index range
+		for key, item in index_map.items():
+			new_index = balance_map.index[balance_map['index'] == item][0]
+			index_map[key] = new_index
+
 
 		self.total_area = 0
 		prev_y = 0
 		for index, row in balance_map.iterrows():
 			x_diff = abs(row['max'] - row['min'])
-			#this gets the area under curve from 0 to x_val of each point.
+			#this gets the area under curve from 0 to min of each point.
 			low_y = min([prev_y, row['quantity']])
 			high_y = max([prev_y, row['quantity']])
 			y_diff = abs(low_y - high_y)
@@ -160,15 +210,19 @@ class NeuralNet():
 
 		values = balance_map['quantity'].values
 		values = values.reshape((len(balance_map['quantity']), 1))
-		scaler = MinMaxScaler(feature_range=(0,10))
+		scaler = MinMaxScaler(feature_range=(0,100))
 		#print(col, '| Min: %f, Max: %f' % (scaler.data_min_, scaler.data_max_))
 		normalized = np.squeeze(scaler.fit_transform(values))
 		balance_map['quantity'] = normalized
 
+
+		if return_index_map == True:
+			return balance_map, index_map
+
 		return balance_map
 
 
-	def BalanceData(self, data, density_map):
+	def BalanceData(self, data, density_map, map_resolution=0, index_map={}):
 		init_time = time.time()
 
 		self.overall_min = -1
@@ -185,7 +239,9 @@ class NeuralNet():
 
 			map_index = self.EstimateMapIndex(trend_x, balance_map=density_map,
 															min_value=self.overall_min,
-															max_value=self.overall_max)
+															max_value=self.overall_max,
+															index_map=index_map,
+															map_resolution=map_resolution)
 
 			approx_area = density_map.at[map_index, 'area']
 
@@ -266,28 +322,35 @@ class NeuralNet():
 
 
 	def GenerateSequences(self):
-		
-		self.density_map = self.CreateDensityMap(list(self.train_data_y['BTC_0|trend'].values), 
-																				map_resolution=45000)
+
+		self.map_res = 45000
+		self.density_map, self.index_map = self.CreateDensityMap(list(self.train_data_y['BTC_0|trend'].values), 
+																				map_resolution=self.map_res,
+																				non_zero_values=True,
+																				return_index_map=True)
+
 
 		############################################################
 		###Grapher
 
 
 		remapped_data, remapped_indexes = self.BalanceData(list(self.train_data_y['BTC_0|trend']), 
-																					self.density_map)
+																					self.density_map,
+																					index_map=self.index_map,
+																					map_resolution=self.map_res)
 
 		remapped_data = self.UnbalanceData(remapped_data, self.density_map, remapped_indexes)
 
-		unbalanced_map = self.CreateDensityMap(remapped_data, map_resolution=45000)
+		unbalanced_map = self.CreateDensityMap(remapped_data, map_resolution=self.map_res, 
+																	non_zero_values=True)
 
-		'''x = list(unbalanced_map['min'].values)
+		x = list(unbalanced_map['min'].values)
 		y = list(unbalanced_map['quantity'].values)
 		plt.plot(x, y)
 
 		x = list(self.density_map['min'].values)
 		y = list(self.density_map['quantity'].values)
-		plt.plot(x, y)'''
+		plt.plot(x, y)
 
 		error_list = []
 		error_map_approx = []
@@ -297,9 +360,15 @@ class NeuralNet():
 				continue
 			init_train_index = self.train_data_y.index[0]
 			train_value = self.train_data_y.at[index+init_train_index, 'BTC_0|trend']
-			error = abs((value - train_value) / train_value)
+			error = abs((value - train_value) / (self.balance_range/10))
+			if np.isnan(error):
+				error = 0
+			#the added overall min gets the minimum value to zero so the error is not
+			#	being calculated for points across zero. This prevents the error from 
+			#	drastically inflating on points around zero.
 
 			if error > 0:
+				#print(f"og_val: {train_value}, new_val: {value}")
 				error_map_approx.append(value)
 				error_map_actual.append(train_value)
 
@@ -324,32 +393,9 @@ class NeuralNet():
 		y = list(actual_map['quantity'].values)
 		plt.plot(x, y)'''
 
-		#plt.show()
-
-		var = input('>>>')
-		
-		'''x = list(density_map['min'].values)
-		y = list(density_map['quantity'].values)
-		plt.plot(x, y)
-
-		
-		self.train_data_y.loc[:, 'BTC_0|trend'] = self.BalanceData(list(self.train_data_y['BTC_0|trend']), 
-																							self.density_map)
-
-		self.test_data_y.loc[:,'BTC_0|trend'] = self.BalanceData(list(self.test_data_y['BTC_0|trend']), 
-																							self.density_map)
-		
-
-		density_map = self.CreateDensityMap(self.train_data_y['BTC_0|trend'])
-
-		x = list(density_map['min'].values)
-		y = list(density_map['quantity'].values) 
-		
-		plt.plot(x, y)
-
 		plt.show()
 
-		var = input('>>>')'''
+		var = input('>>>')
 
 		############################################################
 		###Sequence Generator
@@ -359,16 +405,9 @@ class NeuralNet():
 		(in this case trend values) so that any given float is equally likely to occur in the dataset
 		(or at least as even as possible).
 
-		My current method of doing this is categorizing the data based on value ranges into a balance_map
-		and fitting a differentiable curve to it. I then get the anti-derivative of that function
-		and apply a math equation that warps the values of datapoints so that the distribution is 
-		more even. Keep in mind this warping maintains the integrity of data and is reversable to 
-		within 1x10^-17 in testing (essentially perfect without floating point roundoff error).
-
 		The importance of this is to prevent the neural model from optimizing to the same
 		guess no matter what input is given. Currently, a non-balanced dataset
-		causes the model to converge as mentioned previously: I think target data balancing 
-		will help mitigate this effect. (has not been tested at the time of writing this)
+		causes the model to converge as mentioned previously.
 		'''
 
 		#TRAIN_DATA (MAY HAVE BALANCING)
