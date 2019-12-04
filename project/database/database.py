@@ -8,9 +8,6 @@ import datetime
 import database.coin_api as coin_api
 import database.preprocessor as preprocessor
 
-from sklearn import preprocessing
-from sklearn.preprocessing import MinMaxScaler
-
 import pandas as pd
 import numpy as np
 
@@ -474,9 +471,6 @@ class Database():
 
 		training_data = self.__LoadTrainingData(matched_filename)
 
-
-
-
 		training_data = training_data.drop(columns=['BTC_0|price_high', 
 													'BTC_0|price_low'])
 
@@ -487,19 +481,23 @@ class Database():
 		print(training_data.head(10))
 
 		#normalization
+		index_item = self.training_index[matched_filename]
 		for col in training_data.columns:
+			index_item['target_columns'].update({col: {}})
 			if 'is_nan' not in col:
-				values = training_data[col].values
-				values = values.reshape((len(training_data[col]), 1))
-				scaler = MinMaxScaler(feature_range=(-1,1))
-				#print(col, '| Min: %f, Max: %f' % (scaler.data_min_, scaler.data_max_))
-				normalized = np.squeeze(scaler.fit_transform(values))
-				training_data[col] = normalized
-				if 'trend' not in col:
+				data = training_data[col].values
+				training_data[col], params = self.preprocessor.FeatureScale(data,
+																	feature_range=[-1, 1],
+																	return_params=True)
+				if 'trend' in col:
+					index_item['target_columns'].update({col: params})
+				elif 'trend' not in col:
 					training_data[col].fillna(0, inplace=True)
 
-		print(training_data.head(10))
+		self.training_index[matched_filename] = index_item
+		self.UpdateTrainingIndex()
 
+		print(training_data.head(10))
 
 		#puts all target data in y and all input data in x
 		x = training_data.copy()
@@ -512,7 +510,10 @@ class Database():
 
 		training_data = {'x': x, 'y': y}
 
-		return training_data
+		self.training_index[matched_filename] = index_item
+		self.UpdateTrainingIndex()
+
+		return training_data, matched_filename
 
 
 	def __LoadTrainingData(self, index_filename):
@@ -650,7 +651,8 @@ class Database():
 									'data_increment',
 									'prediction_steps',
 									'currencies',
-									'currency_columns',
+									'target_columns',
+									'column_order',
 									'density',
 									'datapoints',
 									'data_start',
@@ -658,7 +660,7 @@ class Database():
 
 		#These are all the columns that each currency has their own copy of
 		#time_period_start is the first column by default and so not included
-		currency_columns = ['price_high',
+		column_order = ['price_high',
 							'price_low',
 							'average_price',
 							'trades_count',
@@ -716,8 +718,10 @@ class Database():
 				index_item.update({key: prediction_steps})
 			if key == 'currencies':
 				index_item.update({key: formatted_currencies})
-			if key == 'currency_columns':
-				index_item.update({key: currency_columns})
+			if key == 'target_columns':
+				index_item.update({key: {}})
+			if key == 'column_order':
+				index_item.update({key: column_order})
 			if key == 'density':
 				index_item.update({key: {}})
 			if key == 'datapoints':

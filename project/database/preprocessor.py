@@ -25,6 +25,50 @@ class Preprocessor():
 			print('Processing Threads Found:', Preprocessor.thread_count)
 			Preprocessor.config = conf
 
+	def FeatureScale(self, target_array, feature_range=[0, 1], custom_min_max=[0, 0], return_params=False):
+		#sets values between -1 and 1
+		target_array = list(target_array)
+		if custom_min_max != [0, 0]:
+			min_value = custom_min_max[0]
+			max_value = custom_min_max[1]
+		else:
+			min_value = float(min(target_array))
+			max_value = float(max(target_array))
+		feature_width = abs(feature_range[0] - feature_range[1])
+
+		#sets values between 0 and 1
+		scaled_data = np.divide(np.subtract(target_array, min_value), (max_value - min_value))
+
+		if feature_range != [0, 1]:
+			#adjusts to non-standard feature range
+			scaled_data = np.add(np.multiply(scaled_data, feature_width), feature_range[0])
+
+		if return_params == True:
+			min_max = [min_value, max_value]
+			scaled_zero = self.FeatureScale([0], custom_min_max=min_max, feature_range=feature_range)
+			scaled_zero = scaled_zero[0]
+			params = {'min_max': min_max, 
+					  'feature_range': feature_range,
+					  'scaled_zero': scaled_zero}
+			return scaled_data, params
+
+		return scaled_data
+
+	def UndoFeatureScale(self, target_array, feature_range=[0, 1], min_max=[-1,1]):
+		#sets values between -1 and 1
+		unscaled_data = list(target_array)
+		min_value = float(min_max[0])
+		max_value = float(min_max[1])
+		feature_width = abs(feature_range[0] - feature_range[1])
+
+		#the following is the inverse of self.FeatureScale, see that function for context
+
+		if feature_range != [0, 1]:
+			unscaled_data = np.divide(np.subtract(unscaled_data, feature_range[0]), feature_width)
+
+		unscaled_data = np.add(np.multiply(unscaled_data, (max_value - min_value)), min_value)
+
+		return unscaled_data
 
 	def SetUnixToDate(self, unix):#input unix time as string or int
 		#when using to display on screen, add to UTC unix param to offset for your timezone
@@ -297,7 +341,7 @@ class Preprocessor():
 		columns = ['time_period_start']
 		# starting with time_period_start
 		for coin in currency_order:
-			for col in self.data_index['currency_columns']:
+			for col in self.data_index['column_order']:
 				columns.append(f"{coin}|{col}")
 
 		#This finds the interval where data from all coins overlap
@@ -359,8 +403,8 @@ class Preprocessor():
 			#sets the index to the time_period_start column and drops time_period_start
 			self.initial_data[coin] = self.initial_data[coin].set_index('time_period_start', drop=False)
 
-			#adds self.data_index['currency_columns'] to initial_data if not already included
-			for col in self.data_index['currency_columns']:
+			#adds self.data_index['column_order'] to initial_data if not already included
+			for col in self.data_index['column_order']:
 				if col not in self.initial_data[coin].columns:
 					self.initial_data[coin][col] = np.nan
 			
@@ -368,7 +412,7 @@ class Preprocessor():
 			# so that training_data does not have it
 			drop_columns = []
 			for col in self.initial_data[coin].columns:
-				if col not in self.data_index['currency_columns']:
+				if col not in self.data_index['column_order']:
 					drop_columns.append(col)
 			self.initial_data[coin] = self.initial_data[coin].drop(columns=drop_columns)
 

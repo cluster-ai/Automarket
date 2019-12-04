@@ -12,8 +12,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 from scipy.optimize import curve_fit
 
-from sklearn import preprocessing
-from sklearn.preprocessing import MinMaxScaler
+import database.preprocessor as preprocessor
 
 import os
 
@@ -44,11 +43,16 @@ import database.database as database
 class NeuralNet():
 	def __init__(self, database):
 		self.database = database
+		self.preprocessor = preprocessor.Preprocessor()
+
+		self.overall_min = -1
+		self.overall_max = 1
+		self.balance_range = abs(self.overall_min - self.overall_max)
 
 		self.SEQ_LEN = 200
-		self.training_data = self.database.QueryTrainingData(prediction_steps=100, 
-														exchange_id='KRAKEN', 
-														currencies=['BTC'])
+		self.training_data, self.filename = self.database.QueryTrainingData(prediction_steps=100, 
+																exchange_id='KRAKEN', 
+																currencies=['BTC'])
 
 		self.datapoints = len(self.training_data['x'].index)
 		if self.datapoints != len(self.training_data['y'].index):
@@ -209,11 +213,8 @@ class NeuralNet():
 			prev_y = row['quantity']
 
 		values = balance_map['quantity'].values
-		values = values.reshape((len(balance_map['quantity']), 1))
-		scaler = MinMaxScaler(feature_range=(0,100))
-		#print(col, '| Min: %f, Max: %f' % (scaler.data_min_, scaler.data_max_))
-		normalized = np.squeeze(scaler.fit_transform(values))
-		balance_map['quantity'] = normalized
+		scaled_data = self.preprocessor.FeatureScale(values, feature_range=[0, 100])
+		balance_map['quantity'] = scaled_data
 
 
 		if return_index_map == True:
@@ -224,10 +225,6 @@ class NeuralNet():
 
 	def BalanceData(self, data, density_map, map_resolution=0, index_map={}):
 		init_time = time.time()
-
-		self.overall_min = -1
-		self.overall_max = 1
-		self.balance_range = abs(self.overall_min - self.overall_max)
 
 		new_data = []
 		map_indexes = []
@@ -255,13 +252,12 @@ class NeuralNet():
 				y2 = density_map.at[map_index+1, 'quantity']
 	
 			m = (y - y2) / (x - x2)
-			b = y
-			if m != 0:
-				b = y - m*x
+			b = y - m*x
 
 			#excess_area is the area between the actual point and the max of its category
-			trend_y = (m*trend_x + b)
-			area_offset = abs(trend_x-x)*min([trend_y, y]) + abs(trend_x-x)*abs(trend_y-y)/2
+			#here I use the antiderivative of a linear equation to get area between
+			#	trend_x and min of current map_index (anti-deriv = m/2*(x^2)+bx)
+			area_offset = (m/2 * trend_x**2 + b*trend_x) - (m/2 * x**2 + b*x)
 
 			area = approx_area + area_offset
 
@@ -293,18 +289,39 @@ class NeuralNet():
 			#finds map index
 			map_index = map_indexes[index]
 
+			while True:
+				if map_index != len(density_map.index)-1:
+					if area >= density_map.at[map_index+1, 'area']:
+						map_index += 1
+					elif area < density_map.at[map_index, 'area'] and map_index != 0:
+						map_index -= 1
+					else:
+						break
+				elif map_index == len(density_map.index)-1:
+					if area < density_map.at[map_index, 'area']:
+						map_index -= 1
+					else:
+						break
+				else:
+					break
+
 			x = density_map.at[map_index, 'min']
 			x2 = density_map.at[map_index, 'max']
 
-			y = density_map.at[map_index, 'quantity']
+			'''y = density_map.at[map_index, 'quantity']
 			y2 = 0
 			if map_index != len(density_map.index):
-				y2 = density_map.at[map_index, 'quantity']
+				y2 = density_map.at[map_index, 'quantity']'''
 
 			approx_area = density_map.at[map_index, 'area']
 
-			rel_total_area = abs(x-x2)*min([y,y2]) + abs(x-x2)*abs(y-y2)/2
-			rel_area = abs(area - approx_area)
+			rel_total_area = np.nan
+			if map_index != len(density_map.index)-1:
+				rel_total_area = density_map.at[map_index+1, 'area'] - approx_area
+			elif map_index == len(density_map.index)-1:
+				rel_total_area = self.total_area - approx_area
+
+			rel_area = area - approx_area
 			
 			new_trend = x
 			if rel_total_area != 0 and map_index != len(density_map.index) - 1:
@@ -323,7 +340,7 @@ class NeuralNet():
 
 	def GenerateSequences(self):
 
-		self.map_res = 45000
+		self.map_res = 45000 #45000 currently seems to generate the lowest error
 		self.density_map, self.index_map = self.CreateDensityMap(list(self.train_data_y['BTC_0|trend'].values), 
 																				map_resolution=self.map_res,
 																				non_zero_values=True,
@@ -344,23 +361,29 @@ class NeuralNet():
 		unbalanced_map = self.CreateDensityMap(remapped_data, map_resolution=self.map_res, 
 																	non_zero_values=True)
 
-		x = list(unbalanced_map['min'].values)
+		'''x = list(unbalanced_map['min'].values)
 		y = list(unbalanced_map['quantity'].values)
 		plt.plot(x, y)
 
 		x = list(self.density_map['min'].values)
 		y = list(self.density_map['quantity'].values)
-		plt.plot(x, y)
+		plt.plot(x, y)'''
 
 		error_list = []
 		error_map_approx = []
 		error_map_actual = []
+		error_margin = self.balance_range*100
+		scaled_zero = self.database.training_index[self.filename]['target_columns']['BTC_0|trend']['scaled_zero']
 		for index, value in enumerate(remapped_data):
 			if np.isnan(value):
 				continue
 			init_train_index = self.train_data_y.index[0]
 			train_value = self.train_data_y.at[index+init_train_index, 'BTC_0|trend']
-			error = abs((value - train_value) / (self.balance_range/10))
+
+			#offset data so that scaled_zero is not zero
+			#value = value - scaled_zero
+			#train_value = train_value - scaled_zero
+			error = abs((value - train_value) / error_margin)
 			if np.isnan(error):
 				error = 0
 			#the added overall min gets the minimum value to zero so the error is not
@@ -377,6 +400,8 @@ class NeuralNet():
 		error = np.sum(error_list) / len(error_list) * 100
 
 		print(f"Balance Error: {error}")
+		error_margin = 1/error_margin
+		print(f"Error Margin: {error_margin}")
 
 		max_error = max(error_list) * 100
 		min_error = min(error_list) * 100
@@ -501,7 +526,7 @@ class NeuralNet():
 			if os.path.isdir('results') == False:
 				os.mkdir('results')
 
-			epochs = 5
+			epochs = 3
 			for epoch in range(epochs):
 				print('----------------------------------------------------')
 				print(f"Epoch {epoch}")
@@ -521,7 +546,10 @@ class NeuralNet():
 					init_index.append(x)
 				results = pd.DataFrame(columns=['inverse', 'actual', 'prediction'], index=init_index)
 
-				predictions = self.model.predict(self.xs_test)
+				predictions = np.asarray(np.squeeze(self.model.predict(self.xs_test)))
+				#the model predicts in the "balanced format"
+				predictions = self.UnbalanceData(predictions, self.density_map)
+				actual_data = self.UnbalanceData(self.ys_test, self.density_map)
 				error_list = []
 				error_list_inv = []
 				count = 0
@@ -534,10 +562,10 @@ class NeuralNet():
 					results.at[index, 'inverse'] = inv_ys
 					results.at[index, 'prediction'] = prediction
 
-					error = abs((actual_ys-prediction)/ actual_ys)
+					error = abs((actual_ys-prediction)/ (10*self.balance_range))
 					error_list.append(error)
 					
-					inv_error = abs((inv_ys-prediction)/inv_ys)
+					inv_error = abs((inv_ys-prediction)/ (10*self.balance_range))
 					error_list_inv.append(inv_error)
 
 					count += 1
@@ -553,8 +581,7 @@ class NeuralNet():
 				print(results)
 
 				#prediction distribution
-				balance_map = self.CreateDensityMap(target_array=np.asarray(np.squeeze(predictions)), 
-																					map_resolution=500)
+				balance_map = self.CreateDensityMap(target_array=predictions, map_resolution=500)
 				open(f'results/pred_epoch{epoch}.csv', 'w')
 				balance_map.to_csv(f'results/pred_epoch{epoch}.csv', index=False)
 

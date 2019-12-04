@@ -8,7 +8,25 @@
         "currencies": {
             "BTC_0": "KRAKEN_SPOT_BTC_USD.csv"
         },
-        "currency_columns": [
+        "target_columns": {
+            "BTC_0|trend": {
+                "min_max": [
+                    -24.378058556323246,
+                    41.19181818181903
+                ],
+                "feature_range": [
+                    -1,
+                    1
+                ],
+                "scaled_zero": -0.2564250607431011
+            },
+            "time_period_start": {},
+            "BTC_0|average_price": {},
+            "BTC_0|trades_count": {},
+            "BTC_0|volume_traded": {},
+            "BTC_0|is_nan": {}
+        },
+        "column_order": [
             "price_high",
             "price_low",
             "average_price",
