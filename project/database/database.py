@@ -452,7 +452,7 @@ class Database():
 				if matches != len(kwargs['currencies']):
 					continue;
 
-				#prediction_steps
+				#prediction_stepsd
 				if kwargs['prediction_steps'] != index_item['prediction_steps']:
 					continue;
 
@@ -475,19 +475,19 @@ class Database():
 													'BTC_0|price_low'])
 
 
-		#315360 datapoints in 3 years
-		training_data = training_data.tail(315360)
+		#315360 datapoints in 3 years (for 5MIN time steps)
+		training_data = training_data.tail(210240)#(315360)
 
 		print(training_data.head(10))
 
 		#normalization
 		index_item = self.training_index[matched_filename]
-		for col in training_data.columns:
+		for col in training_data.columns: 
 			index_item['target_columns'].update({col: {}})
 			if 'is_nan' not in col:
 				data = training_data[col].values
 				training_data[col], params = self.preprocessor.FeatureScale(data,
-																	feature_range=[-1, 1],
+																	feature_range=[0, 1],
 																	return_params=True)
 				if 'trend' in col:
 					index_item['target_columns'].update({col: params})

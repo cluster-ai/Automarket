@@ -65,7 +65,7 @@ filename == {exchange_id}_{asset_id_quote}_(prediction_steps)_(currencies)
 ex: filename == "KRAKEN_USD_100_BTC_ETH.csv"
 
 [
-	"KRAKEN_USD_1_BTC_ETH.csv" : {
+	"KRAKEN_USD_100_BTC_ETH.csv" : {
 		"filepath" : "database/training_data/KRAKEN/KRAKEN_USD_1_BTC_ETH.csv",
 		"exchange_id" : "KRAKEN"
 		"asset_id_quote" : "USD",

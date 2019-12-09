@@ -15,10 +15,10 @@
                     41.19181818181903
                 ],
                 "feature_range": [
-                    -1,
+                    0,
                     1
                 ],
-                "scaled_zero": -0.2564250607431011
+                "scaled_zero": 0.37178746962844944
             },
             "time_period_start": {},
             "BTC_0|average_price": {},
