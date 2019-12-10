@@ -161,6 +161,11 @@ class NeuralNet():
 		print(f'min_quantity: {min_quantity}, max_quantity: {max_quantity}')
 		print('percentage graphed:', (abs(min_quantity - max_quantity) / max_quantity * 100))
 
+		#quantity feature scale
+		values = balance_map['quantity'].values
+		scaled_data = self.preprocessor.FeatureScale(values, feature_range=[0, 100])
+		balance_map['quantity'] = scaled_data
+
 		#This prevents values being zero so that any value in the domain can be represented.
 		#index map is used to keep track of what each index now maps to since its being changed
 		'''
@@ -177,10 +182,16 @@ class NeuralNet():
 				index_map.update({index: index})#may be changed if current index quantity is zero
 
 				if row['quantity'] <= 0:
-					balance_map.at[index, 'quantity'] = np.nan
-					latest_zero_points.append(index)
+					if index == 0:
+						balance_map.at[index, 'quantity'] = 0
+						last_valid_index = index
+					else:
+						balance_map.at[index, 'quantity'] = np.nan
+						latest_zero_points.append(index)
+				elif row['quantity'] > 0 and np.isnan(last_valid_index) == True:
+					last_valid_index = index
 					continue
-				elif np.isnan(last_valid_index) == False:
+				elif row['quantity'] > 0 and np.isnan(last_valid_index) == False:
 					#wrap up the last valid index (max value needs to be set)
 					balance_map.at[last_valid_index, 'max'] = balance_map.at[index, 'min']
 
@@ -188,9 +199,6 @@ class NeuralNet():
 						index_map[zero_index] = last_valid_index
 					latest_zero_points = []
 
-					last_valid_index = index
-					continue
-				elif np.isnan(last_valid_index) == True:
 					last_valid_index = index
 					continue
 
@@ -201,10 +209,6 @@ class NeuralNet():
 		for key, item in index_map.items():
 			new_index = balance_map.index[balance_map['index'] == item][0]
 			index_map[key] = new_index
-
-		values = balance_map['quantity'].values
-		scaled_data = self.preprocessor.FeatureScale(values, feature_range=[0, 100])
-		balance_map['quantity'] = scaled_data
 
 		self.total_area = 0
 		prev_y = 0
@@ -402,12 +406,11 @@ class NeuralNet():
 
 	def GenerateSequences(self):
 
-		self.map_res = 1000 #45000 currently seems to generate the lowest error
+		self.map_res = 10000 #45000 currently seems to generate the lowest error
 		self.density_map, self.index_map = self.CreateDensityMap(list(self.train_data_y['BTC_0|trend'].values), 
 																				map_resolution=self.map_res,
 																				non_zero_values=True,
 																				return_index_map=True)
-
 
 		'''self.TestBalanceError()
 
@@ -416,10 +419,6 @@ class NeuralNet():
 		####################################################
 		####Data Balancer
 
-		#data, density_map, map_resolution=0, index_map={}, return_indexes=False
-
-		og_data = self.train_data_y.loc[:, 'BTC_0|trend'].values
-
 		self.train_data_y.loc[:, 'BTC_0|trend'], indexes = self.BalanceData(
 														np.ndarray.tolist(self.train_data_y['BTC_0|trend'].values),
 																self.density_map,
@@ -427,19 +426,28 @@ class NeuralNet():
 																index_map=self.index_map,
 																return_indexes=True)
 
-
 		###TESTER###
 		'''self.train_data_y.loc[:, 'BTC_0|trend'] = self.UnbalanceData(
 														np.ndarray.tolist(self.train_data_y['BTC_0|trend'].values),
 																self.density_map,
 																map_resolution=self.map_res,
 																index_map=self.index_map,
-																map_indexes=indexes)
+																map_indexes=indexes)'''
 
 		
-		new_data = self.train_data_y.loc[:, 'BTC_0|trend'].values
+		'''test_map = self.CreateDensityMap(list(self.train_data_y.loc[:, 'BTC_0|trend'].values),
+																	map_resolution=200)
 
-		count = 0
+
+		print('SIZE:', len(self.density_map.index))
+
+		x = np.ndarray.tolist(test_map['min'].values)
+		y = np.ndarray.tolist(test_map['quantity'].values)
+
+		plt.plot(x, y)
+		plt.show('>>>')'''
+
+		'''count = 0
 		error_list = []
 		for index, value in enumerate(og_data):
 			if value != 0 and np.isnan(new_data[index]) == False:
@@ -450,9 +458,9 @@ class NeuralNet():
 		print(count)
 
 		error = np.sum(error_list) / len(error_list) * 100
-		print(f'error: {error}')
+		print(f'error: {error}')'''
 
-		var = input('>>>')'''
+		#var = input('>>>')
 
 		############################################################
 		###Sequence Generator
@@ -536,17 +544,17 @@ class NeuralNet():
 
 		for x in range(0, 1):
 			self.model = Sequential([
-				LSTM(300,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
+				LSTM(400,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
 				Dropout(0.2),
 				BatchNormalization(),
-				LSTM(300),
+				LSTM(400),
 				Dropout(0.2),
 				BatchNormalization(),
 				Dense(len(self.train_data_x.columns), activation='tanh'),
 				Dropout(0.2),
-				Dense(200, activation='tanh'),
+				Dense(300, activation='tanh'),
 				Dropout(0.2),
-				Dense(200, activation='tanh'),
+				Dense(300, activation='tanh'),
 				Dropout(0.2),
 				Dense(len(self.train_data_y.columns), activation='tanh')
 				])
@@ -567,7 +575,7 @@ class NeuralNet():
 					history = self.model.fit(
 							self.xs, self.ys,
 							epochs=1,
-							batch_size=200,
+							batch_size=50,
 							validation_data=(self.xs_test, self.ys_test))
 
 
@@ -577,11 +585,12 @@ class NeuralNet():
 					init_index.append(x)
 				results = pd.DataFrame(columns=['inverse', 'actual', 'prediction'], index=init_index)
 
-				predictions = np.asarray(np.squeeze(self.model.predict(self.xs_test)))
+				bal_predictions = np.asarray(np.squeeze(self.model.predict(self.xs_test)))
 				#the model predicts in the "balanced format"
-				predictions = self.UnbalanceData(predictions, self.density_map, map_index=self.map_index, 
+
+				#data, density_map, index_map={}, map_resolution=0, map_indexes=[]
+				predictions = self.UnbalanceData(bal_predictions, self.density_map, index_map=self.index_map, 
 																						map_resolution=self.map_res)
-				#self.ys_test = self.BalanceData(np.asarray(np.squeeze(self.ys_test)), self.density_map, )
 				error_list = []
 				error_list_inv = []
 				count = 0
@@ -594,10 +603,10 @@ class NeuralNet():
 					results.at[index, 'inverse'] = inv_ys
 					results.at[index, 'prediction'] = prediction
 
-					error = abs((actual_ys-prediction)/ self.balance_range)
+					error = abs((actual_ys-prediction) / (self.balance_range*100))
 					error_list.append(error)
 					
-					inv_error = abs((inv_ys-prediction)/ self.balance_range)
+					inv_error = abs((inv_ys-prediction) / (self.balance_range*100))
 					error_list_inv.append(inv_error)
 
 					count += 1
@@ -613,14 +622,15 @@ class NeuralNet():
 				print(results)
 
 				#prediction distribution
-				balance_map = self.CreateDensityMap(target_array=predictions, map_resolution=500)
+				balance_map = self.CreateDensityMap(target_array=un_predictions, map_resolution=500)
 				open(f'results/pred_epoch{epoch}.csv', 'w')
 				balance_map.to_csv(f'results/pred_epoch{epoch}.csv', index=False)
 
-
 			#actual distribution
-			balance_map = self.CreateDensityMap(target_array=np.asarray(np.squeeze(self.ys_test)), 
-																				map_resolution=500)
+			bal_ys_test = self.np.asarray(np.squeeze(self.ys_test))
+			bal_ys_test = self.BalanceData(bal_ys_test, self.density_map, map_resolution=self.map_res, 
+																					index_map=self.index_map)
+			balance_map = self.CreateDensityMap(target_array=bal_ys_test, map_resolution=500)
 			open(f'results/actual.csv', 'w')
 			balance_map.to_csv(f'results/actual.csv', index=False)
 
