@@ -428,7 +428,8 @@ class NeuralNet():
 																return_indexes=True)
 
 
-		self.train_data_y.loc[:, 'BTC_0|trend'] = self.UnbalanceData(
+		###TESTER###
+		'''self.train_data_y.loc[:, 'BTC_0|trend'] = self.UnbalanceData(
 														np.ndarray.tolist(self.train_data_y['BTC_0|trend'].values),
 																self.density_map,
 																map_resolution=self.map_res,
@@ -438,19 +439,20 @@ class NeuralNet():
 		
 		new_data = self.train_data_y.loc[:, 'BTC_0|trend'].values
 
-		error = abs(np.divide(np.subtract(new_data, og_data), og_data))
-		error = np.sum(error) / len(new_data) * 100
+		count = 0
+		error_list = []
+		for index, value in enumerate(og_data):
+			if value != 0 and np.isnan(new_data[index]) == False:
+				error = abs((new_data[index] - value) / value)
+				error_list.append(error)
+			elif np.isnan(new_data[index]) == True:
+				count += 1
+		print(count)
+
+		error = np.sum(error_list) / len(error_list) * 100
 		print(f'error: {error}')
 
-		#train_map = self.CreateDensityMap(list(self.train_data_y['BTC_0|trend'].values), map_resolution=1000)
-
-		'''x = list(train_map['min'].values)
-		y = list(train_map['quantity'].values)
-
-		plt.plot(x, y)
-		plt.show()'''
-
-		var = input('>>>')
+		var = input('>>>')'''
 
 		############################################################
 		###Sequence Generator
