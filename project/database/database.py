@@ -472,11 +472,13 @@ class Database():
 		training_data = self.__LoadTrainingData(matched_filename)
 
 		training_data = training_data.drop(columns=['BTC_0|price_high', 
-													'BTC_0|price_low'])
+													'BTC_0|price_low',
+													'BTC_0|trades_count',
+													'BTC_0|volume_traded'])
 
 
 		#315360 datapoints in 3 years (for 5MIN time steps)
-		training_data = training_data.tail(210240)#(315360)
+		training_data = training_data.tail(50000)#(315360)
 
 		print(training_data.head(10))
 

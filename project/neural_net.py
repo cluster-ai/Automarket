@@ -4,6 +4,7 @@ import numpy as np
 from collections import deque
 
 import tensorflow as tf
+from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout, BatchNormalization
 
@@ -96,7 +97,7 @@ class NeuralNet():
 
 		#since estimated_index can be off by one,
 		#  this shifts the value to appropriate category if needed
-		if value < balance_map.at[estimated_index, 'min']:
+		if value < balance_map.at[estimated_index, 'min'] and estimated_index != 0:
 			estimated_index -= 1
 		elif value >= balance_map.at[estimated_index, 'max'] and estimated_index != len(balance_map.index)-1:
 			estimated_index += 1
@@ -395,7 +396,7 @@ class NeuralNet():
 
 			new_data.append(new_trend)
 
-			if index % 10000 == 0 and index != 0:
+			if index % 1000 == 0 and index != 0:
 				print(index)
 
 		duration = time.time() - init_time
@@ -544,28 +545,29 @@ class NeuralNet():
 
 		for x in range(0, 1):
 			self.model = Sequential([
-				LSTM(400,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
+				LSTM(300,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
 				Dropout(0.2),
 				BatchNormalization(),
-				LSTM(400),
+				LSTM(300),
 				Dropout(0.2),
 				BatchNormalization(),
-				Dense(len(self.train_data_x.columns), activation='tanh'),
+				Dense(len(self.train_data_x.columns), activation='sigmoid'),
 				Dropout(0.2),
-				Dense(300, activation='tanh'),
+				Dense(200, activation='sigmoid'),
 				Dropout(0.2),
-				Dense(300, activation='tanh'),
+				Dense(200, activation='sigmoid'),
 				Dropout(0.2),
-				Dense(len(self.train_data_y.columns), activation='tanh')
+				Dense(len(self.train_data_y.columns), activation='sigmoid')
 				])
 
 			opt = tf.keras.optimizers.Adam(lr=0.0001, decay=1e-5)
-			self.model.compile(loss='mean_squared_error', optimizer=opt)
+			#opt = RMSprop(learning_rate=0.001)
+			self.model.compile(loss='mse', optimizer=opt)
 
 			if os.path.isdir('results') == False:
 				os.mkdir('results')
 
-			epochs = 3
+			epochs = 5
 			for epoch in range(epochs):
 				print('----------------------------------------------------')
 				print(f"Epoch {epoch}")
@@ -575,7 +577,7 @@ class NeuralNet():
 					history = self.model.fit(
 							self.xs, self.ys,
 							epochs=1,
-							batch_size=50,
+							batch_size=100,
 							validation_data=(self.xs_test, self.ys_test))
 
 
@@ -585,7 +587,7 @@ class NeuralNet():
 					init_index.append(x)
 				results = pd.DataFrame(columns=['inverse', 'actual', 'prediction'], index=init_index)
 
-				bal_predictions = np.asarray(np.squeeze(self.model.predict(self.xs_test)))
+				bal_predictions = np.ndarray.tolist(np.squeeze(self.model.predict(self.xs_test)))
 				#the model predicts in the "balanced format"
 
 				#data, density_map, index_map={}, map_resolution=0, map_indexes=[]
@@ -622,12 +624,12 @@ class NeuralNet():
 				print(results)
 
 				#prediction distribution
-				balance_map = self.CreateDensityMap(target_array=un_predictions, map_resolution=500)
+				balance_map = self.CreateDensityMap(target_array=bal_predictions, map_resolution=500)
 				open(f'results/pred_epoch{epoch}.csv', 'w')
 				balance_map.to_csv(f'results/pred_epoch{epoch}.csv', index=False)
 
 			#actual distribution
-			bal_ys_test = self.np.asarray(np.squeeze(self.ys_test))
+			bal_ys_test = np.asarray(np.squeeze(self.ys_test))
 			bal_ys_test = self.BalanceData(bal_ys_test, self.density_map, map_resolution=self.map_res, 
 																					index_map=self.index_map)
 			balance_map = self.CreateDensityMap(target_array=bal_ys_test, map_resolution=500)

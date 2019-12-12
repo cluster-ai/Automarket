@@ -11,14 +11,14 @@
         "target_columns": {
             "BTC_0|trend": {
                 "min_max": [
-                    -24.378058556323246,
-                    41.19181818181903
+                    -14.712380896913116,
+                    14.342599883517714
                 ],
                 "feature_range": [
                     0,
                     1
                 ],
-                "scaled_zero": 0.37178746962844944
+                "scaled_zero": 0.506363470280532
             },
             "time_period_start": {},
             "BTC_0|average_price": {},
