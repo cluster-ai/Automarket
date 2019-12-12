@@ -46,14 +46,22 @@ class NeuralNet():
 		self.database = database
 		self.preprocessor = preprocessor.Preprocessor()
 
-		self.overall_min = 0
-		self.overall_max = 1
-		self.balance_range = abs(self.overall_min - self.overall_max)
+		self.outputs = 6
+		self.output_map = pd.DataFrame(columns=['min', 'max', 'quantity'])
+
+		self.y_data_columns = []
+		for x in range(self.outputs):
+			self.y_data_columns.append(x)
 
 		self.SEQ_LEN = 200
 		self.training_data, self.filename = self.database.QueryTrainingData(prediction_steps=100, 
 																exchange_id='KRAKEN', 
 																currencies=['BTC'])
+
+		self.target_min = min(np.ndarray.tolist(np.squeeze(self.training_data['y'].values)))
+		self.target_max = max(np.ndarray.tolist(np.squeeze(self.training_data['y'].values)))
+		self.balance_range = abs(self.target_min - self.target_max)
+
 
 		self.datapoints = len(self.training_data['x'].index)
 		if self.datapoints != len(self.training_data['y'].index):
@@ -64,11 +72,13 @@ class NeuralNet():
 
 		#instance copy of train data (oldest 95% of self.training_data)
 		self.train_data_x = self.training_data['x'].head(self.train_datapoints)
-		self.train_data_y = self.training_data['y'].head(self.train_datapoints)
+		self.train_data_y = pd.DataFrame(columns=self.y_data_columns, index=range(self.train_datapoints))
+		self.train_target = self.training_data['y'].head(self.train_datapoints)
 		
 		#instance copy of test data (newest 95% of self.training_data)
 		self.test_data_x = self.training_data['x'].tail(self.test_datapoints)
-		self.test_data_y = self.training_data['y'].tail(self.test_datapoints)
+		self.test_data_y = pd.DataFrame(columns=self.y_data_columns, index=range(self.test_datapoints))
+		self.test_target = self.training_data['y'].tail(self.test_datapoints)
 
 		self.GenerateSequences()
 
@@ -213,7 +223,7 @@ class NeuralNet():
 
 		self.total_area = 0
 		prev_y = 0
-		prev_x = self.overall_min
+		prev_x = self.target_min
 		for index, row in balance_map.iterrows():
 			x_diff = abs(prev_x - row['min'])
 			#this gets the area under curve from 0 to min of each point.
@@ -252,8 +262,8 @@ class NeuralNet():
 				continue
 
 			map_index = self.EstimateMapIndex(trend_x, balance_map=density_map,
-															min_value=self.overall_min,
-															max_value=self.overall_max,
+															min_value=self.target_min,
+															max_value=self.target_max,
 															index_map=index_map,
 															map_resolution=map_resolution)
 
@@ -280,7 +290,7 @@ class NeuralNet():
 
 			area = approx_area + area_offset
 
-			new_trend = (area / total_area) * self.balance_range + self.overall_min
+			new_trend = (area / total_area) * self.balance_range + self.target_min
 
 			new_data.append(new_trend)
 			map_indexes.append(map_index)
@@ -310,7 +320,7 @@ class NeuralNet():
 				new_data.append(np.nan) 
 				continue
 
-			area = (abs(trend_x - self.overall_min) / self.balance_range) * total_area
+			area = (abs(trend_x - self.target_min) / self.balance_range) * total_area
 
 			#finds map index
 			map_index = int((len(density_map.index)-1) / 2)
@@ -368,7 +378,7 @@ class NeuralNet():
 
 
 			plus_error = 1000
-			if x_plus >= self.overall_min and x_plus <= self.overall_max:
+			if x_plus >= self.target_min and x_plus <= self.target_max:
 				plus_error = self.BalanceData([x_plus], density_map, map_resolution=map_resolution, 
 																					index_map=index_map)[0]
 				if trend_x == 0:
@@ -377,7 +387,7 @@ class NeuralNet():
 					plus_error = abs((plus_error - trend_x) / trend_x)
 
 			minus_error = 1000
-			if x_minus >= self.overall_min and x_minus <= self.overall_max:
+			if x_minus >= self.target_min and x_minus <= self.target_max:
 				minus_error = self.BalanceData([x_minus], density_map, map_resolution=map_resolution, 
 																					index_map=index_map)[0]
 				if trend_x == 0:
@@ -407,61 +417,99 @@ class NeuralNet():
 
 	def GenerateSequences(self):
 
-		self.map_res = 10000 #45000 currently seems to generate the lowest error
-		self.density_map, self.index_map = self.CreateDensityMap(list(self.train_data_y['BTC_0|trend'].values), 
+		self.map_res = int(self.datapoints / 210240 * 3000)
+		print(self.map_res)
+		#if the datapoint count is two years worth (210240), self.map_res == 2000
+		self.density_map, self.index_map = self.CreateDensityMap(list(self.train_target['BTC_0|trend'].values), 
 																				map_resolution=self.map_res,
 																				non_zero_values=True,
 																				return_index_map=True)
 
-		'''self.TestBalanceError()
 
-		var = input('>>>')'''
+		#Inititalizes output map with equal spacing
+		increment = self.balance_range / self.outputs
+		prev_max = self.target_min
+		for index in range(self.outputs):
+			new_max = prev_max + increment
+			if index+1 == self.outputs:
+				self.output_map.at[index, 'min'] = prev_max
+				self.output_map.at[index, 'max'] = self.target_max
+			else:
+				self.output_map.at[index, 'min'] = prev_max
+				self.output_map.at[index, 'max'] = new_max
+			prev_max = new_max
 
-		####################################################
-		####Data Balancer
+		self.output_map.fillna(0, inplace=True)
 
-		self.train_data_y.loc[:, 'BTC_0|trend'], indexes = self.BalanceData(
-														np.ndarray.tolist(self.train_data_y['BTC_0|trend'].values),
-																self.density_map,
-																map_resolution=self.map_res,
-																index_map=self.index_map,
-																return_indexes=True)
-
-		###TESTER###
-		'''self.train_data_y.loc[:, 'BTC_0|trend'] = self.UnbalanceData(
-														np.ndarray.tolist(self.train_data_y['BTC_0|trend'].values),
-																self.density_map,
-																map_resolution=self.map_res,
-																index_map=self.index_map,
-																map_indexes=indexes)'''
-
-		
-		'''test_map = self.CreateDensityMap(list(self.train_data_y.loc[:, 'BTC_0|trend'].values),
-																	map_resolution=200)
+		#uses the unbalance function so that each category has an equal number of datapoints (roughly)
+		output_min = np.ndarray.tolist(np.squeeze(self.output_map.loc[:, 'min'].values))
+		output_max = np.ndarray.tolist(np.squeeze(self.output_map.loc[:, 'max'].values))
+		self.output_map.loc[:, 'min'] = self.UnbalanceData(output_min, self.density_map, 
+											map_resolution=self.map_res, index_map=self.index_map)
+		self.output_map.loc[:, 'max'] = self.UnbalanceData(output_max, self.density_map, 
+											map_resolution=self.map_res, index_map=self.index_map)
 
 
-		print('SIZE:', len(self.density_map.index))
+		#iterates through the data and creates a matching train_data_y values
+		#	based on datas category
+		self.train_data_y.fillna(0, inplace=True)
+		init_target_index = self.train_target.index[0]
+		for target_index, row in self.train_target.iterrows():
+			map_index = np.nan
+			value = row['BTC_0|trend']
+			if np.isnan(value):
+				self.train_data_y.loc[target_index, :] = np.nan
+				continue
+			for output_index, category in self.output_map.iterrows():
+				if value < category['max'] and output_index == 0:
+					map_index = output_index
+				elif value < category['max'] and value >= category['min']:
+					map_index = output_index
+				elif value >= category['max'] and output_index == self.outputs-1:
+					map_index = output_index
 
-		x = np.ndarray.tolist(test_map['min'].values)
-		y = np.ndarray.tolist(test_map['quantity'].values)
+			self.train_data_y.at[target_index-init_target_index, map_index] = 1
+			if (target_index - init_target_index) % 20000 == 0:
+				print(target_index - init_target_index)
 
-		plt.plot(x, y)
-		plt.show('>>>')'''
+		#finds how many datapoints fall under each category
+		total_qty = self.train_datapoints
+		for col in self.train_data_y.columns:
+			qty = np.sum(self.train_data_y[col].values)
+			self.output_map.at[col, 'quantity'] = qty
+			percent = qty / total_qty * 100
+			print(f"Quantity: {qty} | Percent: {percent}%")
 
-		'''count = 0
-		error_list = []
-		for index, value in enumerate(og_data):
-			if value != 0 and np.isnan(new_data[index]) == False:
-				error = abs((new_data[index] - value) / value)
-				error_list.append(error)
-			elif np.isnan(new_data[index]) == True:
-				count += 1
-		print(count)
+		print(self.output_map)
 
-		error = np.sum(error_list) / len(error_list) * 100
-		print(f'error: {error}')'''
 
-		#var = input('>>>')
+
+		#SAME THING BUT FOR TEST DATA
+
+		#iterates through the data and creates a matching train_data_y values
+		#	based on datas category
+		self.test_data_y.fillna(0, inplace=True)
+		init_target_index = self.test_target.index[0]
+		for target_index, row in self.test_target.iterrows():
+			map_index = np.nan
+			value = row['BTC_0|trend']
+			if np.isnan(value):
+				self.test_data_y.loc[target_index, :] = np.nan
+				continue
+			for output_index, category in self.output_map.iterrows():
+				if value < category['max'] and output_index == 0:
+					map_index = output_index
+				elif value < category['max'] and value >= category['min']:
+					map_index = output_index
+				elif value >= category['max'] and output_index == self.outputs-1:
+					map_index = output_index
+
+			self.test_data_y.at[target_index-init_target_index, map_index] = 1
+			if (target_index - init_target_index) % 20000 == 0:
+				print(target_index - init_target_index)
+
+		print(self.output_map)
+
 
 		############################################################
 		###Sequence Generator
@@ -521,9 +569,9 @@ class NeuralNet():
 			prev_days.append([n for n in row])
 
 			if len(prev_days) == self.SEQ_LEN:
-				isnan_y = np.isnan(self.test_data_y.loc[index, :])
+				isnan_y = np.isnan(self.test_target.loc[index, :])
 				if np.isin(True, isnan_y) == False:
-					self.testing_batch.append([np.array(prev_days), self.test_data_y.loc[index, :]])
+					self.testing_batch.append([np.array(prev_days), self.test_target.loc[index, :]])
 
 			if count % 50000 == 0 and count != 0:
 				print(count)
@@ -557,12 +605,11 @@ class NeuralNet():
 				Dropout(0.2),
 				Dense(200, activation='sigmoid'),
 				Dropout(0.2),
-				Dense(len(self.train_data_y.columns), activation='sigmoid')
+				Dense(self.outputs, activation='sigmoid')
 				])
 
 			opt = tf.keras.optimizers.Adam(lr=0.0001, decay=1e-5)
-			#opt = RMSprop(learning_rate=0.001)
-			self.model.compile(loss='mse', optimizer=opt)
+			self.model.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
 
 			if os.path.isdir('results') == False:
 				os.mkdir('results')
@@ -668,8 +715,8 @@ class NeuralNet():
 		for index, value in enumerate(remapped_data):
 			if np.isnan(value):
 				continue
-			init_train_index = self.test_data_y.index[0]
-			train_value = self.test_data_y.at[index+init_train_index, 'BTC_0|trend']
+			init_train_index = self.test_target.index[0]
+			train_value = self.test_target.at[index+init_train_index, 'BTC_0|trend']
 
 			#offset data so that scaled_zero is not zero
 			#value = value - scaled_zero
