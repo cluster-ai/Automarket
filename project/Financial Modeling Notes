@@ -1,0 +1,33 @@
+Concepts: Trading, Credit risk modelling, default classification, customer segmentation and many others employing Genetic Algorithms, Neural Networks, Fuzzy Logic, and various algorithms such as PSO, ACO, BCO, and NIA in general. 
+
+
+///DATA RELEVANT TO FINANCIAL MODELING///
+
+
+///FEATURE ENGINEERING///
+
+Stepwise linear regression:
+is a method of regressing multiple variables while simultaneously removing those that aren't important. This webpage will take you through doing this in SPSS. Stepwise regression essentially does multiple regression a number of times, each time removing the weakest correlated variable.
+
+With finding the underlying features of tabular data, it often means a mixture of aggregating or combining features to create new features, and decomposing or splitting features to create new features.
+
+
+///CLUSTERING/// - sklearn implements most of these algorithms
+
+Clustering is a Machine Learning technique that involves the grouping of data points.
+
+May want to try visualizing the data to see if there are any obvious groupings for each output class (start with two, one for an increasing trend and the second for a decreasing trend)
+
+Since financial models have consistent-ish data within a region but is completely different at the next region. Perhaps it would be beneficial to identify regions before trying to predict where the market is going. K-means is a data clustering algorithm that can classifly data based on obvious groupings after it is given the number of groups/classes (two). K-medians is another one but is slower for large datasets because it has to sort for each iteration but is less sensitive to outliers.
+
+Mean shift clustering is a sliding-window-based algorithm that attempts to find dense areas of data points. It is a centroid-based algorithm meaning that the goal is to locate the center points of each group/class, which works by updating candidates for center points to be the mean of the points within the sliding-window. The advantage to k-means is you do not have to select the number of clusters as it finds all the "pockets" for you.
+
+Density-Based Spatial Clustering of Applications with Noise (DBSCAN). 
+DBSCAN is a density-based clustered algorithm similar to mean-shift, but with a couple of notable advantages. Check out another fancy graphic below and let’s get started! DBSCAN poses some great advantages over other clustering algorithms. Firstly, it does not require a pe-set number of clusters at all. It also identifies outliers as noises, unlike mean-shift which simply throws them into a cluster even if the data point is very different. Additionally, it can find arbitrarily sized and arbitrarily shaped clusters quite well.
+
+/Seems the best so far/
+Expectation–Maximization (EM) Clustering using Gaussian Mixture Models (GMM). 
+Gaussian Mixture Models (GMMs) give us more flexibility than K-Means. With GMMs we assume that the data points are Gaussian distributed; this is a less restrictive assumption than saying they are circular by using the mean. That way, we have two parameters to describe the shape of the clusters: the mean and the standard deviation! Taking an example in two dimensions, this means that the clusters can take any kind of elliptical shape (since we have a standard deviation in both the x and y directions). Thus, each Gaussian distribution is assigned to a single cluster. There are 2 key advantages to using GMMs. Firstly GMMs are a lot more flexible in terms of cluster covariance than K-Means; due to the standard deviation parameter, the clusters can take on any ellipse shape, rather than being restricted to circles. K-Means is actually a special case of GMM in which each cluster’s covariance along all dimensions approaches 0. Secondly, since GMMs use probabilities, they can have multiple clusters per data point. So if a data point is in the middle of two overlapping clusters, we can simply define its class by saying it belongs X-percent to class 1 and Y-percent to class 2. I.e GMMs support mixed membership.
+
+Agglomerative Hierarchical Clustering
+Hierarchical clustering does not require us to specify the number of clusters and we can even select which number of clusters looks best since we are building a tree. Additionally, the algorithm is not sensitive to the choice of distance metric; all of them tend to work equally well whereas with other clustering algorithms, the choice of distance metric is critical. A particularly good use case of hierarchical clustering methods is when the underlying data has a hierarchical structure and you want to recover the hierarchy; other clustering algorithms can’t do this. These advantages of hierarchical clustering come at the cost of lower efficiency, as it has a time complexity of O(n³), unlike the linear complexity of K-Means and GMM.

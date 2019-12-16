@@ -46,15 +46,15 @@ class NeuralNet():
 		self.database = database
 		self.preprocessor = preprocessor.Preprocessor()
 
-		self.outputs = 6
+		self.outputs = 2
 		self.output_map = pd.DataFrame(columns=['min', 'max', 'quantity'])
 
 		self.y_data_columns = []
 		for x in range(self.outputs):
 			self.y_data_columns.append(x)
 
-		self.SEQ_LEN = 200
-		self.training_data, self.filename = self.database.QueryTrainingData(prediction_steps=100, 
+		self.SEQ_LEN = 100
+		self.training_data, self.filename = self.database.QueryTrainingData(prediction_steps=20, 
 																exchange_id='KRAKEN', 
 																currencies=['BTC'])
 
@@ -71,13 +71,23 @@ class NeuralNet():
 		self.test_datapoints = self.datapoints - self.train_datapoints
 
 		#instance copy of train data (oldest 95% of self.training_data)
+		'''
 		self.train_data_x = self.training_data['x'].head(self.train_datapoints)
-		self.train_data_y = pd.DataFrame(columns=self.y_data_columns, index=range(self.train_datapoints))
+		train_index = range(self.train_data_x.index[0], self.train_data_x.index[0]+self.train_datapoints)
+		self.train_data_y = pd.DataFrame(columns=self.y_data_columns, index=train_index)
 		self.train_target = self.training_data['y'].head(self.train_datapoints)
+		'''
+		self.train_data_x = self.training_data['x'].head(self.datapoints)
+		#self.train_data_x.drop(columns=['time_period_start'], inplace=True)
+		train_index = range(self.train_data_x.index[0], self.train_data_x.index[0]+self.datapoints)
+		self.train_data_y = pd.DataFrame(columns=self.y_data_columns, index=train_index)
+		self.train_target = self.training_data['y'].head(self.datapoints)
 		
 		#instance copy of test data (newest 95% of self.training_data)
 		self.test_data_x = self.training_data['x'].tail(self.test_datapoints)
-		self.test_data_y = pd.DataFrame(columns=self.y_data_columns, index=range(self.test_datapoints))
+		#self.test_data_x.drop(columns=['time_period_start'], inplace=True)
+		test_index = range(self.test_data_x.index[0], self.test_data_x.index[0]+self.test_datapoints)
+		self.test_data_y = pd.DataFrame(columns=self.y_data_columns, index=test_index)
 		self.test_target = self.training_data['y'].tail(self.test_datapoints)
 
 		self.GenerateSequences()
@@ -417,7 +427,7 @@ class NeuralNet():
 
 	def GenerateSequences(self):
 
-		self.map_res = int(self.datapoints / 210240 * 3000)
+		self.map_res = 5000
 		print(self.map_res)
 		#if the datapoint count is two years worth (210240), self.map_res == 2000
 		self.density_map, self.index_map = self.CreateDensityMap(list(self.train_target['BTC_0|trend'].values), 
@@ -468,14 +478,14 @@ class NeuralNet():
 				elif value >= category['max'] and output_index == self.outputs-1:
 					map_index = output_index
 
-			self.train_data_y.at[target_index-init_target_index, map_index] = 1
-			if (target_index - init_target_index) % 20000 == 0:
+			self.train_data_y.at[target_index, map_index] = 1
+			if (target_index-init_target_index) % 20000 == 0:
 				print(target_index - init_target_index)
 
 		#finds how many datapoints fall under each category
-		total_qty = self.train_datapoints
+		total_qty = self.datapoints
 		for col in self.train_data_y.columns:
-			qty = np.sum(self.train_data_y[col].values)
+			qty = np.sum((self.train_data_y[col].dropna()).values)
 			self.output_map.at[col, 'quantity'] = qty
 			percent = qty / total_qty * 100
 			print(f"Quantity: {qty} | Percent: {percent}%")
@@ -504,8 +514,8 @@ class NeuralNet():
 				elif value >= category['max'] and output_index == self.outputs-1:
 					map_index = output_index
 
-			self.test_data_y.at[target_index-init_target_index, map_index] = 1
-			if (target_index - init_target_index) % 20000 == 0:
+			self.test_data_y.at[target_index, map_index] = 1
+			if (target_index) % 20000 == 0:
 				print(target_index - init_target_index)
 
 		print(self.output_map)
@@ -524,7 +534,7 @@ class NeuralNet():
 		causes the model to converge as mentioned previously.
 		'''
 
-		#TRAIN_DATA (MAY HAVE BALANCING)
+		#TRAIN_DATA
 		self.training_batch = []
 		count = 0
 		prev_days = deque(maxlen=self.SEQ_LEN)
@@ -533,11 +543,12 @@ class NeuralNet():
 			prev_days.append([n for n in row])
 
 			if len(prev_days) == self.SEQ_LEN:
-				y_values = self.train_data_y.loc[index, :]
+				y_values = self.train_data_y.loc[index, :].values
 				isnan_y = np.isnan(y_values)
+				isnan_x = np.isnan(prev_days)
 
-				if np.isin(True, isnan_y) == False:
-					self.training_batch.append([np.array(prev_days), self.train_data_y.loc[index, :]])
+				if np.isin(True, isnan_y) == False and np.isin(True, isnan_x) == False:
+					self.training_batch.append([np.array(prev_days), self.train_data_y.loc[index, :].values])
 				else:
 					trend_nan_count += 1
 
@@ -561,7 +572,7 @@ class NeuralNet():
 		self.ys = np.array(self.ys)
 
 
-		#TEST_DATA (NO BALANCING)
+		#TEST_DATA
 		self.testing_batch = []
 		count = 0
 		prev_days = deque(maxlen=self.SEQ_LEN)
@@ -569,9 +580,9 @@ class NeuralNet():
 			prev_days.append([n for n in row])
 
 			if len(prev_days) == self.SEQ_LEN:
-				isnan_y = np.isnan(self.test_target.loc[index, :])
+				isnan_y = np.isnan(self.test_data_y.loc[index, :].values)
 				if np.isin(True, isnan_y) == False:
-					self.testing_batch.append([np.array(prev_days), self.test_target.loc[index, :]])
+					self.testing_batch.append([np.array(prev_days), self.test_data_y.loc[index, :].values])
 
 			if count % 50000 == 0 and count != 0:
 				print(count)
@@ -587,28 +598,31 @@ class NeuralNet():
 		self.xs_test = np.array(self.xs_test)
 		self.ys_test = np.array(self.ys_test)
 
+		print(self.xs_test)
+		print('=======================================')
+		print(self.xs)
+		var = input('>>>')
+
 
 
 	def TrainNetwork(self):
 
 		for x in range(0, 1):
 			self.model = Sequential([
-				LSTM(300,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
+				LSTM(500,input_shape=[self.SEQ_LEN, len(self.train_data_x.columns)], return_sequences=True),
 				Dropout(0.2),
 				BatchNormalization(),
-				LSTM(300),
+				LSTM(500, return_sequences=True),
 				Dropout(0.2),
 				BatchNormalization(),
-				Dense(len(self.train_data_x.columns), activation='sigmoid'),
+				Dense(400, activation='sigmoid'),
 				Dropout(0.2),
-				Dense(200, activation='sigmoid'),
+				Dense(400, activation='sigmoid'),
 				Dropout(0.2),
-				Dense(200, activation='sigmoid'),
-				Dropout(0.2),
-				Dense(self.outputs, activation='sigmoid')
+				Dense(self.outputs, activation='softmax')
 				])
 
-			opt = tf.keras.optimizers.Adam(lr=0.0001, decay=1e-5)
+			opt = tf.keras.optimizers.Adam(lr=0.005, decay=1e-5)
 			self.model.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
 
 			if os.path.isdir('results') == False:
@@ -634,44 +648,63 @@ class NeuralNet():
 					init_index.append(x)
 				results = pd.DataFrame(columns=['inverse', 'actual', 'prediction'], index=init_index)
 
-				bal_predictions = np.ndarray.tolist(np.squeeze(self.model.predict(self.xs_test)))
-				#the model predicts in the "balanced format"
+				'''if epoch == 0:
+					continue'''
 
-				#data, density_map, index_map={}, map_resolution=0, map_indexes=[]
-				predictions = self.UnbalanceData(bal_predictions, self.density_map, index_map=self.index_map, 
-																						map_resolution=self.map_res)
+				predictions = self.model.predict(self.xs_test)
 				error_list = []
 				error_list_inv = []
+				value_pred = []
 				count = 0
-				for index, prediction in enumerate(predictions):
-					actual_ys = self.ys_test[index]
+				for index, prediction_raw in enumerate(predictions):
+					actual_ys = np.ndarray.tolist(self.ys_test[index])
 					inv_index = -index-1
-					inv_ys = self.ys_test[inv_index]
+					inv_ys = np.ndarray.tolist(self.ys_test[inv_index])
+
+					actual_max = max(actual_ys)
+					actual_ys = [ i for i,v in enumerate(actual_ys) if v==actual_max ][0]
+
+					inv_max = max(inv_ys)
+					inv_ys = [ i for i,v in enumerate(inv_ys) if v==inv_max ][0]
+
+					prediction = np.ndarray.tolist(prediction_raw)
+					prediction_max = max(prediction)
+					prediction = [ i for i,v in enumerate(prediction) if v==prediction_max ][0]
+
+					value_pred.append(prediction)
 
 					results.at[index, 'actual'] = actual_ys
 					results.at[index, 'inverse'] = inv_ys
 					results.at[index, 'prediction'] = prediction
 
-					error = abs((actual_ys-prediction) / (self.balance_range*100))
-					error_list.append(error)
-					
-					inv_error = abs((inv_ys-prediction) / (self.balance_range*100))
-					error_list_inv.append(inv_error)
+					if prediction == actual_ys:
+						error_list.append(0)
+					elif prediction != actual_ys:
+						error_list.append(100)
+
+					if prediction == inv_ys:
+						error_list_inv.append(0)
+					elif prediction != inv_ys:
+						error_list_inv.append(100)
 
 					count += 1
 
-				total_error = np.sum(np.array(error_list)) / len(np.array(error_list)) * 100
-				total_inv_error = np.sum(np.array(error_list_inv))/len(np.array(error_list_inv)) * 100
+				print("Predictions for 0:", value_pred.count(0))
+				print("Predictions for 1:", value_pred.count(1))
+
+				total_error = np.sum(np.array(error_list)) / len(np.array(error_list))
+				total_inv_error = np.sum(np.array(error_list_inv))/len(np.array(error_list_inv))
 
 				print('################')
 				print(f"average_error: {total_error}")
 				print(f"inverse error: {total_inv_error}")
 				print('################')
 
-				print(results)
+				'''for index, row in results.iterrows():
+					print(row.values)'''
 
 				#prediction distribution
-				balance_map = self.CreateDensityMap(target_array=bal_predictions, map_resolution=500)
+				'''balance_map = self.CreateDensityMap(target_array=bal_predictions, map_resolution=500)
 				open(f'results/pred_epoch{epoch}.csv', 'w')
 				balance_map.to_csv(f'results/pred_epoch{epoch}.csv', index=False)
 
@@ -681,7 +714,7 @@ class NeuralNet():
 																					index_map=self.index_map)
 			balance_map = self.CreateDensityMap(target_array=bal_ys_test, map_resolution=500)
 			open(f'results/actual.csv', 'w')
-			balance_map.to_csv(f'results/actual.csv', index=False)
+			balance_map.to_csv(f'results/actual.csv', index=False)'''
 
 
 	def TestBalanceError(self):

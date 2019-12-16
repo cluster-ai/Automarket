@@ -1,0 +1,13 @@
+
+The missing block in our market modeling is Feature Engineering. To best do this we need the utmost flexibility in the quantity, type, format, and index that we can access.
+
+The main flow of the program will be as follows:
+- main.py: Control hub for all program funtionality. May be worth it to include rudimentary runtime controls/commands so the program does not need to be restart in order to use certain functionality. Ideally the primary navigation is done through the console but a graph window with scrubbing or other functionality can pop up for visualisation during feature engineering.
+
+- database.py: will be used as an instance directly by main.py: This class will handle the storage, retreival and monitoring of historical data, training data. Make a table of contents at the top to figure out the game plan and to show the functionality of the module.
+
+- neural_net.py: will be used ONLY for things directly related to the model. So error checking, saving iterations to the database, construction of the model layers. FIGURE OUT HOW KERAS MODEL SAVING WORKS FIRST. ALSO LOOK INTO TENSORBOARD FOR ITS VISUALIZATION TOOLS.
+
+Modules: (INCLUDE A TABLE OF CONTENTS AT THE TOP OF EACH FILE, LOOK AT EXISTING STANDARD LIBRARIES FOR BEST PRACTICES)
+- data_processor.py: has functions for feature scaling, batching data, and any other data manipulation that may be needed. Leverages multiprocessing and data checking when useful/necessary. This will also include data balancing capabilities that packages the needed data into a class called Balancer.
+- coin_api.py: will provide api request functionality with built in error handling, request filtering, and other related data to the api service (coinapi.io at the time of writing). Offload historical backfill to this module, think of coin_api.py as an abstraction of the requests that the database still has to facilitate. Again, error handling and request limit information is handled here.

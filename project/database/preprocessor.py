@@ -291,7 +291,7 @@ class Preprocessor():
 
 						n = len(trend_data.index)
 						data_density = n / prediction_steps
-						if data_density < .1:
+						if data_density < 0.4:
 							new_data.at[trend_index, col] = np.nan
 							data_density = n / prediction_steps
 							#print(f'{data_density}%')

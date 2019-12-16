@@ -473,12 +473,11 @@ class Database():
 
 		training_data = training_data.drop(columns=['BTC_0|price_high', 
 													'BTC_0|price_low',
-													'BTC_0|trades_count',
-													'BTC_0|volume_traded'])
+													'BTC_0|is_nan'])
 
 
 		#315360 datapoints in 3 years (for 5MIN time steps)
-		training_data = training_data.tail(10000)#(105120)#(315360)
+		training_data = training_data.tail(10000)#(315360)
 
 		print(training_data.head(10))
 
@@ -493,8 +492,8 @@ class Database():
 																	return_params=True)
 				if 'trend' in col:
 					index_item['target_columns'].update({col: params})
-				elif 'trend' not in col:
-					training_data[col].fillna(0, inplace=True)
+				'''elif 'trend' not in col:
+					training_data[col].fillna(0, inplace=True)'''
 
 		self.training_index[matched_filename] = index_item
 		self.UpdateTrainingIndex()
