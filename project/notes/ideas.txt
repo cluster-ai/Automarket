@@ -1,0 +1,18 @@
+
+NOTE: python GIL (Global Interpreter Lock) prevents simultaneous computing threads in python. Use multiprocessing instead to improve productivity
+
+///Neural Net///
+
+- Currently the b value or y-intercept is not included with the training_data for trend which may cause unecessary inaccuracy.
+
+- Having issues with the model choosing one output for all inputs. What I just realized is that the distribution of data in the balance map is a bell curve of a certain shape. What if we warped the data as the normalization so that the data fit more evenly across all categories of balance_data between -1 and 1.
+
+
+///Hyper-Parameters: types and effects caused by changing them///
+
+/batch_size/
+Understanding that batch_size and its effects change from model to model and dataset to dataset:
+Generally speaking, a larger batch size will result in faster computation but bad data generalization (low quality model). Alternatively, a smaller batch size gives the model more chances to generalize its way to a minima typically resulting in higher quality predictions. 
+On the one extreme, using a batch equal to the entire dataset guarantees convergence to the global optima of the objective function. However, this is at the cost of slower, empirical convergence to that optima. On the other hand, using smaller batch sizes have been empirically shown to have faster convergence to “good” solutions. This is intuitively explained by the fact that smaller batch sizes allow the model to “start learning before having to see all the data.” The downside of using a smaller batch size is that the model is not guaranteed to converge to the global optima. It will bounce around the global optima, staying outside some ϵ-ball of the optima where ϵ depends on the ratio of the batch size to the dataset size. Therefore, under no computational constraints, it is often advised that one starts at a small batch size, reaping the benefits of faster training dynamics, and steadily grows the batch size through training, also reaping the benefits of guaranteed convergence.
+
+/learning rate/optimizer/

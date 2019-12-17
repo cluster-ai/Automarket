@@ -9,6 +9,7 @@ import time
 
 import os
 
+
 class CoinAPI():
 	def __init__(self):
 		self.base_url = 'https://rest.coinapi.io/v1/'
