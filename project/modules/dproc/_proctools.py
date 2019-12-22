@@ -8,13 +8,13 @@ import datetime
 import numpy as np
 
 
-def unix_to_date(self, unix):#input unix time as string or int
+def unix_to_date(unix):#input unix time as string or int
 	#when using to display on screen, add to UTC unix param to offset for your timezone
 	return datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S.%f0Z')
 	#RETURNS UTC, confirmed
 
 
-def date_to_unix(self, date):
+def date_to_unix(date):
 	unix = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f0Z')
 	unix = unix.timestamp() - 36000#sets it to UTC
 	return unix
@@ -97,10 +97,35 @@ def thread_monitor(progress, compute_total, thread_total):
 		prog_part = progress['part']
 		print_progress_bar(prog_count, compute_total, 
 						   suffix=f' | {prog_part}, threads: {threads}/{thread_total}')
-		
+
 		for key, val in progress.items():
 			if key == 'threads':
+				#counts number of items in progress['threads']
 				threads = len(val) + 1 #plus 1 for monitoring thread
 			elif key == 'count':
-				prog_count = sum(val.values())
+				#adds all the item values in progress['count']
+				prog_count += sum(val.values())
 
+
+def proc_id(part, proc_num):
+	return f'{part}|{proc_num}'
+
+
+def update_progress(progress, proc_id):
+	'''
+	Note: Used by processing threads to update their progress
+
+	Parameters:
+		progress  : Shared Manager.dict() (see compute() for details)
+		proc_id   : unique identifier so threads access correct dict items
+	'''
+
+	#updates completed computaion count for specified proc_id
+	if proc_id in progress['count']:
+		progress['count'][proc_id] += 1
+	else:
+		progress['count'].update({proc_id: 1})
+
+	#creates an indicator of this threads existance if one does not exist
+	if proc_id not in progress['threads']:
+		progress['threads'].update({proc_id: 0})
