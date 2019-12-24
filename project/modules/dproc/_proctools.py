@@ -8,13 +8,21 @@ import datetime
 import numpy as np
 
 
-def unix_to_date(unix):#input unix time as string or int
-	#when using to display on screen, add to UTC unix param to offset for your timezone
+def unix_to_date(unix):
+	#rounds to 6 decimals because strftime is 6 but CoinAPI is 7
+	unix = round(unix, 6)
 	return datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S.%f0Z')
-	#RETURNS UTC, confirmed
 
 
 def date_to_unix(date):
+	#index of last digit (digit before 'Z')
+	date_list = list(date)
+	ld_index = date_list.index('Z')-1
+	#sets date to 6 decimals because strftime can only use 6 but CoinAPI needs 7
+	if date[ld_index] != '0':
+		date_list[ld_index] = '0'
+	date = "".join(date_list)
+
 	unix = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S.%f0Z')
 	unix = unix.timestamp() - 36000#sets it to UTC
 	return unix

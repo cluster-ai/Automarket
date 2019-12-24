@@ -2,7 +2,7 @@ env/
 __pycache__
 **/api_index.json
 *.csv
-project/changes.txt
-project/working_lstm.py
-project/test.py
-project/ideas.txt
+**/changes.txt
+**/working_lstm.py
+**/test.py
+**/ideas.txt

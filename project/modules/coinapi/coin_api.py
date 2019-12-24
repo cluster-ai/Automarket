@@ -1,33 +1,58 @@
 
+
+#standard library
+import json
+import csv
+import time
+import os
 import requests
 from requests.exceptions import HTTPError
 
-import json
-import csv
-
-import time
-
-import os
-
+from modules.dproc.dproc import unix_to_date, date_to_unix
 
 class CoinAPI():
+	#the api index is shared across all CoinAPI objects
+	api_index = {}
+
 	def __init__(self):
 		self.base_url = 'https://rest.coinapi.io/v1/'
 
-		self.api_index_path = 'database/api_index.json'
+		self.api_index_path = 'modules/coinapi/api_index.json'
 		with open(self.api_index_path, 'r') as file:
-			self.api_index = json.load(file)
+			CoinAPI.api_index = json.load(file)
 
 
-	'''kwargs: NOT AN ACTUAL KWARG, it just gets handed kwargs from self.MakeRequest
-	queries = dict("query_variable": "query_value", ...)
-	'''
 	def __RequestHandler(self, url_ext, api_key_id, queries):
+		'''
+		HTTP Errors:
+			400	Bad Request – There is something wrong with your request
+			401	Unauthorized – Your API key is wrong
+			403	Forbidden – Your API key doesn’t have enough privileges 
+							to access this resource
+			429	Too many requests – You have exceeded your API key rate limits
+			550	No data – You requested specific single item that we don’t 
+						  have at this moment.
+
+		200 - Successful Request
+
+		Parameters:
+			url_ext     : is added to self.base_url in request (str)
+			api_key_id  : the dict key for what api key to use (str)
+			queries     : a premade dict of params for the request (dict)
+		'''
+		update_headers = ['X-RateLimit-Request-Cost',
+						  'X-RateLimit-Remaining',
+						  'X-RateLimit-Limit', 
+						  'X-RateLimit-Reset']
+
+		#creates a local api index with only "api_key_id" data 
+		api_index = CoinAPI.api_index[api_key_id]
 		url = self.base_url + url_ext
-		api_key = self.api_index[api_key_id]['api_key']
+
 		try:
 			print("Making API Request at:", url)
-			response = requests.get(url, headers=api_key, params=queries)
+			response = requests.get(url, headers=api_index['api_key'], 
+									params=queries)
 			# If the response was successful, no Exception will be raised
 			response.raise_for_status()
 		except HTTPError as http_err:
@@ -37,14 +62,26 @@ class CoinAPI():
 			print(f'{err}')
 		else:
 			print(f'API Request Successful: code {response.status_code}')
+			
+			#updates RateLimit info in api_index with response.headers
+			for header_key in update_headers:
+				#Only updates reset time if the current reset time is expired
+				#	That way the reset time is when remaining will be full again
+				if header_key == 'X-RateLimit-Reset' and header_key in api_index:
+					if date_to_unix(api_index[header_key]) < time.time():
+						api_index[header_key] = response.headers[header_key]
+				else:
+					api_index[header_key] = response.headers[header_key]
+				print(f'	{header_key}:', api_index[header_key])
+
+			#updates the class variable api_index
+			CoinAPI.api_index[api_key_id] = api_index
+			#then saves the api_index to file
+			with open(self.api_index_path, 'w') as file:
+				json.dump(CoinAPI.api_index, file, indent=4)
+
 			return response.json()
 
-	def CheckForKey(self, key_ref, dictionary):
-		has_key = False
-		for key, item in dictionary.items():
-			if key == key_ref:
-				has_key = True
-		return has_key
 
 	#this filters through list of dictionaries based on given filter values 
 	#example: (filters={filter_key: filter_item, ...})

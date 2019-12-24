@@ -20,39 +20,42 @@ def prep_train_data(data):
 		data  : {key: pd.DataFrame(), ...}
 	'''
 
-	for filename
+	for key, df in data.items():
 
-	#determines the values of the price_average column and inserts it into df
-	price_low = df.loc[:, 'price_low'].values
-	price_high = df.loc[:, 'price_high'].values
-	price_average = np.divide(np.add(price_low, price_high), 2)
+		#determines the values of the price_average column and inserts it into df
+		price_low = df.loc[:, 'price_low'].values
+		price_high = df.loc[:, 'price_high'].values
+		price_average = np.divide(np.add(price_low, price_high), 2)
 
-	df.insert(2, 'price_average', price_average)
+		df.insert(2, 'price_average', price_average)
 
-	#iterates through df columns to see if all np.nan values are in the same places
-	prev_tf_list = []
-	for col in df.columns:
-		tf_list = np.isnan(df.loc[:, col].values)
+		#iterates through df columns to see if all np.nan values are in the same places
+		prev_tf_list = []
+		for col in df.columns:
+			tf_list = np.isnan(df.loc[:, col].values)
 
-		if prev_tf_list == []:
-			prev_tf_list = tf_list
-		elif tf_list != prev_tf_list:
-			raise AssertionError(f'np.isnan(df.{col}) != np.isnan(df.{col})')
-		else:
-			prev_tf_list = tf_list
+			if prev_tf_list == []:
+				prev_tf_list = tf_list
+			elif tf_list != prev_tf_list:
+				raise AssertionError(f'np.isnan(df.{col}) != np.isnan(df.{col})')
+			else:
+				prev_tf_list = tf_list
 
-	#takes last tf_list and uses it to generate an "isnan" column in df where 
-	#	isnan == True has a value of 1 and isnan == False has a value of 0
-	isnan_values = prev_tf_list
-	for index, val in enumerate(prev_tf_list):
-		if val == True:
-			isnan_values[index] = 1
-		elif val == False:
-			isnan_values[index] = 0
+		#takes last tf_list and uses it to generate an "isnan" column in df where 
+		#	isnan == True has a value of 1 and isnan == False has a value of 0
+		isnan_values = prev_tf_list
+		for index, val in enumerate(prev_tf_list):
+			if val == True:
+				isnan_values[index] = 1
+			elif val == False:
+				isnan_values[index] = 0
 
-	df.insert(len(df.columns), 'isnan', isnan_values)
+		df.insert(len(df.columns), 'isnan', isnan_values)
 
-	return df
+		#updates data with new df
+		data[key] = df
+
+	return data
 
 
 def compute(data, func, data_index={}, threads=multiprocessing.cpu_count(), name=''):
