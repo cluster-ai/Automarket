@@ -28,26 +28,25 @@ def date_to_unix(date):
 	return unix
 
 
-def scale(self, target_array, new_range=[0, 1], custom_scale=[0, 0], return_params=False):
+def scale(self, data, new_range=[0, 1], custom_scale=[0, 0], return_params=False):
 	'''
 	Parameters:
-		target_array   : one dimension array "target" for scaling
-		new_range      : value range of data after scaling
-		custom_scale   : optional - value range reference
-			This is used when user wants to scale based on custom values not in target_array
-		return_params  : "return scaled_data, params" rather than "return scaled_data"
+		data          : (list) data being scaled
+		new_range     : ([float, float]) the target min max vals of scale
+		custom_scale  : ([float, float]) optional - acts as custom min max vals of scale
+		return_params : (bool) returns scaled_data, params instead of scaled data if True
 	'''
-	target_array = list(target_array)
+	data = list(data)
 	if custom_scale != [0, 0]:
 		min_val = min(custom_scale)
 		max_val = max(custom_scale)
 	else:
-		min_val = min(target_array)
-		max_val = max(target_array)
+		min_val = min(data)
+		max_val = max(data)
 	new_width = abs(new_range[0] - new_range[1])
 
-	#sets target_array values between 0 and 1
-	scaled_data = np.divide(np.subtract(target_array, min_val), (max_val - min_val))
+	#sets data values between 0 and 1
+	scaled_data = np.divide(np.subtract(data, min_val), (max_val - min_val))
 
 	if new_range != [0, 1]:
 		#adjusts to non-standard new_range if requested
@@ -75,14 +74,14 @@ def print_progress_bar(iteration, total, prefix = '', suffix = ''):
 	'''
 	Call in a loop to create terminal progress bar
 	Parameters:
-		iteration   - Required  : current iteration (Int)
-		total       - Required  : total iterations (Int)
-		prefix      - Optional  : prefix string (Str)
-		suffix      - Optional  : suffix string (Str)
-		decimals    - Optional  : positive number of decimals in percent complete (Int)
-		length      - Optional  : character length of bar (Int)
-		fill        - Optional  : bar fill character (Str)
-		printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+		iteration   - Required : (Int) current iteration
+		total       - Required : (Int) total iterations
+		prefix      - Optional : (Str) prefix string
+		suffix      - Optional : (Str) suffix string
+		decimals    - Optional : (Int) positive number of decimals in percent complete
+		length      - Optional : (Int) character length of bar
+		fill        - Optional : (Str) bar fill character
+		printEnd    - Optional : (Str) end character (e.g. "\r", "\r\n")
 	'''
 	percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
 	filledLength = int(length * iteration // total)
@@ -96,8 +95,8 @@ def print_progress_bar(iteration, total, prefix = '', suffix = ''):
 def thread_monitor(progress, compute_total, thread_total):
 	'''
 	Parameters:
-		progress       : number of computed items from each thread (shared dict)
-		compute_total  : total number of items to be computed (int)
+		progress      : (Manager.dict()) number of computed items from each thread
+		compute_total : (int) total number of items to be computed
 	'''
 	prog_count = 0
 	threads = 1
@@ -124,8 +123,8 @@ def update_progress(progress, proc_id):
 	Note: Used by processing threads to update their progress
 
 	Parameters:
-		progress  : Shared Manager.dict() (see compute() for details)
-		proc_id   : unique identifier so threads access correct dict items
+		progress : (Manager.dict()) see dproc.compute() for details
+		proc_id  : (str) unique identifier for progress dict
 	'''
 
 	#updates completed computaion count for specified proc_id

@@ -17,9 +17,8 @@ from multiprocessing import Manager
 def prep_train_data(data):
 	'''
 	Parameters:
-		data  : {key: pd.DataFrame(), ...}
+		data : {key/id: pd.DataFrame(), ...}
 	'''
-
 	for key, df in data.items():
 
 		#determines the values of the price_average column and inserts it into df
@@ -60,15 +59,18 @@ def prep_train_data(data):
 
 def compute(data, func, data_index={}, threads=multiprocessing.cpu_count(), name=''):
 	'''
-	Note: This funtion assumes that the df increment is continuous and empty rows are
-			have np.nan values for all columns with no data
+	Note: This funtion assumes that the df increment is continuous and empty rows 
+		  are have np.nan values for all columns with no data
 
 	parameters:
-		data        : {key: pd.DataFrame(), ...} (dict) key == filename to df index
-		func        : the function each thread will perform to "data" (lambda)
-		data_index  : the entire index of ALL given data (not all computaions need it)
-		threads     : Total threads that will be created (int) min is implicitly 2
-		name        : Name of computation, only used to print
+		data       : (dict) {key: pd.DataFrame(), ...} key == filename to df index
+		func       : (lambda) the function each thread will perform to "data"
+		data_index : (not all coputations need it) entire dict index of ALL given data
+		threads    : (int) num threads that will be created, minimum is implicitly 2
+		name       : (str) name of computation, only used to print
+
+	NOTE: the "func" parameter is only designed to accept functions starting with
+		  "multiproc" from the dproc module
 
 	Assumptions:
 		- "data" (parameter) keys can be used to access that df's data_index
@@ -146,20 +148,21 @@ def compute(data, func, data_index={}, threads=multiprocessing.cpu_count(), name
 		progress['threads'] = manager.dict()
 
 
-def gen_trend_data(interval, df, df_index, progress, proc_id=0):
+def multiproc_target(interval, df, df_index, progress, proc_id=0):
 	'''
 	Parameters:
-		interval  : list of indexes this thread will compute from df (list)
-		df        : the DataFrame that this thread will work off (pd.DataFrame())
-		df_index  : the data index regarding only the given df (dict)
-		progress  : shared dict for tracking progress across threads (Manager.dict())
-		proc_num  : number used to identify each thread in progress dict (int)
+		interval : (list) list of indexes this thread will compute from df
+		df       : (pd.DataFrame()) the DataFrame that this thread will work off
+		df_index : (dict) the data index regarding only the given df
+		progress : (Manager.dict()) shared dict for tracking progress across threads
+		proc_num : (int) number used to identify each thread in progress dict
 
 	Assumptions:
-		- df.index values are incrementing by 1
+		- df.index values are incrementing by 1 continuously
 		- df_index['predictions_steps'] is a positive integer greater than 0
-		- df has the following columns:
-			[time_period_start', 'price_average', 'isnan']
+		- df has the following columns: ['time_period_start', 
+										 'price_average', 
+										 'isnan']
 		- df.isnan values are 0 if False and 1 if True
 	'''
 
