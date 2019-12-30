@@ -7,10 +7,10 @@ import os
 import requests
 from requests.exceptions import HTTPError
 
-from modules.dproc.dproc import unix_to_date, date_to_unix
+from .preproc import unix_to_date, date_to_unix
 
-class CoinAPI():
-	#the api index is shared across all CoinAPI objects and
+class Coinapi():
+	#the api index is shared across all Coinapi objects and
 	#	keeps track of each api key data for reference
 	api_index = {}
 
@@ -20,7 +20,7 @@ class CoinAPI():
 
 		self.api_index_path = 'modules/coinapi/api_index.json'
 		with open(self.api_index_path, 'r') as file:
-			CoinAPI.api_index = json.load(file)
+			Coinapi.api_index = json.load(file)
 
 
 	def filter(self, data, filters, omit_filtered):
@@ -98,7 +98,7 @@ class CoinAPI():
 						   'X-RateLimit-Reset']
 
 		#creates a local api index with only "api_key_id" data 
-		api_index = CoinAPI.api_index[api_key_id]
+		api_index = Coinapi.api_index[api_key_id]
 		url = self.base_url + url_ext
 
 		try:
@@ -127,10 +127,10 @@ class CoinAPI():
 				print(f'	{header}:', api_index[header])
 
 			#updates the class variable api_index
-			CoinAPI.api_index[api_key_id] = api_index
+			Coinapi.api_index[api_key_id] = api_index
 			#then saves the api_index to file
 			with open(self.api_index_path, 'w') as file:
-				json.dump(CoinAPI.api_index, file, indent=4)
+				json.dump(Coinapi.api_index, file, indent=4)
 
 			#response errors are no longer being handled so it is assigned
 			#to its json value and filtered

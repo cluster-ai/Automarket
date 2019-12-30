@@ -1,7 +1,4 @@
 
-#dproc
-from ._proctools import *
-
 #standard libraries
 import math
 import time
@@ -9,71 +6,42 @@ import datetime
 
 import numpy as np
 import pandas as pd
-
 import multiprocessing
 from multiprocessing import Manager
 
 
-def prep_train_data(data):
-	'''
-	Parameters:
-		data : {key/id: pd.DataFrame(), ...}
-	'''
-	for key, df in data.items():
+'''
+The compute() function is the primary object used in this module
+and handles management of threads. Call it for any/all multiproc
+applications.
 
-		#determines the values of the price_average column and inserts it into df
-		price_low = df.loc[:, 'price_low'].values
-		price_high = df.loc[:, 'price_high'].values
-		price_average = np.divide(np.add(price_low, price_high), 2)
+The functions made for compute() can be used on their own with the 
+right implementation. It is still recommended to use compute()
+with threads=1 when single threaded processing is needed.
+'''
 
-		df.insert(2, 'price_average', price_average)
 
-		#iterates through df columns to see if all np.nan values are in the same places
-		prev_tf_list = []
-		for col in df.columns:
-			tf_list = np.isnan(df.loc[:, col].values)
-
-			if prev_tf_list == []:
-				prev_tf_list = tf_list
-			elif tf_list != prev_tf_list:
-				raise AssertionError(f'np.isnan(df.{col}) != np.isnan(df.{col})')
-			else:
-				prev_tf_list = tf_list
-
-		#takes last tf_list and uses it to generate an "isnan" column in df where 
-		#	isnan == True has a value of 1 and isnan == False has a value of 0
-		isnan_values = prev_tf_list
-		for index, val in enumerate(prev_tf_list):
-			if val == True:
-				isnan_values[index] = 1
-			elif val == False:
-				isnan_values[index] = 0
-
-		df.insert(len(df.columns), 'isnan', isnan_values)
-
-		#updates data with new df
-		data[key] = df
-
-	return data
+def proc_id(part, proc_num):
+	return f'{part}|{proc_num}'
 
 
 def compute(data, func, data_index={}, threads=multiprocessing.cpu_count(), name=''):
 	'''
-	Note: This funtion assumes that the df increment is continuous and empty rows 
-		  are have np.nan values for all columns with no data
+	Note: This funtion assumes that the df increment is constant and missing data
+		  values are equal to np.nan
 
 	parameters:
-		data       : (dict) {key: pd.DataFrame(), ...} key == filename to df index
-		func       : (lambda) the function each thread will perform to "data"
-		data_index : (not all coputations need it) entire dict index of ALL given data
+		data       : (dict) {key: pd.DataFrame(), ...} key == filename in data_index
+		func       : (funct obj) the function each thread will execute on "data"
+		data_index : (dict) data index of ALL given data (if func explicitly needs it)
 		threads    : (int) num threads that will be created, minimum is implicitly 2
 		name       : (str) name of computation, only used to print
 
-	NOTE: the "func" parameter is only designed to accept functions starting with
-		  "multiproc" from the dproc module
+	NOTE: the "func" parameter is only designed to accept functions purpose built 
+		  for the compute() function object argument 
 
 	Assumptions:
-		- "data" (parameter) keys can be used to access that df's data_index
+		- Each "data" dataframe is paired with the same key used to access the data_index
 	'''
 
 	#total number of df rows to compute
@@ -148,7 +116,81 @@ def compute(data, func, data_index={}, threads=multiprocessing.cpu_count(), name
 		progress['threads'] = manager.dict()
 
 
-def multiproc_target(interval, df, df_index, progress, proc_id=0):
+def print_progress_bar(iteration, total, prefix = '', suffix = ''):
+	#these varibales used to be parameters but there is no need to have them change
+	length = 49
+	fill = '/'
+	printEnd = "\r"
+	decimals = 1
+
+	'''
+	Call in a loop to create terminal progress bar
+	Parameters:
+		iteration   - Required : (Int) current iteration
+		total       - Required : (Int) total iterations
+		prefix      - Optional : (Str) prefix string
+		suffix      - Optional : (Str) suffix string
+		decimals    - Optional : (Int) positive number of decimals in percent complete
+		length      - Optional : (Int) character length of bar
+		fill        - Optional : (Str) bar fill character
+		printEnd    - Optional : (Str) end character (e.g. "\r", "\r\n")
+	'''
+	percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+	filledLength = int(length * iteration // total)
+	bar = fill * filledLength + '-' * (length - filledLength)
+	print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = printEnd)
+	# Print New Line on Complete
+	if iteration == total: 
+		print()
+
+
+def thread_monitor(progress, compute_total, thread_total):
+	'''
+	Parameters:
+		progress      : (Manager.dict()) number of computed items from each thread
+		compute_total : (int) total number of items to be computed
+	'''
+	prog_count = 0
+	threads = 1
+	while prog_count < compute_total:
+		prog_part = progress['part']
+		print_progress_bar(prog_count, compute_total, 
+						   suffix=f' | {prog_part}, threads: {threads}/{thread_total}')
+
+		for key, val in progress.items():
+			if key == 'threads':
+				#counts number of items in progress['threads']
+				threads = len(val) + 1 #plus 1 for monitoring thread
+			elif key == 'count':
+				#adds all the item values in progress['count']
+				prog_count += sum(val.values())
+
+
+def update_progress(progress, proc_id):
+	'''
+	Note: Used by processing threads to update their progress
+
+	Parameters:
+		progress : (Manager.dict()) see dproc.compute() for details
+		proc_id  : (str) unique identifier for progress dict
+	'''
+
+	#updates completed computaion count for specified proc_id
+	if proc_id in progress['count']:
+		progress['count'][proc_id] += 1
+	else:
+		progress['count'].update({proc_id: 1})
+
+	#creates an indicator of this threads existance if one does not exist
+	if proc_id not in progress['threads']:
+		progress['threads'].update({proc_id: 0})
+
+
+#################################################################
+###multiproc.compute() OBJECTS BEYOND THIS POINT
+
+
+def trend(interval, df, df_index, progress, proc_id=0):
 	'''
 	Parameters:
 		interval : (list) list of indexes this thread will compute from df
@@ -182,6 +224,9 @@ def multiproc_target(interval, df, df_index, progress, proc_id=0):
 	#	the next "predictions_steps" datapoints from df(not the slice)
 	first_index = df_slice.index[0]
 	for index, row in df_slice.iterrows():
+		#updates shared dict for thread monitor
+		update_progress(progress, proc_id)
+
 		pred_index = index + pred_index
 
 		if pred_index > last_index:
