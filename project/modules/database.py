@@ -32,35 +32,29 @@ class Database():
 
 	def __init__(self):
 		#loads handbook and settings file to Database
-		self.load_settings()
+		self.load_files()
 
 
-	def save_settings(self, settings=Database.settings):
+	def save_files(self, settings=Database.settings):
 		#saves settings dict class variable to file by default
-		#can change parameter to custom settings dict
+		#can change settings parameter to custom settings dict
 		with open(Database.settings_path, 'w') as file:
 			json.dump(settings, file, indent=4)
 
-
-	def load_settings(self):
-		#loads contents of file with path, "Database.setting_path"
-		with open(Database.settings_path) as file:
-			Database.settings = json.load(file)
-
-
-	def save_training_index(self):
 		#saves training_index dict class variable to file
 		with open(Database.training_index_path, 'w') as file:
 			json.dump(Database.training_index, file, indent=4)
 
-
-	def save_historical_index(self):
 		#saves historical_index dict class variable to file
 		with open(Database.historical_index_path, 'w') as file:
 			json.dump(Database.historical_index, file, indent=4)
 
 
-	def load_indexes(self):
+	def load_files(self):
+		#loads contents of file with path, "Database.setting_path"
+		with open(Database.settings_path) as file:
+			Database.settings = json.load(file)
+
 		#loads indexes for training index
 		print('Loading Training Index: '
 			  + {Database.training_index_path})
@@ -74,7 +68,27 @@ class Database():
 			Database.training_index = json.load(file)
 
 
-	def load_historical_data(self, index_id, interval=None):
+	def index_id(self, exchange, coin, increment):
+		'''
+		Parameters:
+			exchange   : (str) name of exchange in bold: 'KRAKEN'
+			coin       : (str) crytpocurrency id: 'BTC'
+			increment  : (int) time increment of data in seconds
+						 - val must be supported by coinapi period_id
+		'''
+		return f'{exchange}_{coin}_{increment}'
+
+
+	def add_index(self, item_index):
+		'''
+		Parameters:
+			item_index : contents of index being added
+						 - single layer dict
+		'''
+		pass
+
+
+	def historical_data(self, index_id, interval=None):
 		'''
 		Parameters:
 			index_id : (str) 
@@ -84,5 +98,6 @@ class Database():
 					   - [0] is unix time start, [1] is unix time end
 		'''
 
-		#verifies that index_id is valid
+		#loads index item of historical_index pointed to by index_id
 		item_index = Database.historical_index[index_id]
+
