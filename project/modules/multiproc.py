@@ -31,7 +31,7 @@ def compute(data, func, data_index={}, threads=multiprocessing.cpu_count(), name
 		  values are equal to np.nan
 
 	parameters:
-		data       : (dict) {key: pd.DataFrame(), ...} key == filename in data_index
+		data       : (dict) {index_id: pd.DataFrame(), ...} data that will be computed
 		func       : (funct obj) the function each thread will execute on "data"
 		data_index : (dict) data index of ALL given data (if func explicitly needs it)
 		threads    : (int) num threads that will be created, minimum is implicitly 2

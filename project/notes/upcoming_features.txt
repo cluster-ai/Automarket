@@ -4,7 +4,7 @@ The missing block in our market modeling is Feature Engineering. To best do this
 The main flow of the program will be as follows:
 - main.py: Control hub for all program funtionality. May be worth it to include rudimentary runtime controls/commands so the program does not need to be restart in order to use certain functionality. Ideally the primary navigation is done through the console but a graph window with scrubbing or other functionality can pop up for visualisation during feature engineering.
 
-- database.py: (will be used as an instance directly by main.py) This class will be used as a data storage interpreter. It will not be autonomous in any way but rather a class to make the storage, retreival and tracking of data as simple as possible.
+- database.py: (will be used as an instance directly by main.py) This class will be used as a data storage interpreter. It will not be autonomous in any way but rather a class to make the storage, retreival and tracking of data as simple as possible. NOTE: data index keys will no longer be filenames, it is now considered index_id and does not end with '.csv'.
 
 - neural_net.py: will be used ONLY for things directly related to the model: error checking, saving iterations to the database, construction of the model layers, etc. FIGURE OUT HOW KERAS MODEL SAVING WORKS FIRST. ALSO LOOK INTO TENSORBOARD FOR ITS VISUALIZATION TOOLS.
 

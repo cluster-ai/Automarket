@@ -3,7 +3,7 @@
         "filepath": "database/training_data/KRAKEN/KRAKEN_USD_100_BTC.csv",
         "exchange_id": "KRAKEN",
         "asset_id_quote": "USD",
-        "data_increment": 300,
+        "time_increment": 300,
         "prediction_steps": 100,
         "currencies": {
             "BTC_0": "KRAKEN_SPOT_BTC_USD.csv"
