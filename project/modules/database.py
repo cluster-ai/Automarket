@@ -13,7 +13,7 @@ import numpy as np
 ########################################################################
 
 class Database():
-	#immutable paths to different portions of database file structure
+	#filepaths to different portions of database file structure
 	historical_base_path = 'database/historical_data/'
 	historical_index_path = (historical_base_path 
 							 + 'historical_index.json')
@@ -35,57 +35,112 @@ class Database():
 		self.load_files()
 
 
-	def save_files(self, settings=Database.settings):
+	def load_files(self):
+		###SETTINGS###
+		#Checks to see if path exists, if not creates one
+		if os.path.exists(Database.settings_path) == False:
+			open(Database.settings_path, 'w')
+		print('Loading Settings: ' + Database.settings_path)
+		#loads contents of file with path, "Database.setting_path"
+		with open(Database.settings_path) as file:
+			Database.settings = json.load(file)
+
+		###TRAINING_INDEX###
+		#Checks to see if path exists, if not creates one
+		if os.path.exists(Database.training_index_path) == False:
+			open(Database.training_index_path, 'w')
+		print('Loading Training Index: '
+			  + Database.training_index_path)
+		#loads indexes for training index
+		with open(Database.training_index_path) as file:
+			Database.training_index = json.load(file)
+
+		###HISTORICAL_INDEX###
+		#Checks to see if path exists, if not creates one
+		if os.path.exists(Database.historical_index_path) == False:
+			open(Database.historical_index_path, 'w')
+		print('Loading Historical Index: '
+			  + Database.historical_index_path)
+		#loads indexes for historical index
+		with open(Database.training_index_path) as file:
+			Database.training_index = json.load(file)
+
+
+	def save_files(self):
+		###SETTINGS###
+		#Checks to see if path exists, if not it creates one
+		if os.path.exists(Database.settings_path) == False:
+			open(Database.settings_path, 'w')
 		#saves settings dict class variable to file by default
 		#can change settings parameter to custom settings dict
 		with open(Database.settings_path, 'w') as file:
-			json.dump(settings, file, indent=4)
+			json.dump(Database.settings, file, indent=4)
 
+		###TRAINING_INDEX###
+		#Checks to see if path exists, if not it creates one
+		if os.path.exists(Database.training_index_path) == False:
+			open(Database.training_index_path, 'w')
 		#saves training_index dict class variable to file
 		with open(Database.training_index_path, 'w') as file:
 			json.dump(Database.training_index, file, indent=4)
 
+		###HISTORICAL_INDEX###
+		#Checks to see if path exists, if not it creates one
+		if os.path.exists(Database.historical_index_path) == False:
+			open(Database.historical_index_path, 'w')
 		#saves historical_index dict class variable to file
 		with open(Database.historical_index_path, 'w') as file:
 			json.dump(Database.historical_index, file, indent=4)
 
 
-	def load_files(self):
-		#loads contents of file with path, "Database.setting_path"
-		with open(Database.settings_path) as file:
-			Database.settings = json.load(file)
+	def reset_settings(self):
+		#all settings set to a default value
+		Database.settings = {
+			'tracked_exchanges': []
+		}
 
-		#loads indexes for training index
-		print('Loading Training Index: '
-			  + {Database.training_index_path})
-		with open(Database.training_index_path) as file:
-			Database.training_index = json.load(file)
+		#tracked exchanges includes ones already in use (have data from)
+		#looks through historical_index and adds each exchange found
+		exchanges = []
+		for index_id, item_index in self.historical_index.items():
+			if item_index['exchange_id'] not in exchanges:
+				exchanges.append(item_index['exchange_id'])
+		#adds all exchanges found to tracked_exchanges in settings
+		Database.settings['tracked_exchanges'] = exchanges
 
-		#loads indexes for historical index
-		print('Loading Historical Index: '
-			  + {Database.historical_index_path})
-		with open(Database.training_index_path) as file:
-			Database.training_index = json.load(file)
+		print('NOTICE: reset database settings to their default')
+
+		#saves new settings to file
+		self.save_files()
 
 
-	def index_id(self, exchange, coin, increment):
+	def index_id(self, exchange_id, coin_id, time_increment):
 		'''
 		Parameters:
-			exchange   : (str) name of exchange in bold: 'KRAKEN'
-			coin       : (str) crytpocurrency id: 'BTC'
-			increment  : (int) time increment of data in seconds
-						 - val must be supported by coinapi period_id
+			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
+			coin_id        : (str) crytpocurrency id: 'BTC'
+			time_increment : (int) time increment of data in seconds
+						  - val must be supported by coinapi period_id
 		'''
-		return f'{exchange}_{coin}_{increment}'
+		return f'{exchange_id}_{coin_id}_{time_increment}'
 
 
-	def add_index(self, item_index):
+	def add_historical_item(self, exchange_id, coin_id, time_increment):
 		'''
 		Parameters:
-			item_index : contents of index being added
-						 - single layer dict
+			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
+			coin_id        : (str) crytpocurrency id: 'BTC'
+			time_increment : (int) time increment of data in seconds
+						  - val must be supported by coinapi period_id
 		'''
-		pass
+		self.historical_index_keys = ['filepath',
+									  'symbol_id',
+									  'exchange_id',
+									  'asset_id_base',
+									  'time_increment',
+									  'datapoints',
+									  'data_start',
+									  'data_end']
 
 
 	def historical_data(self, index_id, interval=None):

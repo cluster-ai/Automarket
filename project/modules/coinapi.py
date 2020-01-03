@@ -9,27 +9,89 @@ from requests.exceptions import HTTPError
 
 from .preproc import unix_to_date, date_to_unix
 
+#79 character absolute limit
+###############################################################################
+
+#72 character recommended limit
+########################################################################
+
 class Coinapi():
-	#the api index is shared across all Coinapi objects and
-	#	keeps track of each api key data for reference
+	base_url = 'https://rest.coinapi.io/v1/'
+	#base url for coinapi.io requests
+
+	coinapi_path = 'database/coinapi.json'
+	#path to coinapi.json file
+
 	api_index = {}
+	#keeps track of each api key data for reference
+	exchange_index = {}
+	#used for initializing historical index items
+	period_index = {}
+	#keeps track of coinapi period_id's
 
 
 	def __init__(self):
-		self.base_url = 'https://rest.coinapi.io/v1/'
+		self.load_files()
 
-		self.api_index_path = 'modules/coinapi/api_index.json'
-		with open(self.api_index_path, 'r') as file:
-			Coinapi.api_index = json.load(file)
+
+	def load_files(self):
+		#NOTE: All coinapi indexes are share the same file
+		#Checks to see if coinapi_path exists, if not creates one
+		if os.path.exists(Coinapi.coinapi_path) == False:
+			open(Coinapi.coinapi_path, 'w')
+
+		print('Loading Coinapi Files: ' + Coinapi.coinapi_path)
+		#loads contents of file with path, "Coinapi.coinapi_path"
+		with open(Coinapi.coinapi_path) as file:
+			indexes = json.load(file)
+
+			#loads api_index if it exists
+			if 'api_index' in indexes:
+				Coinapi.api_index = indexes['api_index']
+			else:
+				Coinapi.api_index = {}
+
+			#loads exchange_index
+			if 'exchange_index' in indexes:
+				Coinapi.exchange_index = indexes['exchange_index']
+			else:
+				Coinapi.exchange_index = {}
+
+			#loads period_index
+			if 'period_index' in indexes:
+				Coinapi.period_index = indexes['period_index']
+			else:
+				Coinapi.period_index = {}
+
+
+	def save_files(self):
+		#NOTE: All coinapi indexes are share the same file
+
+		#consolidates all coinapi indexes to single dict and
+		#saves it to coinapi.json
+		indexes = {}
+		indexes['api_index'] = Coinapi.api_index
+		indexes['exchange_index'] = Coinapi.exchange_index
+		indexes['period_index'] = Coinapi.period_index
+
+		#Checks to see if path exists, if not it creates one
+		if os.path.exists(Coinapi.coinapi_path) == False:
+			open(Coinapi.coinapi_path, 'w')
+		#saves settings dict class variable to file by default
+		#can change settings parameter to custom settings dict
+		with open(Coinapi.coinapi_path, 'w') as file:
+			json.dump(indexes, file, indent=4)
 
 
 	def filter(self, data, filters, omit_filtered):
 		'''
 		Parameters:
-			data         : (list of dict) values that will be filtered and returned
-			filters      : (dict) filtered items are added to return value
-			omit_fitered : (bool) if True: omits filtered items rather than add
-						   and returns ramaining
+			data         : (list of dict) 
+						   - values that will be filtered and returned
+			filters      : (dict) 
+						   - filtered items are added to return value
+			omit_fitered : (bool) 
+						   - if True: omits filtered instead of adding
 		Assumptions:
 			- "data" param is a list of dictionaries
 
@@ -80,17 +142,20 @@ class Coinapi():
 			401	Unauthorized – Your API key is wrong
 			403	Forbidden – Your API key doesn’t have enough privileges 
 							to access this resource
-			429	Too many requests – You have exceeded your API key rate limits
-			550	No data – You requested specific single item that we don’t 
-						  have at this moment.
+			429	Too many requests – You have exceeded API key rate limit
+			550	No data – You requested unavailable specific single item
 
 		Parameters:
-			url_ext      : (str) is added to self.base_url in request
-			api_key_id   : (str) the dict key for what api key to use
-			queries      : (dict) a premade dict of params for the request
-			filters      : (dict) filtered items are added to return value
-			omit_fitered : (bool) if True: omits filtered items rather than add 
-						   and returns ramaining
+			url_ext      : (str)
+						   - is added to self.base_url in request
+			api_key_id   : (str)
+						   - the dict key for what api key to use
+			queries      : (dict)
+						   - a premade dict of params for the request
+			filters      : (dict) 
+						   - filtered items are added to return value
+			omit_fitered : (bool)
+						   - if True: omits filtered instead of adding
 		'''
 		tracked_headers = ['X-RateLimit-Request-Cost',
 						   'X-RateLimit-Remaining',
@@ -117,8 +182,7 @@ class Coinapi():
 			
 			#updates RateLimit info in api_index with response.headers
 			for header in tracked_headers:
-				#Only updates reset time if the current reset time is expired
-				#	That way the reset time is when remaining will be full again
+				#Updates reset time if the current reset time is expired
 				if header == 'X-RateLimit-Reset' and header in api_index:
 					if date_to_unix(api_index[header]) < time.time():
 						api_index[header] = response.headers[header]
