@@ -1,8 +1,5 @@
 env/
 __pycache__
-**/api_index.json
+**/coinapi.json
 *.csv
-**/changes.txt
-**/working_lstm.py
 **/test.py
-**/ideas.txt

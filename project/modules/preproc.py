@@ -56,7 +56,7 @@ def date_to_unix(date):
 	return unix
 
 
-def add_average_price(data):
+def prep_historical(data):
 	'''
 	Parameters:
 		data : {key/id: pd.DataFrame(), ...}

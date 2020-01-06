@@ -40,30 +40,33 @@ class Database():
 		#Checks to see if path exists, if not creates one
 		if os.path.exists(Database.settings_path) == False:
 			open(Database.settings_path, 'w')
-		print('Loading Settings: ' + Database.settings_path)
-		#loads contents of file with path, "Database.setting_path"
-		with open(Database.settings_path) as file:
-			Database.settings = json.load(file)
+		else:
+			print('Loading Settings: ' + Database.settings_path)
+			#loads contents of file with path, "Database.setting_path"
+			with open(Database.settings_path) as file:
+				Database.settings = json.load(file)
 
 		###TRAINING_INDEX###
 		#Checks to see if path exists, if not creates one
 		if os.path.exists(Database.training_index_path) == False:
 			open(Database.training_index_path, 'w')
-		print('Loading Training Index: '
-			  + Database.training_index_path)
-		#loads indexes for training index
-		with open(Database.training_index_path) as file:
-			Database.training_index = json.load(file)
+		else:
+			print('Loading Training Index: '
+				  + Database.training_index_path)
+			#loads indexes for training index
+			with open(Database.training_index_path) as file:
+				Database.training_index = json.load(file)
 
 		###HISTORICAL_INDEX###
 		#Checks to see if path exists, if not creates one
 		if os.path.exists(Database.historical_index_path) == False:
 			open(Database.historical_index_path, 'w')
-		print('Loading Historical Index: '
-			  + Database.historical_index_path)
-		#loads indexes for historical index
-		with open(Database.training_index_path) as file:
-			Database.training_index = json.load(file)
+		else:
+			print('Loading Historical Index: '
+				  + Database.historical_index_path)
+			#loads indexes for historical index
+			with open(Database.historical_index_path) as file:
+				Database.historical_index = json.load(file)
 
 
 	def save_files(self):
@@ -102,7 +105,7 @@ class Database():
 		#tracked exchanges includes ones already in use (have data from)
 		#looks through historical_index and adds each exchange found
 		exchanges = []
-		for index_id, item_index in self.historical_index.items():
+		for index_id, item_index in Database.historical_index.items():
 			if item_index['exchange_id'] not in exchanges:
 				exchanges.append(item_index['exchange_id'])
 		#adds all exchanges found to tracked_exchanges in settings
