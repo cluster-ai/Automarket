@@ -23,9 +23,9 @@ class Coinapi():
 
 	api_index = {}
 	#keeps track of each api key data for reference
-	exchange_index = {}
+	exchange_index = []
 	#entire available pool of exchanges and their coins
-	period_index = {}
+	period_index = []
 	#keeps track of coinapi period_id's
 
 
@@ -48,6 +48,8 @@ class Coinapi():
 		#Checks to see if index_path exists, if not creates one
 		if os.path.exists(Coinapi.index_path) == False:
 			open(Coinapi.index_path, 'w')
+			#uploads empty index variables to file
+			self.save_files()
 
 		print('Loading Coinapi Files: ' + Coinapi.index_path)
 		#loads contents of file with path, "Coinapi.index_path"
@@ -55,13 +57,14 @@ class Coinapi():
 			indexes = json.load(file)
 
 			#loads api_index if it exists
-			if 'api_index' in indexes:
+			if indexes['api_index'] != {}:
 				Coinapi.api_index = indexes['api_index']
 			else:
 				Coinapi.api_index = {}
+				print('WARNING: No API Keys in Coinapi.api_index')
 
 			#loads period_index
-			if 'period_index' in indexes:
+			if indexes['period_index'] != []:
 				Coinapi.period_index = indexes['period_index']
 			else:
 				filters = {
@@ -74,15 +77,11 @@ class Coinapi():
 				Coinapi.period_index = new_index
 
 			#loads exchange_index
-			if 'exchange_index' in indexes:
+			if indexes['exchange_index'] != []:
 				Coinapi.exchange_index = indexes['exchange_index']
 			else:
-				filters = {
-					'asset_id_quote': self.asset_id_quote
-				}
 				new_index = self.request('free_key', 
-										 url=self.exchanges_url,
-										 filters=filters)
+										 url=self.exchanges_url)
 				Coinapi.exchange_index = new_index
 
 		#the class variables may have changed so this updates files
@@ -111,11 +110,11 @@ class Coinapi():
 	def update_keys(self):
 		#checks on api_key X-RateLimit-Reset
 		#if expired, sets X-RateLimit-Remaining to X-RateLimit-Limit
-		for api_key, item_index in Coinapi.api_index.items():
+		for api_id, item_index in Coinapi.api_index.items():
 			reset_time = date_to_unix(item_index['X-RateLimit-Reset'])
 			if reset_time <= time.time():
 				limit = item_index['X-RateLimit-Limit']
-				Coinapi.api_index[api_key]['X-RateLimit-Remaining'] = limit
+				Coinapi.api_index[api_id]['X-RateLimit-Remaining'] = limit
 
 
 	def period_id(self, unix):
@@ -208,16 +207,19 @@ class Coinapi():
 
 		NOTE: queries include: ['time_start', 'limit', 'period_id']
 		'''
-		tracked_headers = ['X-RateLimit-Remaining',
+		print('----------------------------------------------------')
+
+		tracked_headers = ['X-RateLimit-Cost',
+						   'X-RateLimit-Remaining',
 						   'X-RateLimit-Limit', 
 						   'X-RateLimit-Reset']
 
 		#creates a local api index with only "api_key_id" data 
-		api_index = Coinapi.api_index[api_key_id]
+		api_key_index = Coinapi.api_index[api_key_id]
 
 		try:
 			print("Making API Request at:", url)
-			response = requests.get(url, headers=api_index['api_key'], 
+			response = requests.get(url, headers=api_key_index['api_key'], 
 									params=queries)
 			# If the response was successful, no Exception will be raised
 			response.raise_for_status()
@@ -229,22 +231,17 @@ class Coinapi():
 		else:
 			print(f'API Request Successful: code {response.status_code}')
 			
-			#updates RateLimit info in api_index with response.headers
-			try:
-				for header in tracked_headers:
-					#Updates reset time if the current reset time is expired
-					if header == 'X-RateLimit-Reset' and header in api_index:
-						if date_to_unix(api_index[header]) < time.time():
-							api_index[header] = response.headers[header]
-					else:
-						api_index[header] = response.headers[header]
-					print(f'	{header}:', api_index[header])
-			except:
-				print('WARNING: Unhandled Exception in Coinapi.request')
+			#updates RateLimit info in api_key_index with response.headers
+			for header in tracked_headers:
+				#verifies tracked_header is in response.headers
+				if header in response.headers:
+					#updates api_id 
+					api_key_index[header] = response.headers[header]
+					print(f'	{header}:', api_key_index[header])
 
-			#updates the class variable api_index
-			Coinapi.api_index[api_key_id] = api_index
-			#then saves the api_index to file
+			#updates the class variable api_key_index
+			Coinapi.api_index[api_key_id] = api_key_index
+			#then saves the api_key_index to file
 			with open(Coinapi.index_path, 'w') as file:
 				json.dump(Coinapi.api_index, file, indent=4)
 
