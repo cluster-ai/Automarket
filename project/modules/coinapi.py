@@ -6,8 +6,10 @@ import time
 import os
 import requests
 from requests.exceptions import HTTPError
-
+	
+#local modules
 from .preproc import unix_to_date, date_to_unix, prep_historical
+from .multiproc import print_progress_bar
 
 #79 character absolute limit
 ###############################################################################
@@ -21,6 +23,16 @@ class Coinapi():
 	index_path = 'database/coinapi.json'
 	#path to coinapi.json file
 
+	#url_extensions for various coinapi requests
+	#use .format to add content to brackets in use
+	historical_url = base_url + 'ohlcv/{}/history'
+	periods_url = base_url + 'ohlcv/periods'
+	exchanges_url = base_url + 'exchanges'
+	coins_url = base_url + 'symbols'
+
+	#constant
+	asset_id_quote = 'USD'
+
 	api_index = {}
 	#keeps track of each api key data for reference
 	exchange_index = []
@@ -30,15 +42,6 @@ class Coinapi():
 
 
 	def __init__(self):
-		#url_extensions for various coinapi requests
-		#use .format to add content to brackets in use
-		self.historical_url = Coinapi.base_url + 'ohlcv/{}/history'
-		self.periods_url = Coinapi.base_url + 'ohlcv/periods'
-		self.exchanges_url = Coinapi.base_url + 'exchanges'
-
-		#constant
-		self.asset_id_quote = 'USD'
-
 		self.update_keys()
 		self.load_files()
 
@@ -71,7 +74,7 @@ class Coinapi():
 					'length_seconds': 0
 				}
 				new_index = self.request('free_key', 
-										 url=self.periods_url,
+										 url=Coinapi.periods_url,
 										 filters=filters,
 										 omit_filtered=True)
 				Coinapi.period_index = new_index
@@ -81,7 +84,7 @@ class Coinapi():
 				Coinapi.exchange_index = indexes['exchange_index']
 			else:
 				new_index = self.request('free_key', 
-										 url=self.exchanges_url)
+										 url=Coinapi.exchanges_url)
 				Coinapi.exchange_index = new_index
 
 		#the class variables may have changed so this updates files
@@ -156,6 +159,9 @@ class Coinapi():
 		filtered = []
 		remaining = []
 
+		count = 0
+		total = len(data)
+		print(f'filtering {total} items')
 		for item in data:
 			#mismatch is True if it does not match filter values
 			mismatch = False
@@ -172,6 +178,10 @@ class Coinapi():
 			else:
 				remaining.append(item)
 
+			if total >= 10000:#not worth printing for less than 10000
+				#updates count and print loading bar
+				count += 1
+				print_progress_bar(count, total)
 
 		if omit_filtered == True:
 			print('Notice: omiting filtered')
@@ -241,9 +251,7 @@ class Coinapi():
 
 			#updates the class variable api_key_index
 			Coinapi.api_index[api_key_id] = api_key_index
-			#then saves the api_key_index to file
-			with open(Coinapi.index_path, 'w') as file:
-				json.dump(Coinapi.api_index, file, indent=4)
+			self.save_files()
 
 			#response errors are no longer being handled so it is assigned
 			#to its json value and filtered
@@ -252,6 +260,8 @@ class Coinapi():
 				response = self.filter(response, filters, omit_filtered)
 			else:
 				print('Notice: no response filter')
+
+			print('----------------------------------------------------')
 
 			return response
 
