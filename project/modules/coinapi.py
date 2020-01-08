@@ -134,6 +134,24 @@ class Coinapi():
 		return ''
 
 
+	def verify_exchange(self, exchange_id):
+		'''
+		Parameters:
+			exchange_id : (str) Name of exchange in coinapi format
+								ex: 'KRAKEN'
+
+			returns True given ID is found in exchange_index
+					False of not found
+		'''
+
+		for index_item in Coinapi.exchange_index:
+			if index_item['exchange_id'] == exchange_id:
+				return True
+				
+		print(f'WARNING: {exchange_id} Not Found in coinapi.json')
+		return False
+
+
 	def filter(self, data, filters, omit_filtered):
 		'''
 		Parameters:
@@ -266,12 +284,12 @@ class Coinapi():
 			return response
 
 
-	def historical(self, item_indexes, match_data=False):
+	def historical(self, indexes, match_data=False):
 		'''
 		Parameters:
-			item_indexes : (list) list of indexes from historical_index
+			indexes    : (list) list of indexes from historical_index
 								  that are going to be backfilled
-			match_data   : (bool) if true: backfills all items so that
+			match_data : (bool) if true: backfills all items so that
 								  data_end matches the biggest one
 								  - does not go past 'biggest' one
 
@@ -287,7 +305,7 @@ class Coinapi():
 		#updates api_keys
 		self.update_keys()
 
-		#the key being used is loaded
+		#the key being used
 		api_id = 'startup_key'
 
 		#finds the most recent data_end value and determines the number
@@ -299,12 +317,13 @@ class Coinapi():
 		print('backfill list:')
 		for x in range(2):
 			#loops indexes twice, first loop is to find largest data_end
-			for index_id, item_index in item_indexes.items():
+			for index_id, item_index in indexes.items():
+				#data_end is stored as date, converted to unix
 				data_end = date_to_unix(item_index['data_end'])
 				if x == 0:
-					print(f'   - {index_id}')
-					#data_end is stored as date, converted to unix
+					print(f'   - {index_id} | data_end: {data_end}')
 					if data_end > match_date:
+						#match_date is set to largest data_end found
 						match_date = data_end
 				elif x == 1:
 					#saves new match_val to each index
@@ -312,26 +331,39 @@ class Coinapi():
 					match_val_total += match_val #updates match_val_total
 					match_val = {'match_val': match_val}
 					#match_val is num_timesteps away from match_date
-					item_indexes['index_id'].update(match_val)
-
-		#remaining limit of current key
+					indexes['index_id'].update(match_val)
 
 		#compares remaining_limit to match_val_total / 100
-		if (match_val_total / 100 < 
+		#
+		#if there are more than enough requests to match data
+		#the remaining requests are split evenly across coins
+		extra_requests = 0
+		if (match_val_total / 100 >
 				Coinapi.api_index[api_id]['X-RateLimit-Remaining']):
-			print('''NOTICE: Not Enough Remaining Requests for 
-					 "data_end" Match''')
+			print('NOTICE: Not Enough Requests for "data_end" Match')
+		elif (match_val_total / 100 <
+				Coinapi.api_index[api_id]['X-RateLimit-Remaining']):
+			#calculates number of extra requests each coin gets
+			#rounded down so the coins maintain the same data_end
+			extra_requests = floor(match_val_total / len(indexes)) 
+		else:
+			print('NOTICE: Only Enough Requests for "data_end" Match')
 
 		#backfills each item for 'match_val' datapoints or until
 		#remaining requests run out
 		backfill_data = {}
-		for index_id, item_index in item_indexes.items():
+		for index_id, item_index in indexes.items():
 			#one request is 100 datapoints so this accounts for that
 			remaining = Coinapi.api_index[api_id]['X-RateLimit-Remaining']
 			requests = ceil(item_index['match_val'] / 100)
-			#caps requests at remaining
+
+			#caps requests at remaining to prevent request overflow
 			if requests > remaining:
 				requests = remaining
+
+			if match_data == False:
+				#adds extra_requests to requests
+				requests += extra_requests
 
 			#queries for request
 			queries = {

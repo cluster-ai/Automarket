@@ -1,3 +1,6 @@
 {
-    "tracked_exchanges": []
+    "tracked_exchanges": [
+        "KRAKEN",
+        "BINANCE"
+    ]
 }
