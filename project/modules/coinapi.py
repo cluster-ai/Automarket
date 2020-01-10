@@ -127,11 +127,28 @@ class Coinapi():
 
 		returns coinapi period_id assuming unix imput is valid
 		'''
-		for item in self.handbook['period_data']:
-			if item['length_seconds'] == unix:
-				return item['period_id']
-		print('Error: period_id not found for unix_time value:', unix)
-		return ''
+		for index_item in Coinapi.period_index:
+			if index_item['length_seconds'] == unix:
+				return index_item['period_id']
+
+		raise ValueError(f'period_id not found for {unix}')
+
+
+	def verify_increment(self, time_increment):
+		'''
+		Parameters:
+			time_increment : (int) value used to match against
+								   period_index['length_seconds']
+
+		Returns False if time_increment is not in period_index
+		Returns True if time_increment is in period_index
+		'''
+		for index_item in Coinapi.period_index:
+			if index_item['length_seconds'] == time_increment:
+				return True
+
+		print(f'WARNING: {time_increment} not found in period_index')
+		return False
 
 
 	def verify_exchange(self, exchange_id):
@@ -143,7 +160,6 @@ class Coinapi():
 			returns True given ID is found in exchange_index
 					False of not found
 		'''
-
 		for index_item in Coinapi.exchange_index:
 			if index_item['exchange_id'] == exchange_id:
 				return True

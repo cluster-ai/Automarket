@@ -127,6 +127,8 @@ class Database():
 				print('NOTICE: file is empty -> '
 					  + Database.coin_index_path)
 
+		print('----------------------------------------------------')
+
 
 	def save_files(self):
 		###SETTINGS###
@@ -227,7 +229,10 @@ class Database():
 			time_increment : (int) time increment of data in seconds
 						  - val must be supported by coinapi period_id
 		'''
-		return f'{exchange_id}_{coin_id}_{time_increment}'
+		#converts time_increment to period_id equivalent
+		period_id = self.coinapi.period_id(time_increment)
+
+		return f'{exchange_id}_{coin_id}_{period_id}'
 
 
 	def add_exchange(self, exchange_id):
@@ -236,7 +241,6 @@ class Database():
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
-
 		if exchange_id in Database.settings['tracked_exchanges']:
 			#checks if exchange is already in tracked_exchanges
 			print(f'NOTICE: {exchange_id} Already Being Tracked')
@@ -263,7 +267,7 @@ class Database():
 		#Cannot delete exchange_id when there is data associated with
 		#exchange in database
 		for index_id, item_index in Database.historical_index.items():
-			if exchange_id == item_index['exchange_id']:
+			if exchange_id == item_index[exchange_id]:
 				#if exchange_id is found, it cannot be removed
 				print(f'NOTICE: {exchange_id} Cannot Be Deleted')
 				has_data = True
@@ -282,6 +286,30 @@ class Database():
 			self.reset_coin_index()
 
 
+	def verify_coin(self, exchange_id, coin_id):
+		'''
+		Parameters:
+			exchange_id : (str) coinapi name of exchange ex: 'KRAKEN'
+			coin_id     : (str) coinapi name of coin ex: 'BTC'
+		'''
+		#verifies exchange_id is found in Coinapi.period_index
+		if self.coinapi.verify_exchange(exchange_id) == False:
+			return False
+		elif exchange_id not in Database.settings['tracked_exchanges']:
+			print(f'WARNING: {exchange_id} not being tracked')
+			return False
+
+		#iterates through the coin_index of specified exchange
+		for coin_data in Database.coin_index[exchange_id]:
+			#if coin_id matches asset_id_base the coin is valid
+			if coin_data['asset_id_base'] == coin_id:
+				return True
+
+		#coin_id does not match any values and is therefore invalid
+		print(f'WARNING: "{coin_id}" not a valid {exchange_id} coin')
+		return False
+
+
 	def add_historical_item(self, exchange_id, coin_id, time_increment):
 		'''
 		Parameters:
@@ -290,16 +318,65 @@ class Database():
 			time_increment : (int) time increment of data in seconds
 						  - val must be supported by coinapi period_id
 		'''
-		index_keys = ['filepath',
-					  'symbol_id',
-					  'exchange_id',
-					  'asset_id_base',
-					  'time_increment',
-					  'datapoints',
-					  'data_start',
-					  'data_end']
 
+		#verifies that parameters are supported by coinapi
+		if self.coinapi.verify_increment(time_increment) == False:
+			return None
+		elif self.verify_coin(exchange_id, coin_id) == False:
+			#exchange_id and coin_id are checked in self.verify_coin()
+			return None
 
+		#verifies index_id doesn't already exist in historical_index
+		index_id = self.index_id(exchange_id, coin_id, time_increment)
+		if index_id in Database.historical_index:
+			print(f'WARNING: {index_id} already in historical_index')
+			return None
+
+		#period_id string equivalent to time_increments
+		period_id = self.coinapi.period_id(time_increment)
+
+		#the first dir is the period_id str associated to time_increment
+		filepath = Database.historical_base_path + f'/{period_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+		#the final dir is the exchange_id
+		filepath += f'/{exchange_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+		#the file itself. filename-example: 'KRAKEN_BTC_5MIN.csv'
+		filename = f'{index_id}.csv'
+		filepath += f'{filename}' #adds filename to target dir
+
+		#iterates exchange_id coin_index for the matching coin_id
+		coin_data = {}
+		for coin_index_item in Database.coin_index[exchange_id]:
+			if coin_id == coin_index_item['asset_id_base']:
+				coin_data = coin_index_item
+		#if no match is found, raise error
+		if coin_data == {}:
+			KeyError(f'No Coin Data for {coin_id} in {exchange_id}')
+
+		#fills out required information for new historical index_item
+		index_item = {
+			'filename': filename,
+			'filepath': filepath,
+			'symbol_id': coin_data['symbol_id'],
+			'exhange_id': exchange_id,
+			'asset_id_base': coin_data['asset_id_base'],
+			'period_id': period_id,
+			'time_increment': time_increment,
+			'datapoints': 0,
+			'data_start': coin_data['data_start'],
+			'data_end': coin_data['data_start']#not a typo
+		}
+
+		#pushed new index_item to historical_index with index_id as key
+		Database.historical_index.update({index_id: index_item})
+		#saves to file
+		self.save_files()
+
+		#successful addition notification
+		print(f'Successfully Added {index_id} to Historical Index')
 
 
 	def historical_data(self, index_id, interval=None):
