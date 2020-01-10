@@ -123,7 +123,7 @@ class Database():
 			try: 
 				Database.coin_index = json.load(file)
 			except ValueError:
-				Database.coin_index = []
+				self.reset_coin_index()
 				print('NOTICE: file is empty -> '
 					  + Database.coin_index_path)
 
@@ -199,6 +199,7 @@ class Database():
 			response = self.coinapi.request('free_key',
 											url=Coinapi.coins_url,
 											filters=filters)
+
 			#sets index to empty dict
 			Database.coin_index = {}
 
@@ -241,6 +242,10 @@ class Database():
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
+		#breaks function if exchange_id is invalid
+		if self.coinapi.verify_exchange(exchange_id) == False:
+			return None
+
 		if exchange_id in Database.settings['tracked_exchanges']:
 			#checks if exchange is already in tracked_exchanges
 			print(f'NOTICE: {exchange_id} Already Being Tracked')
@@ -267,7 +272,7 @@ class Database():
 		#Cannot delete exchange_id when there is data associated with
 		#exchange in database
 		for index_id, item_index in Database.historical_index.items():
-			if exchange_id == item_index[exchange_id]:
+			if exchange_id == item_index['exchange_id']:
 				#if exchange_id is found, it cannot be removed
 				print(f'NOTICE: {exchange_id} Cannot Be Deleted')
 				has_data = True
@@ -345,7 +350,10 @@ class Database():
 			os.mkdir(filepath)
 		#the file itself. filename-example: 'KRAKEN_BTC_5MIN.csv'
 		filename = f'{index_id}.csv'
-		filepath += f'{filename}' #adds filename to target dir
+		filepath += f'/{filename}' #adds filename to target dir
+		#creates file if there is none
+		if os.path.exists(filepath) == False:
+			open(filepath, 'w')
 
 		#iterates exchange_id coin_index for the matching coin_id
 		coin_data = {}
@@ -361,7 +369,7 @@ class Database():
 			'filename': filename,
 			'filepath': filepath,
 			'symbol_id': coin_data['symbol_id'],
-			'exhange_id': exchange_id,
+			'exchange_id': exchange_id,
 			'asset_id_base': coin_data['asset_id_base'],
 			'period_id': period_id,
 			'time_increment': time_increment,

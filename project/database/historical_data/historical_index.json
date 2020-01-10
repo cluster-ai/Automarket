@@ -1,13 +1,13 @@
 {
     "KRAKEN_BTC_5MIN": {
         "filename": "KRAKEN_BTC_5MIN.csv",
-        "filepath": "database/historical_data/5MIN/KRAKENKRAKEN_BTC_5MIN.csv",
+        "filepath": "database/historical_data/5MIN/KRAKEN/KRAKEN_BTC_5MIN.csv",
         "symbol_id": "KRAKEN_SPOT_BTC_USD",
-        "exhange_id": "KRAKEN",
+        "exchange_id": "KRAKEN",
         "asset_id_base": "BTC",
         "period_id": "5MIN",
         "time_increment": 300,
-        "datapoinst": 0,
+        "datapoints": 0,
         "data_start": "2014-01-07",
         "data_end": "2014-01-07"
     }

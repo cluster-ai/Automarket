@@ -1,5 +1,7 @@
 env/
 __pycache__
 **/coinapi.json
+**/settings.json
+**/coin_index.json
 *.csv
 **/test.py
