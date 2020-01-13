@@ -165,20 +165,32 @@ class Database():
 			json.dump(Database.coin_index, file, indent=4)
 
 
-	def reset_settings(self):
-		#all settings set to a default value
-		Database.settings = {
-			'tracked_exchanges': []
-		}
+	def reset_tracked(self):
+		#resets tracked_coins in settings
 
-		#tracked exchanges includes ones already in use (have data from)
-		#looks through historical_index and adds each exchange found
-		exchanges = []
-		for index_id, item_index in Database.historical_index.items():
-			if item_index['exchange_id'] not in exchanges:
-				exchanges.append(item_index['exchange_id'])
-		#adds all exchanges found to tracked_exchanges in settings
-		Database.settings['tracked_exchanges'] = exchanges
+		###TRACKED COINS###
+		#lists all supported coins from tracked exchanges
+		init_loop = True
+		coins = []
+		for exchange_id, item_index in Database.coin_index.items():
+			if init_loop == True:
+				init_loop = False
+				#the first iteration initializes coins with all data
+				#from that coin
+				for coin_data in item_index:
+					coins.append(coin_data['asset_id_base'])
+			else:
+				#creates a new list of coins in current exchange
+				compare_list = []
+				for coin_data in item_index:
+					compare_list.append(coin_data['asset_id_base'])
+				#compare new list to coins and delete coins that
+				#are not in both
+				for coin_id in coins:
+					if coin_id not in compare_list:
+						coins.remove(coin_id)
+		#update settings
+		Database.settings['tracked_coins'] = coins
 
 		print('NOTICE: reset database settings to their default')
 
@@ -213,8 +225,15 @@ class Database():
 				exchange_coins = self.coinapi.filter(response,
 													 filters,
 													 False)
+				#creates a dict of exchange_coins where each coin
+				#key is its coin_id
+				coin_dict = {}
+				for coin_data in exchange_coins:
+					coin_id = coin_data['asset_id_base']
+					coin_dict.update({coin_id: coin_data})
+
 				#adds data to coin_index and saves to file
-				Database.coin_index.update({exchange_id: exchange_coins})
+				Database.coin_index.update({exchange_id: coin_dict})
 
 		#saves coin_index to file
 		self.save_files()
@@ -222,16 +241,25 @@ class Database():
 		print('----------------------------------------------------')
 
 
-	def index_id(self, exchange_id, coin_id, time_increment):
+	def index_id(self, exchange_id, coin_id, 
+				 time_increment=None, period_id=None):
 		'''
 		Parameters:
 			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
 			coin_id        : (str) crytpocurrency id: 'BTC'
 			time_increment : (int) time increment of data in seconds
 						  - val must be supported by coinapi period_id
+			period_id      : (str) time increment of data in coinapi
+								   period_id format
 		'''
 		#converts time_increment to period_id equivalent
-		period_id = self.coinapi.period_id(time_increment)
+		#uses period_id instead if given
+		if time_increment != None:
+			#converts time_increment into period_id
+			period_id = self.coinapi.period_id(time_increment)
+		elif period_id != None:
+			if self.coinapi.verify_period(period_id) == False:
+				raise ValueError(f'{period_id} not found in period_index')
 
 		return f'{exchange_id}_{coin_id}_{period_id}'
 
@@ -265,15 +293,16 @@ class Database():
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
-		#has data is used to flag the exchange_id when there is data found
-		#in database associated to it
+		#has data is used to flag the exchange_id when there is 
+		#data found in database associated to it
 		has_data = False
 
 		#Cannot delete exchange_id when there is data associated with
 		#exchange in database
 		for index_id, item_index in Database.historical_index.items():
-			if exchange_id == item_index['exchange_id']:
-				#if exchange_id is found, it cannot be removed
+			if (exchange_id == item_index['exchange_id'] and 
+					item_index['datapoints'] != 0):
+				#if exchange_id is found with data it cannot be removed
 				print(f'NOTICE: {exchange_id} Cannot Be Deleted')
 				has_data = True
 
@@ -291,51 +320,46 @@ class Database():
 			self.reset_coin_index()
 
 
-	def verify_coin(self, exchange_id, coin_id):
+	def backfill_historical(self, coin_id, time_increment, 
+							exchange_id=None):
 		'''
+		This function accepts a coin_id and backfills all 
+		tracked exchanges for that coin unless a specific 
+		exchange_id is given
+
 		Parameters:
-			exchange_id : (str) coinapi name of exchange ex: 'KRAKEN'
-			coin_id     : (str) coinapi name of coin ex: 'BTC'
-		'''
-		#verifies exchange_id is found in Coinapi.period_index
-		if self.coinapi.verify_exchange(exchange_id) == False:
-			return False
-		elif exchange_id not in Database.settings['tracked_exchanges']:
-			print(f'WARNING: {exchange_id} not being tracked')
-			return False
-
-		#iterates through the coin_index of specified exchange
-		for coin_data in Database.coin_index[exchange_id]:
-			#if coin_id matches asset_id_base the coin is valid
-			if coin_data['asset_id_base'] == coin_id:
-				return True
-
-		#coin_id does not match any values and is therefore invalid
-		print(f'WARNING: "{coin_id}" not a valid {exchange_id} coin')
-		return False
-
-
-	def add_historical_item(self, exchange_id, coin_id, time_increment):
-		'''
-		Parameters:
-			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
 			coin_id        : (str) crytpocurrency id: 'BTC'
 			time_increment : (int) time increment of data in seconds
 						  - val must be supported by coinapi period_id
+			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
+							 - used to backfill specific exchange_id 
 		'''
 
 		#verifies that parameters are supported by coinapi
 		if self.coinapi.verify_increment(time_increment) == False:
 			return None
-		elif self.verify_coin(exchange_id, coin_id) == False:
-			#exchange_id and coin_id are checked in self.verify_coin()
+		elif coin_id not in Database.settings['tracked_coins']:
+			print(f'WARNING: "{coin_id}" is not being tracked')
 			return None
+		elif exchange_id != None:
+			if (exchange_id not in 
+					Database.settings['tracked_exchanges']):
+				print(f'WARNING: "{exchange_id}" is not being tracked')
+				return None
 
-		#verifies index_id doesn't already exist in historical_index
-		index_id = self.index_id(exchange_id, coin_id, time_increment)
-		if index_id in Database.historical_index:
-			print(f'WARNING: {index_id} already in historical_index')
-			return None
+		#creates backfill list with index_id's
+		backfill_dict = {}
+		if exchange_id != None:
+			index_id = self.index_id(exchange_id, coin_id, 
+									 time_increment=time_increment)
+			backfill_dict = {exchange_id: index_id}
+		if exchange_id == None:
+			#loads an index_id for each tracked exchange
+			for tracked_exchange in Database.settings['tracked_exchanges']:
+				index_id = self.index_id(tracked_exchange, 
+										 coin_id, 
+										 time_increment=time_increment)
+				backfill_list.update({index_id: tracked_exchange})
 
 		#period_id string equivalent to time_increments
 		period_id = self.coinapi.period_id(time_increment)
@@ -344,59 +368,60 @@ class Database():
 		filepath = Database.historical_base_path + f'/{period_id}'
 		if os.path.isdir(filepath) == False:
 			os.mkdir(filepath)
-		#the final dir is the exchange_id
-		filepath += f'/{exchange_id}'
+		#the final dir is the coin_id
+		filepath += f'/{coin_id}'
 		if os.path.isdir(filepath) == False:
 			os.mkdir(filepath)
-		#the file itself. filename-example: 'KRAKEN_BTC_5MIN.csv'
-		filename = f'{index_id}.csv'
-		filepath += f'/{filename}' #adds filename to target dir
-		#creates file if there is none
-		if os.path.exists(filepath) == False:
-			open(filepath, 'w')
 
-		#iterates exchange_id coin_index for the matching coin_id
-		coin_data = {}
-		for coin_index_item in Database.coin_index[exchange_id]:
-			if coin_id == coin_index_item['asset_id_base']:
-				coin_data = coin_index_item
-		#if no match is found, raise error
-		if coin_data == {}:
-			KeyError(f'No Coin Data for {coin_id} in {exchange_id}')
+		#creates a new index item in historical index for coins that 
+		#do not already have one.
+		for index_id, exchange_id in backfill_dict:
+			if index_id not in Database.historical_index:
+				#loads coin_data for new index_item
+				coin_data = Database.coin_index[exchange_id][coin_id]
 
-		#fills out required information for new historical index_item
-		index_item = {
-			'filename': filename,
-			'filepath': filepath,
-			'symbol_id': coin_data['symbol_id'],
-			'exchange_id': exchange_id,
-			'asset_id_base': coin_data['asset_id_base'],
-			'period_id': period_id,
-			'time_increment': time_increment,
-			'datapoints': 0,
-			'data_start': coin_data['data_start'],
-			'data_end': coin_data['data_start']#not a typo
-		}
+				#filename-example: 'KRAKEN_BTC_5MIN.csv'
+				filename = f'{index_id}.csv'
+				filepath += f'/{filename}' #adds filename to target dir
+				#creates file if there is none
+				if os.path.exists(filepath) == False:
+					open(filepath, 'w')
 
-		#pushed new index_item to historical_index with index_id as key
-		Database.historical_index.update({index_id: index_item})
-		#saves to file
+				#fills out required information for new 
+				#historical index_item
+				index_item = {
+					'filename': filename,
+					'filepath': filepath,
+					'symbol_id': coin_data['symbol_id'],
+					'exchange_id': exchange_id,
+					'asset_id_quote': coin_data['asset_id_quote'],
+					'asset_id_base': coin_data['asset_id_base'],
+					'period_id': period_id,
+					'time_increment': time_increment,
+					'datapoints': 0,
+					'data_start': coin_data['data_start'],
+					'data_end': coin_data['data_start']#not a typo
+				}
+
+				print(f'Added {index_id} to Historical Index')
+
+				#updates historical_index
+				Database.historical_index.update({index_id: index_item})
+		#saves changes to file
 		self.save_files()
 
-		#successful addition notification
-		print(f'Successfully Added {index_id} to Historical Index')
+		#The following backfills all items items in backfill_dict
+		#coinapi.historical() needs a list of the indexes
+		backfill_indexes = {}
+		for index_id, exchange_id in backfill_dict.items():
+			#loads the corresponding index into indexes
+			backfill_indexes.update(
+				{index_id: Database.historical_index[index_id]}
+			)
 
+		#requests backfill data
+		data = self.coinapi.backfill(backfill_indexes)
 
-	def historical_data(self, index_id, interval=None):
-		'''
-		Parameters:
-			index_id : (str) 
-					   - key to select desired historical_index item
-			interval : ([int, int]) None returns all available data
-					   - converted to nearest time_period_start value
-					   - [0] is unix time start, [1] is unix time end
-		'''
-
-		#loads index item of historical_index pointed to by index_id
-		item_index = Database.historical_index[index_id]
-
+		#iterates through data and adds it to file
+		for index_id, df in data.items():
+			

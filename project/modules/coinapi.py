@@ -120,18 +120,34 @@ class Coinapi():
 				Coinapi.api_index[api_id]['X-RateLimit-Remaining'] = limit
 
 
-	def period_id(self, unix):
+	def period_id(self, time_increment):
 		'''
 		Parameters:
-			- unix : (int) time_interval of data in unix time (seconds)
+			- time_increment : (int) time_interval of data in 
+									 unix time (seconds)
 
-		returns coinapi period_id assuming unix imput is valid
+		returns coinapi period_id assuming input is valid
 		'''
 		for index_item in Coinapi.period_index:
-			if index_item['length_seconds'] == unix:
+			if index_item['length_seconds'] == time_increment:
 				return index_item['period_id']
 
-		raise ValueError(f'period_id not found for {unix}')
+		raise ValueError(f'period_id not found for "{time_increment}"')
+
+
+	def verify_period(self, period_id):
+		'''
+		Parameters:
+			period_id : (str) period_id str supported by coinapi
+
+		returns period_id if valid time_increment
+		'''
+		for index_item in Coinapi.period_index:
+			if index_item['period_id'] == period_id:
+				return True
+
+		print(f'WARNING: "{period_id}" not found in period_index')
+		return False
 
 
 	def verify_increment(self, time_increment):
@@ -300,7 +316,7 @@ class Coinapi():
 			return response
 
 
-	def historical(self, indexes, match_data=False):
+	def backfill(self, indexes, match_data=False):
 		'''
 		Parameters:
 			indexes    : (list) list of indexes from historical_index

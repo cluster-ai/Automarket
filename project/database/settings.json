@@ -1,5 +1,16 @@
 {
     "tracked_exchanges": [
-        "KRAKEN"
+        "KRAKEN",
+        "BITMEX",
+        "DERIBIT",
+        "COINBASE",
+        "BITSTAMP"
+    ],
+    "tracked_coins": [
+        "BTC",
+        "ETH",
+        "LTC",
+        "ETC",
+        "SC"
     ]
 }
