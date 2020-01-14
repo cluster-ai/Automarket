@@ -3,6 +3,7 @@
 import json
 import csv
 import time
+import math
 import os
 import requests
 from requests.exceptions import HTTPError
@@ -10,6 +11,9 @@ from requests.exceptions import HTTPError
 #local modules
 from .preproc import unix_to_date, date_to_unix, prep_historical
 from .multiproc import print_progress_bar
+
+#packages
+import pandas as pd
 
 #79 character absolute limit
 ###############################################################################
@@ -316,11 +320,12 @@ class Coinapi():
 			return response
 
 
-	def backfill(self, indexes, match_data=False):
+	def historical(self, indexes, limit=None, match_data=False):
 		'''
 		Parameters:
 			indexes    : (list) list of indexes from historical_index
 								  that are going to be backfilled
+			limit      : (int) value used to limit each coins request
 			match_data : (bool) if true: backfills all items so that
 								  data_end matches the biggest one
 								  - does not go past 'biggest' one
@@ -330,9 +335,6 @@ class Coinapi():
 				 		of the new data it picked up for each item
 				 		that was backfilled.
 		'''
-		print('----------------------------------------------------')
-		print('Backfilling Historical Data')
-		print('----------------------------------------------------')
 
 		#updates api_keys
 		self.update_keys()
@@ -353,7 +355,8 @@ class Coinapi():
 				#data_end is stored as date, converted to unix
 				data_end = date_to_unix(item_index['data_end'])
 				if x == 0:
-					print(f'   - {index_id} | data_end: {data_end}')
+					print(f'   - {index_id} | data_end:', 
+						  item_index['data_end'])
 					if data_end > match_date:
 						#match_date is set to largest data_end found
 						match_date = data_end
@@ -363,18 +366,18 @@ class Coinapi():
 					match_val_total += match_val #updates match_val_total
 					match_val = {'match_val': match_val}
 					#match_val is num_timesteps away from match_date
-					indexes['index_id'].update(match_val)
+					indexes[index_id].update(match_val)
 
 		#compares remaining_limit to match_val_total / 100
 		#
-		#if there are more than enough requests to match data
-		#the remaining requests are split evenly across coins
+		#if there are enough requests to match data, the
+		#remaining requests are split evenly across coins
 		extra_requests = 0
 		if (match_val_total / 100 >
-				Coinapi.api_index[api_id]['X-RateLimit-Remaining']):
+				int(Coinapi.api_index[api_id]['X-RateLimit-Remaining'])):
 			print('NOTICE: Not Enough Requests for "data_end" Match')
 		elif (match_val_total / 100 <
-				Coinapi.api_index[api_id]['X-RateLimit-Remaining']):
+				int(Coinapi.api_index[api_id]['X-RateLimit-Remaining'])):
 			#calculates number of extra requests each coin gets
 			#rounded down so the coins maintain the same data_end
 			extra_requests = floor(match_val_total / len(indexes)) 
@@ -386,8 +389,13 @@ class Coinapi():
 		backfill_data = {}
 		for index_id, item_index in indexes.items():
 			#one request is 100 datapoints so this accounts for that
-			remaining = Coinapi.api_index[api_id]['X-RateLimit-Remaining']
-			requests = ceil(item_index['match_val'] / 100)
+			remaining = int(
+				Coinapi.api_index[api_id]['X-RateLimit-Remaining'])
+			requests = math.ceil(item_index['match_val'] / 100)
+
+			#sets requests equal to limit if one was given
+			if limit != None:
+				requests = limit
 
 			#caps requests at remaining to prevent request overflow
 			if requests > remaining:
@@ -400,9 +408,25 @@ class Coinapi():
 			#queries for request
 			queries = {
 				'limit': requests,
-				'period_id': self.period_id(item_index['time_interval']),
+				'time_start': item_index['data_end'],
+				'time_end': unix_to_date(match_date),
+				'period_id': item_index['period_id']
 			}
 
-			if Coinapi.api_index[api_id]['X-RateLimit-Remaining'] <= 0:
+			if requests > 0:
+				#api request
+				url = Coinapi.historical_url.format(item_index['symbol_id'])
+				response = self.request(api_id, url=url, queries=queries)
+
+				#format the json response into a dataframe
+				data = pd.DataFrame.from_dict(response, orient='columns')
+
+				backfill_data.update({index_id: data})
+
+			#ends the loop if no requests remain
+			if (int(Coinapi.api_index[api_id]['X-RateLimit-Remaining']) 
+					<= 0):
 				print('WARNING: Ran Out of Requests')
 				break
+
+		return backfill_data

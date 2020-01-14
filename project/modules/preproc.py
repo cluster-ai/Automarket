@@ -16,7 +16,8 @@ def unix_to_date(unix):
 	#the '.' and 'Z' characters
 
 	#gets the string of int(unix_decimal * 10^7)
-	decimal = str(int(round(unix % 1 * (10**7))))
+	decimal = round((unix % 1 * (10**7)))
+	decimal = str(int(decimal))
 	#leads decimal with zeros so total digit count is 7
 	decimal = decimal.zfill(7)
 
@@ -33,68 +34,76 @@ def unix_to_date(unix):
 
 
 def date_to_unix(date):
-	#the datetime package is only accurate to 6 decimals but 7 are 
-	#needed for date format being used. Since the decimal value is 
-	#the same regardless of unix or date, I have it copied over
-	#from date and converted to float then added to unix
-	start = date.find('.') + 1 #first decimal value index
-	end = date.find('Z') #the index of value that ends decimal string
+	#This function accepts two formats:
+	#   "%Y-%m-%dT%H:%M:%" and "%Y-%m-%d"
+	if 'T' in date:
+		#the datetime package is only accurate to 6 decimals but 7 are 
+		#needed for date format being used. Since the decimal value is 
+		#the same regardless of unix or date, I have it copied over
+		#from date and converted to float then added to unix
+		start = date.find('.') + 1 #first decimal value index
+		end = date.find('Z') #the index of value that ends decimal string
 
-	#extracts first 7 digits of decimal
-	decimal = str(round(float(date[start:end])))
+		#extracts first 7 digits of decimal
+		decimal = str(round(float(date[start:end])))
 
-	#new date without decimal
-	date = date[0:start-1]
+		#new date without decimal
+		date = date[0:start-1]
 
-	#date string is converted to datetime value
-	unix = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S')
-	#datetime value is converted to unix value in UTC timezone as int
-	unix = str(int(unix.replace(tzinfo=datetime.timezone.utc).timestamp()))
-	#adds decimal to unix
-	unix = float(f'{unix}.{decimal}')
+		#date string is converted to datetime value
+		unix = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S')
+		#datetime value is converted to unix value in UTC timezone as int
+		unix = str(int(unix.replace(tzinfo=datetime.timezone.utc).timestamp()))
+		#adds decimal to unix
+		unix = float(f'{unix}.{decimal}')
+	else:
+		#this assumes format is "%Y-%m-%d"
+		#date string is converted to datetime value
+		unix = datetime.datetime.strptime(date, '%Y-%m-%d')
+		#datetime value is converted to unix value in UTC timezone as int
+		unix = unix.replace(tzinfo=datetime.timezone.utc).timestamp()
 
 	return unix
 
 
 def prep_historical(data):
 	'''
+	this function adds an isnan and average_price column
+	to the given data and appends empty rows for missing
+	datapoints so that each timestep is equal spacing
+
 	Parameters:
-		data : {key/id: pd.DataFrame(), ...}
+		data : {key: pd.DataFrame(), ...}
 	'''
+
+	print(data)
+
 	for key, df in data.items():
+
+		#converters time_period_start to unix values
+		print('converting timestamps to unix')
+		for index, row in df.iterrows():
+			for col in df.columns:
+
+				if 'time' in col:#if true, needs to be changed to unix time
+					df.at[index, col] = date_to_unix(row[col])
+			if index % 5000 == 0 and index != 0:
+				current_time = time.time()
+				delay = current_time - prev_time
+				print(f"index: {index} || delay: {delay}")
+				prev_time = current_time
+
+		print(df.columns)
 
 		#determines the values of the price_average column and inserts it into df
 		price_low = df.loc[:, 'price_low'].values
 		price_high = df.loc[:, 'price_high'].values
 		price_average = np.divide(np.add(price_low, price_high), 2)
 
-		#finds index of price_low column in df
-		insert_index = df.columns.index('price_low')
-
 		df.insert(2, 'price_average', price_average)
 
-		#iterates through df columns to see if all np.nan values are in the same places
-		prev_tf_list = []
-		for col in df.columns:
-			tf_list = np.isnan(df.loc[:, col].values)
-
-			if prev_tf_list == []:
-				prev_tf_list = tf_list
-			elif tf_list != prev_tf_list:
-				raise AssertionError(f'np.isnan(df.{col}) != np.isnan(df.{col})')
-			else:
-				prev_tf_list = tf_list
-
-		#takes last tf_list and uses it to generate an "isnan" column in df where 
-		#	isnan == True has a value of 1 and isnan == False has a value of 0
-		isnan_values = prev_tf_list
-		for index, val in enumerate(prev_tf_list):
-			if val == True:
-				isnan_values[index] = 1
-			elif val == False:
-				isnan_values[index] = 0
-
-		df.insert(len(df.columns), 'isnan', isnan_values)
+		#initializes isnan with False for every row
+		df['isnan'] = False
 
 		#updates data with new df
 		data[key] = df

@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 
 from .coinapi import Coinapi
+from .preproc import unix_to_date, date_to_unix, prep_historical
 
 #79 character absolute limit
 ###############################################################################
@@ -320,8 +321,8 @@ class Database():
 			self.reset_coin_index()
 
 
-	def backfill_historical(self, coin_id, time_increment, 
-							exchange_id=None):
+	def backfill(self, coin_id, time_increment, 
+				 exchange_id=None, limit=None):
 		'''
 		This function accepts a coin_id and backfills all 
 		tracked exchanges for that coin unless a specific 
@@ -333,7 +334,12 @@ class Database():
 						  - val must be supported by coinapi period_id
 			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
 							 - used to backfill specific exchange_id 
+			limit          : (int) value used to limit each coins 
+								   request
 		'''
+
+		print('Backfilling Historical Data')
+		print('----------------------------------------------------')
 
 		#verifies that parameters are supported by coinapi
 		if self.coinapi.verify_increment(time_increment) == False:
@@ -359,7 +365,7 @@ class Database():
 				index_id = self.index_id(tracked_exchange, 
 										 coin_id, 
 										 time_increment=time_increment)
-				backfill_list.update({index_id: tracked_exchange})
+				backfill_dict.update({index_id: tracked_exchange})
 
 		#period_id string equivalent to time_increments
 		period_id = self.coinapi.period_id(time_increment)
@@ -375,23 +381,23 @@ class Database():
 
 		#creates a new index item in historical index for coins that 
 		#do not already have one.
-		for index_id, exchange_id in backfill_dict:
+		for index_id, exchange_id in backfill_dict.items():
 			if index_id not in Database.historical_index:
 				#loads coin_data for new index_item
 				coin_data = Database.coin_index[exchange_id][coin_id]
 
 				#filename-example: 'KRAKEN_BTC_5MIN.csv'
 				filename = f'{index_id}.csv'
-				filepath += f'/{filename}' #adds filename to target dir
+				path = filepath + f'/{filename}' #adds filename to dir
 				#creates file if there is none
-				if os.path.exists(filepath) == False:
-					open(filepath, 'w')
+				if os.path.exists(path) == False:
+					open(path, 'w')
 
 				#fills out required information for new 
 				#historical index_item
 				index_item = {
 					'filename': filename,
-					'filepath': filepath,
+					'filepath': path,
 					'symbol_id': coin_data['symbol_id'],
 					'exchange_id': exchange_id,
 					'asset_id_quote': coin_data['asset_id_quote'],
@@ -420,8 +426,36 @@ class Database():
 			)
 
 		#requests backfill data
-		data = self.coinapi.backfill(backfill_indexes)
+		data = self.coinapi.historical(backfill_indexes, limit=limit)
+
+		#changes all time columns to unix format and
+		#adds the "isnan" and "average_price" columns
+		print('Preping Historical Data')
+		data = prep_historical(data)
 
 		#iterates through data and adds it to file
 		for index_id, df in data.items():
-			
+			#data file should exist
+
+			filepath = Database.historical_index[index_id]['filepath']
+
+			#loads existing data and adds new data to it
+			existing_data = pd.read_csv(filepath)
+
+			#adds new data to existing
+			existing_data.append(response_data, ignore_index=True, 
+								 sort=False)
+
+			#loads index and changes values according to new data
+			index_item = Database.historical_index[index_id]
+			#datapoints
+			index_item['datapoints'] = len(existing_data.index)
+			#data_end
+			data_end = existing_data.iloc[-1, 'time_period_end']
+			index_item['data_end'] = unix_to_date(data_end)
+
+			#updates historical_index with changes and saves to file
+			Database.historical_index[index_id] = index_item
+			self.save_files()
+
+		print('Backfill Complete')
