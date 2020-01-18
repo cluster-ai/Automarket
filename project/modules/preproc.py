@@ -73,12 +73,17 @@ def prep_historical(data):
 	datapoints so that each timestep is equal spacing
 
 	Parameters:
-		data : {key: pd.DataFrame(), ...}
+		data : {key: {'df': pd.DataFrame(), 'data_end': '2017-03-04'}
 	'''
 
-	print(data)
+	for key, item in data.items():
 
-	for key, df in data.items():
+		#isolates df from data
+		df = item['df']
+
+		#skips current iteration if dataframe is empty
+		if df.empty == True:
+			continue
 
 		#converters time_period_start to unix values
 		print('converting timestamps to unix')
@@ -106,7 +111,7 @@ def prep_historical(data):
 		df['isnan'] = False
 
 		#updates data with new df
-		data[key] = df
+		data[key]['df'] = df
 
 	return data
 

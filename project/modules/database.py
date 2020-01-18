@@ -426,33 +426,43 @@ class Database():
 			)
 
 		#requests backfill data
-		data = self.coinapi.historical(backfill_indexes, limit=limit)
+		response = self.coinapi.historical(backfill_indexes, limit=limit)
 
 		#changes all time columns to unix format and
 		#adds the "isnan" and "average_price" columns
 		print('Preping Historical Data')
-		data = prep_historical(data)
-
+		data = prep_historical(response)
+		
 		#iterates through data and adds it to file
-		for index_id, df in data.items():
+		for index_id, item in data.items():
 			#data file should exist
-
+			
+			#isolates data from item dict
+			df = item['df']
+ 
 			filepath = Database.historical_index[index_id]['filepath']
 
 			#loads existing data and adds new data to it
-			existing_data = pd.read_csv(filepath)
+			try:
+				#if there is existing_data, df is appended to it
+				existing_data = pd.read_csv(filepath)
+				#adds new data to existing
+				existing_data.append(df, ignore_index=True, 
+									 sort=False)
+			except(pd.errors.EmptyDataError):
+				#if no data is found then existing_data = response_data
+				print('No existing data for:', filepath)
+				existing_data = df
 
-			#adds new data to existing
-			existing_data.append(response_data, ignore_index=True, 
-								 sort=False)
+			#saves new df to file
+			existing_data.to_csv(filepath, index=False)
 
 			#loads index and changes values according to new data
 			index_item = Database.historical_index[index_id]
 			#datapoints
 			index_item['datapoints'] = len(existing_data.index)
-			#data_end
-			data_end = existing_data.iloc[-1, 'time_period_end']
-			index_item['data_end'] = unix_to_date(data_end)
+			#data_end 
+			index_item['data_end'] = time_end
 
 			#updates historical_index with changes and saves to file
 			Database.historical_index[index_id] = index_item

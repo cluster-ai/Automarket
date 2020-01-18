@@ -8,9 +8,10 @@
         "asset_id_base": "BTC",
         "period_id": "5MIN",
         "time_increment": 300,
-        "datapoints": 0,
+        "datapoints": 10,
         "data_start": "2014-01-07",
-        "data_end": "2014-01-07"
+        "data_end": "2018-09-17T00:00:00.0000000Z",
+        "match_val": 148011900.0
     },
     "BITMEX_BTC_5MIN": {
         "filename": "BITMEX_BTC_5MIN.csv",
@@ -23,7 +24,8 @@
         "time_increment": 300,
         "datapoints": 0,
         "data_start": "2018-09-17",
-        "data_end": "2018-09-17"
+        "data_end": "2018-09-17T00:00:00.0000000Z",
+        "match_val": 0.0
     },
     "DERIBIT_BTC_5MIN": {
         "filename": "DERIBIT_BTC_5MIN.csv",
@@ -36,7 +38,8 @@
         "time_increment": 300,
         "datapoints": 0,
         "data_start": "2018-02-03",
-        "data_end": "2018-02-03"
+        "data_end": "2018-09-17T00:00:00.0000000Z",
+        "match_val": 19526400.0
     },
     "COINBASE_BTC_5MIN": {
         "filename": "COINBASE_BTC_5MIN.csv",
@@ -47,9 +50,10 @@
         "asset_id_base": "BTC",
         "period_id": "5MIN",
         "time_increment": 300,
-        "datapoints": 0,
+        "datapoints": 10,
         "data_start": "2015-01-14",
-        "data_end": "2015-01-14"
+        "data_end": "2018-09-17T00:00:00.0000000Z",
+        "match_val": 115887900.0
     },
     "BITSTAMP_BTC_5MIN": {
         "filename": "BITSTAMP_BTC_5MIN.csv",
@@ -60,8 +64,9 @@
         "asset_id_base": "BTC",
         "period_id": "5MIN",
         "time_increment": 300,
-        "datapoints": 0,
+        "datapoints": 10,
         "data_start": "2011-09-13",
-        "data_end": "2011-09-13"
+        "data_end": "2018-09-17T00:00:00.0000000Z",
+        "match_val": 221153100.0
     }
 }

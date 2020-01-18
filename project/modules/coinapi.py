@@ -419,9 +419,14 @@ class Coinapi():
 				response = self.request(api_id, url=url, queries=queries)
 
 				#format the json response into a dataframe
-				data = pd.DataFrame.from_dict(response, orient='columns')
+				response = pd.DataFrame.from_dict(response, orient='columns')
 
-				backfill_data.update({index_id: data})
+				backfill_data.update({
+					index_id: {
+						'df': response,
+						'time_end': queries['time_end']
+					}
+				})
 
 			#ends the loop if no requests remain
 			if (int(Coinapi.api_index[api_id]['X-RateLimit-Remaining']) 
