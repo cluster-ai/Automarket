@@ -321,6 +321,73 @@ class Database():
 			self.reset_coin_index()
 
 
+	def add_historical_item(self, exchange_id, coin_id, time_increment):
+		#verifies that parameters are supported by coinapi
+		if self.coinapi.verify_increment(time_increment) == False:
+			return None
+		elif coin_id not in Database.settings['tracked_coins']:
+			print(f'WARNING: "{coin_id}" is not being tracked')
+			return None
+		elif exchange_id != None:
+			if (exchange_id not in 
+					Database.settings['tracked_exchanges']):
+				print(f'WARNING: "{exchange_id}" is not being tracked')
+				return None
+
+		#index_id used as a key for historical_index items
+		index_id = self.index_id(exchange_id, coin_id, time_increment)
+
+		#stops function if item already found in historical_index
+		if index_id in Database.historical_index:
+			print(f'NOTICE: Historical Index already has {index_id}')
+			return None
+
+		#period_id string equivalent to time_increments
+		period_id = self.coinapi.period_id(time_increment)
+
+		#the first dir is the period_id str associated to time_increment
+		filepath = Database.historical_base_path + f'/{period_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+		#the final dir is the coin_id
+		filepath += f'/{coin_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+
+		#loads coin_data for new index_item
+		coin_data = Database.coin_index[exchange_id][coin_id]
+
+		#filename-example: 'KRAKEN_BTC_5MIN.csv'
+		filename = f'{index_id}.csv'
+		filepath = filepath + f'/{filename}' #adds filename to dir
+		#creates file if there is none
+		if os.path.exists(filepath) == False:
+			open(filepath, 'w')
+
+		#fills out required information for new 
+		#historical index_item
+		index_item = {
+			'filename': filename,
+			'filepath': path,
+			'symbol_id': coin_data['symbol_id'],
+			'exchange_id': exchange_id,
+			'asset_id_quote': coin_data['asset_id_quote'],
+			'asset_id_base': coin_data['asset_id_base'],
+			'period_id': period_id,
+			'time_increment': time_increment,
+			'datapoints': 0,
+			'data_start': coin_data['data_start'],
+			'data_end': coin_data['data_start']#not a typo
+		}
+
+		print(f'Added {index_id} to Historical Index')
+
+		#updates historical_index
+		Database.historical_index.update({index_id: index_item})
+		#saves changes to file
+		self.save_files()
+
+
 	def backfill(self, coin_id, time_increment, 
 				 exchange_id=None, limit=None):
 		'''
@@ -439,6 +506,7 @@ class Database():
 			
 			#isolates data from item dict
 			df = item['df']
+			time_end = item['time_end']
  
 			filepath = Database.historical_index[index_id]['filepath']
 

@@ -320,8 +320,52 @@ class Coinapi():
 			return response
 
 
-	def historical(self, indexes, limit=None, match_data=False):
+	def historical(self, data_index, requests):
 		'''
+		Parameters:
+			index : (dict) historical_index of item being requested
+			requests : (int) number of timesteps (datapoints) 
+							 being requested
+
+		return : (dict) {
+			"data": pd.DataFrame(),
+			"time_start": (str),
+			"time_end": (str)
+		}
+		'''
+		#updates api keys
+		self.update_keys()
+
+		#the key bing used
+		api_id = 'startup'
+		remaining = Coinapi.api_index[api_id]['X-RateLimit-Remaining']
+
+		#determines time_start and time_end values for request
+		time_start = data_index['data_end']
+		time_steps = requests * data_index['time_increment']
+		time_end = unix_to_date(date_to_unix(time_start) + time_steps)
+
+		#queries for request
+		queries = {
+			'limit': remaining,
+			'time_start': time_start,
+			'time_end': time_end,
+			'period_id': data_index['period_id']
+		}
+
+		#api request
+		url = Coinapi.historical_url.format(item_index['symbol_id'])
+		response = self.request(api_id, url=url, queries=queries)
+
+		#format the json response into a dataframe
+		response = pd.DataFrame.from_dict(response, orient='columns')
+
+		#prep data for historical database and return df
+		return prep_historical(response)
+
+'''
+	def historical(self, indexes, limit=None, match_data=False):
+		''
 		Parameters:
 			indexes    : (list) list of indexes from historical_index
 								  that are going to be backfilled
@@ -334,7 +378,7 @@ class Coinapi():
 				 		this function returns a dict of dataframes
 				 		of the new data it picked up for each item
 				 		that was backfilled.
-		'''
+		''
 
 		#updates api_keys
 		self.update_keys()
@@ -380,7 +424,7 @@ class Coinapi():
 				int(Coinapi.api_index[api_id]['X-RateLimit-Remaining'])):
 			#calculates number of extra requests each coin gets
 			#rounded down so the coins maintain the same data_end
-			extra_requests = floor(match_val_total / len(indexes)) 
+			extra_requests = math.floor(match_val_total / len(indexes)) 
 		else:
 			print('NOTICE: Only Enough Requests for "data_end" Match')
 
@@ -435,3 +479,4 @@ class Coinapi():
 				break
 
 		return backfill_data
+'''
