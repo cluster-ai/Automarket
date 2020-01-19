@@ -322,6 +322,15 @@ class Database():
 
 
 	def add_historical_item(self, exchange_id, coin_id, time_increment):
+		'''
+		Adds historical item to historical_index
+
+		Parameters:
+			coin_id        : (str) crytpocurrency id: 'BTC'
+			time_increment : (int) time increment of data in seconds
+						  - val must be supported by coinapi period_id
+			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
+		'''
 		#verifies that parameters are supported by coinapi
 		if self.coinapi.verify_increment(time_increment) == False:
 			return None
@@ -368,7 +377,7 @@ class Database():
 		#historical index_item
 		index_item = {
 			'filename': filename,
-			'filepath': path,
+			'filepath': filepath,
 			'symbol_id': coin_data['symbol_id'],
 			'exchange_id': exchange_id,
 			'asset_id_quote': coin_data['asset_id_quote'],
@@ -388,8 +397,7 @@ class Database():
 		self.save_files()
 
 
-	def backfill(self, coin_id, time_increment, 
-				 exchange_id=None, limit=None):
+	def backfill(self, coin_id, time_increment, limit=None):
 		'''
 		This function accepts a coin_id and backfills all 
 		tracked exchanges for that coin unless a specific 
@@ -397,132 +405,96 @@ class Database():
 
 		Parameters:
 			coin_id        : (str) crytpocurrency id: 'BTC'
-			time_increment : (int) time increment of data in seconds
-						  - val must be supported by coinapi period_id
-			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
-							 - used to backfill specific exchange_id 
-			limit          : (int) value used to limit each coins 
-								   request
+								   - the currency being backfilled
+			limit          : (int) limit for each coinapi request
 		'''
 
-		print('Backfilling Historical Data')
-		print('----------------------------------------------------')
-
-		#verifies that parameters are supported by coinapi
+		#verifies coin_id and time_increment parameters
 		if self.coinapi.verify_increment(time_increment) == False:
 			return None
 		elif coin_id not in Database.settings['tracked_coins']:
 			print(f'WARNING: "{coin_id}" is not being tracked')
 			return None
-		elif exchange_id != None:
-			if (exchange_id not in 
-					Database.settings['tracked_exchanges']):
-				print(f'WARNING: "{exchange_id}" is not being tracked')
-				return None
 
-		#creates backfill list with index_id's
-		backfill_dict = {}
-		if exchange_id != None:
-			index_id = self.index_id(exchange_id, coin_id, 
-									 time_increment=time_increment)
-			backfill_dict = {exchange_id: index_id}
-		if exchange_id == None:
-			#loads an index_id for each tracked exchange
-			for tracked_exchange in Database.settings['tracked_exchanges']:
-				index_id = self.index_id(tracked_exchange, 
-										 coin_id, 
-										 time_increment=time_increment)
-				backfill_dict.update({index_id: tracked_exchange})
+		print('Backfilling Historical Data')
+		print('----------------------------------------------------')
+
+		#loads an index_id for each tracked exchange
+		backfill = {}
+		match_date = None
+		no_match = False
+		for tracked_exchange in Database.settings['tracked_exchanges']:
+			#generates index_id
+			index_id = self.index_id(tracked_exchange, coin_id,
+									 time_increment)
+			#loads id into backfill dict
+			backfill.update({index_id: tracked_exchange})
+
+			#generates historical_item for current item
+			#if it doesn't already exist
+			if index_id not in Database.historical_index:
+				self.add_historical_item(tracked_exchange, coin_id, 
+										 time_increment)
+
+			#loads index of current item
+			item_index = Database.historical_index[index_id]
+
+			#determines index_id with most recent 'data_end' value
+			if match_date == None:
+				#initializes match_date for first item
+				match_date = item_index['data_end']
+			elif (date_to_unix(match_date) < 
+					date_to_unix(item_index['data_end'])):
+				no_match = True #true if data_end does not all match
+				#determines if current item has more recent data_end
+				#than the other items so far
+				match_date = item_index['data_end']
 
 		#period_id string equivalent to time_increments
 		period_id = self.coinapi.period_id(time_increment)
 
-		#the first dir is the period_id str associated to time_increment
-		filepath = Database.historical_base_path + f'/{period_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-		#the final dir is the coin_id
-		filepath += f'/{coin_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
+		if no_match == True:
+			print(f"NOTICE: backfill items don't match")
 
-		#creates a new index item in historical index for coins that 
-		#do not already have one.
-		for index_id, exchange_id in backfill_dict.items():
-			if index_id not in Database.historical_index:
-				#loads coin_data for new index_item
-				coin_data = Database.coin_index[exchange_id][coin_id]
+		#The following backfills all items items in backfill
+		for index_id, exchange_id in backfill.items():
+			#loads the index of current item
+			item_index = Database.historical_index[index_id]
+			#location of historical_data file for current item
+			filepath = item_index['filepath']
 
-				#filename-example: 'KRAKEN_BTC_5MIN.csv'
-				filename = f'{index_id}.csv'
-				path = filepath + f'/{filename}' #adds filename to dir
-				#creates file if there is none
-				if os.path.exists(path) == False:
-					open(path, 'w')
+			#doesn't backfill past match_date if no_match==True
+			match_limit = limit
+			if no_match == True:
+				#match_limit is the number of requests to reach match_date
+				match_limit = (date_to_unix(match_date) - 
+							   date_to_unix(item_index['data_end']))
+				match_limit = match_limit / item_index['time_increment']
+				#limit will not be higher the given parameter 'limit'
+				if match_limit > limit:
+					match_limit = limit
 
-				#fills out required information for new 
-				#historical index_item
-				index_item = {
-					'filename': filename,
-					'filepath': path,
-					'symbol_id': coin_data['symbol_id'],
-					'exchange_id': exchange_id,
-					'asset_id_quote': coin_data['asset_id_quote'],
-					'asset_id_base': coin_data['asset_id_base'],
-					'period_id': period_id,
-					'time_increment': time_increment,
-					'datapoints': 0,
-					'data_start': coin_data['data_start'],
-					'data_end': coin_data['data_start']#not a typo
-				}
+			#requests backfill data
+			response = self.coinapi.historical(item_index, match_limit)
 
-				print(f'Added {index_id} to Historical Index')
-
-				#updates historical_index
-				Database.historical_index.update({index_id: index_item})
-		#saves changes to file
-		self.save_files()
-
-		#The following backfills all items items in backfill_dict
-		#coinapi.historical() needs a list of the indexes
-		backfill_indexes = {}
-		for index_id, exchange_id in backfill_dict.items():
-			#loads the corresponding index into indexes
-			backfill_indexes.update(
-				{index_id: Database.historical_index[index_id]}
-			)
-
-		#requests backfill data
-		response = self.coinapi.historical(backfill_indexes, limit=limit)
-
-		#changes all time columns to unix format and
-		#adds the "isnan" and "average_price" columns
-		print('Preping Historical Data')
-		data = prep_historical(response)
-		
-		#iterates through data and adds it to file
-		for index_id, item in data.items():
-			#data file should exist
-			
-			#isolates data from item dict
-			df = item['df']
-			time_end = item['time_end']
- 
-			filepath = Database.historical_index[index_id]['filepath']
+			#extracts data and time_end from response
+			data = response['data']
+			time_start = response['time_start']
+			time_end = response['time_end']
 
 			#loads existing data and adds new data to it
 			try:
-				#if there is existing_data, df is appended to it
+				#if there is existing_data, data is appended to it
 				existing_data = pd.read_csv(filepath)
 				#adds new data to existing
-				existing_data.append(df, ignore_index=True, 
+				existing_data.append(data, ignore_index=True, 
 									 sort=False)
 			except(pd.errors.EmptyDataError):
 				#if no data is found then existing_data = response_data
 				print('No existing data for:', filepath)
-				existing_data = df
+				existing_data = data
 
-			#saves new df to file
+			#saves new data to file
 			existing_data.to_csv(filepath, index=False)
 
 			#loads index and changes values according to new data

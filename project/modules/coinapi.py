@@ -320,7 +320,7 @@ class Coinapi():
 			return response
 
 
-	def historical(self, data_index, requests):
+	def historical(self, data_index, requests=None):
 		'''
 		Parameters:
 			index : (dict) historical_index of item being requested
@@ -337,13 +337,21 @@ class Coinapi():
 		self.update_keys()
 
 		#the key bing used
-		api_id = 'startup'
+		api_id = 'startup_key'
 		remaining = Coinapi.api_index[api_id]['X-RateLimit-Remaining']
+		remaining = int(remaining)#converts to int
+
+		if requests == None:
+			requests = remaining * 100
 
 		#determines time_start and time_end values for request
 		time_start = data_index['data_end']
-		time_steps = requests * data_index['time_increment']
-		time_end = unix_to_date(date_to_unix(time_start) + time_steps)
+		time_interval = requests * data_index['time_increment']
+		print('requests:', requests)
+		time_end = unix_to_date(date_to_unix(time_start) + time_interval)
+
+		print('time_start:', time_start)
+		print('time_end:', time_end)
 
 		#queries for request
 		queries = {
@@ -354,129 +362,18 @@ class Coinapi():
 		}
 
 		#api request
-		url = Coinapi.historical_url.format(item_index['symbol_id'])
+		url = Coinapi.historical_url.format(data_index['symbol_id'])
 		response = self.request(api_id, url=url, queries=queries)
 
 		#format the json response into a dataframe
 		response = pd.DataFrame.from_dict(response, orient='columns')
 
+		response = {
+			'data': prep_historical(response),
+			'time_start': time_start,
+			'time_end': time_end
+		}
+
 		#prep data for historical database and return df
-		return prep_historical(response)
+		return response
 
-'''
-	def historical(self, indexes, limit=None, match_data=False):
-		''
-		Parameters:
-			indexes    : (list) list of indexes from historical_index
-								  that are going to be backfilled
-			limit      : (int) value used to limit each coins request
-			match_data : (bool) if true: backfills all items so that
-								  data_end matches the biggest one
-								  - does not go past 'biggest' one
-
-		return : (dict) ex: {index_id: pd.DataFrame(), ...}
-				 		this function returns a dict of dataframes
-				 		of the new data it picked up for each item
-				 		that was backfilled.
-		''
-
-		#updates api_keys
-		self.update_keys()
-
-		#the key being used
-		api_id = 'startup_key'
-
-		#finds the most recent data_end value and determines the number
-		#of datapoints each other coin needs to be caught up
-		#
-		#this value is stored as 'match_val' in each index item
-		match_date = 0 #the unix val of largest data_end val
-		match_val_total = 0
-		print('backfill list:')
-		for x in range(2):
-			#loops indexes twice, first loop is to find largest data_end
-			for index_id, item_index in indexes.items():
-				#data_end is stored as date, converted to unix
-				data_end = date_to_unix(item_index['data_end'])
-				if x == 0:
-					print(f'   - {index_id} | data_end:', 
-						  item_index['data_end'])
-					if data_end > match_date:
-						#match_date is set to largest data_end found
-						match_date = data_end
-				elif x == 1:
-					#saves new match_val to each index
-					match_val = (match_date - data_end)
-					match_val_total += match_val #updates match_val_total
-					match_val = {'match_val': match_val}
-					#match_val is num_timesteps away from match_date
-					indexes[index_id].update(match_val)
-
-		#compares remaining_limit to match_val_total / 100
-		#
-		#if there are enough requests to match data, the
-		#remaining requests are split evenly across coins
-		extra_requests = 0
-		if (match_val_total / 100 >
-				int(Coinapi.api_index[api_id]['X-RateLimit-Remaining'])):
-			print('NOTICE: Not Enough Requests for "data_end" Match')
-		elif (match_val_total / 100 <
-				int(Coinapi.api_index[api_id]['X-RateLimit-Remaining'])):
-			#calculates number of extra requests each coin gets
-			#rounded down so the coins maintain the same data_end
-			extra_requests = math.floor(match_val_total / len(indexes)) 
-		else:
-			print('NOTICE: Only Enough Requests for "data_end" Match')
-
-		#backfills each item for 'match_val' datapoints or until
-		#remaining requests run out
-		backfill_data = {}
-		for index_id, item_index in indexes.items():
-			#one request is 100 datapoints so this accounts for that
-			remaining = int(
-				Coinapi.api_index[api_id]['X-RateLimit-Remaining'])
-			requests = math.ceil(item_index['match_val'] / 100)
-
-			#sets requests equal to limit if one was given
-			if limit != None:
-				requests = limit
-
-			#caps requests at remaining to prevent request overflow
-			if requests > remaining:
-				requests = remaining
-
-			if match_data == False:
-				#adds extra_requests to requests
-				requests += extra_requests
-
-			#queries for request
-			queries = {
-				'limit': requests,
-				'time_start': item_index['data_end'],
-				'time_end': unix_to_date(match_date),
-				'period_id': item_index['period_id']
-			}
-
-			if requests > 0:
-				#api request
-				url = Coinapi.historical_url.format(item_index['symbol_id'])
-				response = self.request(api_id, url=url, queries=queries)
-
-				#format the json response into a dataframe
-				response = pd.DataFrame.from_dict(response, orient='columns')
-
-				backfill_data.update({
-					index_id: {
-						'df': response,
-						'time_end': queries['time_end']
-					}
-				})
-
-			#ends the loop if no requests remain
-			if (int(Coinapi.api_index[api_id]['X-RateLimit-Remaining']) 
-					<= 0):
-				print('WARNING: Ran Out of Requests')
-				break
-
-		return backfill_data
-'''

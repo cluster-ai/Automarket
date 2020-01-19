@@ -73,45 +73,38 @@ def prep_historical(data):
 	datapoints so that each timestep is equal spacing
 
 	Parameters:
-		data : {key: {'df': pd.DataFrame(), 'data_end': '2017-03-04'}
+		data : (pd.DataFrame()) fresh coinapi historical data request
 	'''
 
-	for key, item in data.items():
+	#skips current iteration if dataframe is empty
+	if data.empty == True:
+		return data
 
-		#isolates df from data
-		df = item['df']
+	#converters time_period_start to unix values
+	print('converting timestamps to unix')
+	for index, row in data.iterrows():
+		for col in data.columns:
 
-		#skips current iteration if dataframe is empty
-		if df.empty == True:
-			continue
+			if 'time' in col:#if true, needs to be changed to unix time
+				data.at[index, col] = date_to_unix(row[col])
+		if index % 5000 == 0 and index != 0:
+			current_time = time.time()
+			delay = current_time - prev_time
+			print(f"index: {index} || delay: {delay}")
+			prev_time = current_time
 
-		#converters time_period_start to unix values
-		print('converting timestamps to unix')
-		for index, row in df.iterrows():
-			for col in df.columns:
+	print(data.columns)
 
-				if 'time' in col:#if true, needs to be changed to unix time
-					df.at[index, col] = date_to_unix(row[col])
-			if index % 5000 == 0 and index != 0:
-				current_time = time.time()
-				delay = current_time - prev_time
-				print(f"index: {index} || delay: {delay}")
-				prev_time = current_time
+	#determines the values of the price_average column and inserts it
+	#into data
+	price_low = data.loc[:, 'price_low'].values
+	price_high = data.loc[:, 'price_high'].values
+	price_average = np.divide(np.add(price_low, price_high), 2)
 
-		print(df.columns)
+	data.insert(2, 'price_average', price_average)
 
-		#determines the values of the price_average column and inserts it into df
-		price_low = df.loc[:, 'price_low'].values
-		price_high = df.loc[:, 'price_high'].values
-		price_average = np.divide(np.add(price_low, price_high), 2)
-
-		df.insert(2, 'price_average', price_average)
-
-		#initializes isnan with False for every row
-		df['isnan'] = False
-
-		#updates data with new df
-		data[key]['df'] = df
+	#initializes isnan with False for every row
+	data['isnan'] = False
 
 	return data
 
