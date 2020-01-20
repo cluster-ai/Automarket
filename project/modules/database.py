@@ -464,18 +464,18 @@ class Database():
 			filepath = item_index['filepath']
 
 			#doesn't backfill past match_date if no_match==True
-			match_limit = limit
+			new_limit = limit
 			if no_match == True:
 				#match_limit is the number of requests to reach match_date
 				match_limit = (date_to_unix(match_date) - 
 							   date_to_unix(item_index['data_end']))
 				match_limit = match_limit / item_index['time_increment']
 				#limit will not be higher the given parameter 'limit'
-				if match_limit > limit:
-					match_limit = limit
+				if match_limit < limit:
+					new_limit = match_limit
 
 			#requests backfill data
-			response = self.coinapi.historical(item_index, match_limit)
+			response = self.coinapi.historical(item_index, new_limit)
 
 			#extracts data and time_end from response
 			data = response['data']

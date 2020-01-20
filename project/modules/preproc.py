@@ -6,6 +6,7 @@ import time
 import datetime
 
 import numpy as np
+import pandas as pd
 
 
 def unix_to_date(unix):
@@ -66,47 +67,93 @@ def date_to_unix(date):
 	return unix
 
 
-def prep_historical(data):
+def prep_historical(df, time_start, time_end, time_increment):
 	'''
 	this function adds an isnan and average_price column
-	to the given data and appends empty rows for missing
+	to the given df and appends empty rows for missing
 	datapoints so that each timestep is equal spacing
 
 	Parameters:
-		data : (pd.DataFrame()) fresh coinapi historical data request
+		df : (pd.DataFrame()) fresh coinapi historical df request
 	'''
 
-	#skips current iteration if dataframe is empty
-	if data.empty == True:
-		return data
+	if df.empty == False:
+		#converters time_period_start to unix values
+		print('converting timestamps to unix')
+		for index, row in df.iterrows():
+			for col in df.columns:
 
-	#converters time_period_start to unix values
-	print('converting timestamps to unix')
-	for index, row in data.iterrows():
-		for col in data.columns:
+				if 'time' in col:#if true, needs to be changed to unix time
+					df.at[index, col] = date_to_unix(row[col])
+			if index % 5000 == 0 and index != 0:
+				current_time = time.time()
+				delay = current_time - prev_time
+				print(f"index: {index} || delay: {delay}")
+				prev_time = current_time
 
-			if 'time' in col:#if true, needs to be changed to unix time
-				data.at[index, col] = date_to_unix(row[col])
-		if index % 5000 == 0 and index != 0:
-			current_time = time.time()
-			delay = current_time - prev_time
-			print(f"index: {index} || delay: {delay}")
-			prev_time = current_time
+		#determines the values of the price_average column and inserts it
+		#into df
+		price_low = df.loc[:, 'price_low'].values
+		price_high = df.loc[:, 'price_high'].values
+		price_average = np.divide(np.add(price_low, price_high), 2)
+	else:
+		columns = {
+			'price_close',
+			'price_high',
+			'price_low',
+			'price_open',
+			'time_close',
+			'time_open',
+			'time_period_end',
+			'time_period_start',
+			'trades_count',
+			'volume_traded',
+			'price_average',
+			'isnan'
+		}
+		df = pd.DataFrame(columns=columns)
+		price_average = np.nan
 
-	print(data.columns)
-
-	#determines the values of the price_average column and inserts it
-	#into data
-	price_low = data.loc[:, 'price_low'].values
-	price_high = data.loc[:, 'price_high'].values
-	price_average = np.divide(np.add(price_low, price_high), 2)
-
-	data.insert(2, 'price_average', price_average)
+	df['price_average'] = price_average
 
 	#initializes isnan with False for every row
-	data['isnan'] = False
+	df['isnan'] = False
+	print(df.columns)
+	#finds the time interval of df
+	time_start = df['time_period_start'].iloc[0] #float
+	time_end = df['time_period_end'].iloc[-1] #float
 
-	return data
+	#finds the total number of expected datapoints (if none were missing)
+	datapoints = int((time_end - time_start) / time_increment)
+	#create the index of new_df (continuous)
+	interval = np.multiply(range(datapoints), time_increment)
+	interval = np.add(interval, time_start)
+
+	#creates new_df with index (the index is also time_period_start)
+	new_df = pd.DataFrame(columns=df.columns, index=interval)
+
+	#changes df index so that it is based on time_period_start as
+	#new_df is
+	df.set_index('time_period_start', inplace=True, drop=False)
+
+	#overwrite df data onto new_df
+	new_df.update(df)
+
+	#df has missing time_period_start values, need to be filled
+	new_df.loc[:, 'time_period_start'] = new_df.index
+
+	#load all time_period_end values
+	new_df['time_period_end'] = np.add(new_df.loc[:, 'time_period_start'], 
+									   time_increment)
+
+	#update isnan values for new data
+	new_df.isnan.fillna(True, inplace=True)
+
+	print('OLD DF:\n\n', df)
+	print('NEW DF:\n\n', new_df)
+	var = input('>>>')
+
+	return new_df
 
 
 def scale(data, new_range=[0, 1], custom_scale=[0, 0], return_params=False):

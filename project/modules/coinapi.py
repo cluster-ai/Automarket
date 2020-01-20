@@ -368,8 +368,10 @@ class Coinapi():
 		#format the json response into a dataframe
 		response = pd.DataFrame.from_dict(response, orient='columns')
 
+		data = prep_historical(response, data_index['time_increment'])
+
 		response = {
-			'data': prep_historical(response),
+			'data': data,
 			'time_start': time_start,
 			'time_end': time_end
 		}
