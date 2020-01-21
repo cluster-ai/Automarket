@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 from .coinapi import Coinapi
-from .preproc import unix_to_date, date_to_unix, prep_historical
+from .preproc import unix_to_date, date_to_unix
 
 #79 character absolute limit
 ###############################################################################
@@ -483,13 +483,20 @@ class Database():
 			time_end = response['time_end']
 
 			#loads existing data and adds new data to it
-			try:
+			if (os.path.exists(filepath) == True and 
+					item_index['datapoints'] > 0):
 				#if there is existing_data, data is appended to it
 				existing_data = pd.read_csv(filepath)
+
+				#makes existing_data index equal to 'time_period_start'
+				existing_data.set_index('time_period_start', drop=False,
+										inplace=True)
+
 				#adds new data to existing
-				existing_data.append(data, ignore_index=True, 
-									 sort=False)
-			except(pd.errors.EmptyDataError):
+				existing_data = existing_data.append(data)
+
+				print(existing_data)
+			else:
 				#if no data is found then existing_data = response_data
 				print('No existing data for:', filepath)
 				existing_data = data

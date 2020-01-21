@@ -9,11 +9,12 @@ import requests
 from requests.exceptions import HTTPError
 	
 #local modules
-from .preproc import unix_to_date, date_to_unix, prep_historical
+from .preproc import unix_to_date, date_to_unix
 from .multiproc import print_progress_bar
 
 #packages
 import pandas as pd
+import numpy as np
 
 #79 character absolute limit
 ###############################################################################
@@ -320,6 +321,111 @@ class Coinapi():
 			return response
 
 
+	def prep_historical(self, response):
+		'''
+		this function adds an isnan and average_price column
+		to the given df and appends empty rows for missing
+		datapoints so that each timestep is equal spacing and
+		equal to 'time_increment' in seconds.
+
+		Parameters:
+			response : (dict) data required for function 
+							  (see self.historical())
+
+		return: {
+			'data': new_df,
+			'time_start': time_start,
+			'time_end': time_end
+		}
+		'''
+
+		#isolates relevant response dict items
+		time_increment = response['data_index']['time_increment']
+		time_start = response['time_start']
+		time_end = response['time_end']
+		df = response['data']
+
+		if df.empty == False:
+			#converters time_period_start to unix values
+			print('converting timestamps to unix')
+			for index, row in df.iterrows():
+				for col in df.columns:
+
+					if 'time' in col:#dates are converted to unix format
+						df.at[index, col] = date_to_unix(row[col])
+				if index % 5000 == 0 and index != 0:
+					current_time = time.time()
+					delay = current_time - prev_time
+					print(f"index: {index} || delay: {delay}")
+					prev_time = current_time
+
+			#determines the values of the price_average column and inserts it
+			#into df
+			price_low = df.loc[:, 'price_low'].values
+			price_high = df.loc[:, 'price_high'].values
+			price_average = np.divide(np.add(price_low, price_high), 2)
+		else:
+			columns = {
+				'price_close',
+				'price_high',
+				'price_low',
+				'price_open',
+				'time_close',
+				'time_open',
+				'time_period_end',
+				'time_period_start',
+				'trades_count',
+				'volume_traded'
+			}
+			df = pd.DataFrame(columns=columns)
+			price_average = np.nan
+
+		df['price_average'] = price_average
+
+		#initializes isnan with False for every row
+		df['isnan'] = False
+
+		#finds the total number of expected datapoints (if none were missing)
+		#(time_end - time_start) / time_increment
+		datapoints = int((date_to_unix(time_end) - 
+						  date_to_unix(time_start)) / time_increment)
+		#create the index of new_df (continuous)
+		interval = np.multiply(range(datapoints), time_increment)
+		interval = np.add(interval, date_to_unix(time_start))
+
+		#creates new_df with index (the index is also time_period_start)
+		new_df = pd.DataFrame(columns=df.columns, index=interval)
+
+		#changes df index so that it is based on time_period_start as
+		#new_df is
+		df.set_index('time_period_start', inplace=True, drop=False)
+
+		#overwrite df data onto new_df
+		new_df.update(df)
+
+		#df has missing time_period_start values, need to be filled
+		new_df.loc[:, 'time_period_start'] = new_df.index
+
+		#load all time_period_end values
+		new_df['time_period_end'] = np.add(new_df.loc[:, 'time_period_start'], 
+										   time_increment)
+
+		#update isnan values for new data
+		new_df.isnan.fillna(True, inplace=True)
+
+		#print('OLD DF:\n\n\n', df)
+		#print('NEW DF:\n\n\n', new_df)
+
+		#saves response with only the necessary information
+		response = {
+			'data': new_df,
+			'time_start': time_start,
+			'time_end': time_end
+		}
+
+		return response
+
+
 	def historical(self, data_index, requests=None):
 		'''
 		Parameters:
@@ -350,8 +456,14 @@ class Coinapi():
 		print('requests:', requests)
 		time_end = unix_to_date(date_to_unix(time_start) + time_interval)
 
-		print('time_start:', time_start)
-		print('time_end:', time_end)
+		#shorts function if no data exists
+		if requests == 0:
+			response = {
+				'data': pd.DataFrame(),
+				'time_start': time_start,
+				'time_end': time_end
+			}
+			return response
 
 		#queries for request
 		queries = {
@@ -368,13 +480,16 @@ class Coinapi():
 		#format the json response into a dataframe
 		response = pd.DataFrame.from_dict(response, orient='columns')
 
-		data = prep_historical(response, data_index['time_increment'])
-
+		#formats response for 'prep_historical'
 		response = {
-			'data': data,
+			'data': response,
 			'time_start': time_start,
-			'time_end': time_end
+			'time_end': time_end,
+			'data_index': data_index
 		}
+
+		#preps historical data
+		response = self.prep_historical(response)
 
 		#prep data for historical database and return df
 		return response
