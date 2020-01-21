@@ -1,13 +1,27 @@
 
-The missing block in our market modeling is Feature Engineering. To best do this we need the utmost flexibility in the quantity, type, format, and index that we can access.
+This section of development is to implement different ways to generate and store feature engineered data. Below is the next thing being developed for this.
 
-The main flow of the program will be as follows:
-- main.py: Control hub for all program funtionality. May be worth it to include rudimentary runtime controls/commands so the program does not need to be restart in order to use certain functionality. Ideally the primary navigation is done through the console but a graph window with scrubbing or other functionality can pop up for visualisation during feature engineering.
+/// | Feature Engineering Categories | ///
 
-- database.py: This class will be used as a data storage interpreter. It will not be autonomous in any way but rather a class to make the storage, retreival and tracking of data as simple as possible. NOTE: data index keys will no longer be filenames, it is now considered index_id and does not end with '.csv'. training_data will just add on columns for each specified prediction_step length instead of creating separate files for them.
+Thought: Nearly every raw historical data category may benefit from trend line analysis. Consider having 'elbows' in the regression lines for not only overal trend direction but also its change. (may have to use "binning" based on time_series to segregate data consistantly, see "feature engineering approach.txt")
 
-- neural_net.py: will be used ONLY for things directly related to the model: error checking, saving iterations to the database, construction of the model layers, etc. FIGURE OUT HOW KERAS MODEL SAVING WORKS FIRST. ALSO LOOK INTO TENSORBOARD FOR ITS VISUALIZATION TOOLS.
+//Time Series//
 
-Modules: (INCLUDE A TABLE OF CONTENTS AT THE TOP OF EACH FILE, LOOK AT EXISTING STANDARD LIBRARIES FOR BEST PRACTICES)
-- dproc.py: has functions for feature scaling, batching data, and any other data manipulation that may be needed. Leverages multiprocessing and data checking when useful/necessary. This will also include data balancing capabilities that packages the needed data into a class called Balancer.
-- coinapi.py: will provide api request functionality with built in error handling, request filtering, and other related data to the api service (coinapi.io at the time of writing). Offload historical backfill to this module, think of coin_api.py as an abstraction of the requests that the database still has to facilitate. Again, error handling and request limit information is handled here.
+relevant time series features:
+ - Month, Day, Year
+ - Day of Week
+ - National Holidays, Countries Acknowledging Holiday
+ - Time of Day (hour, min, sec)
+ - Data Sequence Interval
+
+
+//Average, High and Low Price//
+ - trend: (slope, y-intercept), deviation of points to trend line (linear regression)
+ - High and Low difference (perhaps a way of showing volatility per datapoint or across an entire sequence (trend line))
+
+
+//Volume Traded, Trades Count///
+NOTE: without orderbook data, this category is not very detailed.
+ - average trade size (volume_traded / trades_count)
+ - trend: (slope, y-intercept), deviation of points to trend line (linear regression)
+ - High and Low Volume or Trades Count difference (perhaps a way of showing volatility per datapoint or across an entire sequence (trend line))
