@@ -4,9 +4,11 @@ import json
 import os
 import time
 
+#third-party packages
 import pandas as pd
 import numpy as np
 
+#local modules
 from .coinapi import Coinapi
 from .preproc import unix_to_date, date_to_unix
 
@@ -38,7 +40,7 @@ class Database():
 	settings = {}
 
 
-	def __init__(self):
+	def __init__():
 		#loads base paths (directories)
 		if os.path.isdir(Database.base_path) == False:
 			os.mkdir(Database.base_path)
@@ -49,14 +51,12 @@ class Database():
 		if os.path.isdir(Database.training_base_path) == False:
 			os.mkdir(Database.training_base_path)
 
-		#creates instance of coinapi
-		self.coinapi = Coinapi()
 
-		#loads handbook and settings file to Database
-		self.load_files()
+		#loads index and settings files to Database
+		Database.load_files()
 
 
-	def load_files(self):
+	def load_files():
 		###SETTINGS###
 		print('...')
 		#Checks to see if path exists, if not creates one
@@ -131,7 +131,7 @@ class Database():
 		print('----------------------------------------------------')
 
 
-	def save_files(self):
+	def save_files():
 		###SETTINGS###
 		#Checks to see if path exists, if not it creates one
 		if os.path.exists(Database.settings_path) == False:
@@ -166,7 +166,7 @@ class Database():
 			json.dump(Database.coin_index, file, indent=4)
 
 
-	def reset_tracked(self):
+	def reset_tracked():
 		#resets tracked_coins in settings
 
 		###TRACKED COINS###
@@ -195,10 +195,10 @@ class Database():
 
 		print('NOTICE: reset database settings to their default')
 
-		self.save_files()
+		Database.save_files()
 
 
-	def reset_coin_index(self):
+	def reset_coin_index():
 		#reloads the coins for each tracked exchange
 
 		if Database.settings['tracked_exchanges'] == []:
@@ -209,9 +209,9 @@ class Database():
 				'asset_id_quote': Coinapi.asset_id_quote
 			}
 			#requests all currency data and filters by fiat currency
-			response = self.coinapi.request('free_key',
-											url=Coinapi.coins_url,
-											filters=filters)
+			response = Coinapi.request('free_key',
+									   url=Coinapi.coins_url,
+									   filters=filters)
 
 			#sets index to empty dict
 			Database.coin_index = {}
@@ -223,9 +223,9 @@ class Database():
 				#filters request and appends relevant data to coin_index
 				#for current exchange_id
 				filters = {'exchange_id': exchange_id}
-				exchange_coins = self.coinapi.filter(response,
-													 filters,
-													 False)
+				exchange_coins = Coinapi.filter(response,
+												filters,
+												False)
 				#creates a dict of exchange_coins where each coin
 				#key is its coin_id
 				coin_dict = {}
@@ -237,12 +237,12 @@ class Database():
 				Database.coin_index.update({exchange_id: coin_dict})
 
 		#saves coin_index to file
-		self.save_files()
+		Database.save_files()
 
 		print('----------------------------------------------------')
 
 
-	def index_id(self, exchange_id, coin_id, 
+	def index_id(exchange_id, coin_id, 
 				 time_increment=None, period_id=None):
 		'''
 		Parameters:
@@ -257,38 +257,38 @@ class Database():
 		#uses period_id instead if given
 		if time_increment != None:
 			#converts time_increment into period_id
-			period_id = self.coinapi.period_id(time_increment)
+			period_id = Coinapi.period_id(time_increment)
 		elif period_id != None:
-			if self.coinapi.verify_period(period_id) == False:
+			if Coinapi.verify_period(period_id) == False:
 				raise ValueError(f'{period_id} not found in period_index')
 
 		return f'{exchange_id}_{coin_id}_{period_id}'
 
 
-	def add_exchange(self, exchange_id):
+	def add_exchange(exchange_id):
 		'''
 		Parameters:
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
 		#breaks function if exchange_id is invalid
-		if self.coinapi.verify_exchange(exchange_id) == False:
+		if Coinapi.verify_exchange(exchange_id) == False:
 			return None
 
 		if exchange_id in Database.settings['tracked_exchanges']:
 			#checks if exchange is already in tracked_exchanges
 			print(f'NOTICE: {exchange_id} Already Being Tracked')
-		elif self.coinapi.verify_exchange(exchange_id):
+		elif Coinapi.verify_exchange(exchange_id):
 			#Verifies the given exchange is a valid coinapi exchange_id
 			print(f'Adding Exchange: {exchange_id}')
 			Database.settings['tracked_exchanges'].append(exchange_id)
 			#saves settings
-			self.save_files()
+			Database.save_files()
 			#updates coin_index
-			self.reset_coin_index()
+			Database.reset_coin_index()
 
 
-	def remove_exchange(self, exchange_id):
+	def remove_exchange(exchange_id):
 		'''
 		Parameters:
 			exchange_id : (str) Name of exchange in coinapi format
@@ -310,18 +310,18 @@ class Database():
 		if exchange_id not in Database.settings['tracked_exchanges']:
 			#checks if exchange is already in tracked_exchanges
 			print(f'NOTICE: {exchange_id} Not Being Tracked')
-		elif (self.coinapi.verify_exchange(exchange_id) and
+		elif (Coinapi.verify_exchange(exchange_id) and
 				has_data == False):
 			#Verifies the given exchange is a valid coinapi exchnage_id
 			print(f'Removing Exchange: {exchange_id}')
 			#removes exchange_id from settings and saves settings ti file
 			Database.settings['tracked_exchanges'].remove(exchange_id)
-			self.save_files()
+			Database.save_files()
 			#resets coin_index with new tracked_exchanges
-			self.reset_coin_index()
+			Database.reset_coin_index()
 
 
-	def add_historical_item(self, exchange_id, coin_id, time_increment):
+	def add_historical_item(exchange_id, coin_id, time_increment):
 		'''
 		Adds historical item to historical_index
 
@@ -332,7 +332,7 @@ class Database():
 			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
 		'''
 		#verifies that parameters are supported by coinapi
-		if self.coinapi.verify_increment(time_increment) == False:
+		if Coinapi.verify_increment(time_increment) == False:
 			return None
 		elif coin_id not in Database.settings['tracked_coins']:
 			print(f'WARNING: "{coin_id}" is not being tracked')
@@ -344,7 +344,7 @@ class Database():
 				return None
 
 		#index_id used as a key for historical_index items
-		index_id = self.index_id(exchange_id, coin_id, time_increment)
+		index_id = Database.index_id(exchange_id, coin_id, time_increment)
 
 		#stops function if item already found in historical_index
 		if index_id in Database.historical_index:
@@ -352,7 +352,7 @@ class Database():
 			return None
 
 		#period_id string equivalent to time_increments
-		period_id = self.coinapi.period_id(time_increment)
+		period_id = Coinapi.period_id(time_increment)
 
 		#the first dir is the period_id str associated to time_increment
 		filepath = Database.historical_base_path + f'/{period_id}'
@@ -394,10 +394,10 @@ class Database():
 		#updates historical_index
 		Database.historical_index.update({index_id: index_item})
 		#saves changes to file
-		self.save_files()
+		Database.save_files()
 
 
-	def backfill(self, coin_id, time_increment, limit=None):
+	def backfill(coin_id, time_increment, limit=None):
 		'''
 		This function accepts a coin_id and backfills all 
 		tracked exchanges for that coin unless a specific 
@@ -410,7 +410,7 @@ class Database():
 		'''
 
 		#verifies coin_id and time_increment parameters
-		if self.coinapi.verify_increment(time_increment) == False:
+		if Coinapi.verify_increment(time_increment) == False:
 			return None
 		elif coin_id not in Database.settings['tracked_coins']:
 			print(f'WARNING: "{coin_id}" is not being tracked')
@@ -425,16 +425,16 @@ class Database():
 		no_match = False
 		for tracked_exchange in Database.settings['tracked_exchanges']:
 			#generates index_id
-			index_id = self.index_id(tracked_exchange, coin_id,
-									 time_increment)
+			index_id = Database.index_id(tracked_exchange, coin_id,
+										 time_increment)
 			#loads id into backfill dict
 			backfill.update({index_id: tracked_exchange})
 
 			#generates historical_item for current item
 			#if it doesn't already exist
 			if index_id not in Database.historical_index:
-				self.add_historical_item(tracked_exchange, coin_id, 
-										 time_increment)
+				Database.add_historical_item(tracked_exchange, coin_id, 
+											 time_increment)
 
 			#loads index of current item
 			item_index = Database.historical_index[index_id]
@@ -451,7 +451,7 @@ class Database():
 				match_date = item_index['data_end']
 
 		#period_id string equivalent to time_increments
-		period_id = self.coinapi.period_id(time_increment)
+		period_id = Coinapi.period_id(time_increment)
 
 		if no_match == True:
 			print(f"NOTICE: backfill items don't match")
@@ -475,7 +475,7 @@ class Database():
 					new_limit = match_limit
 
 			#requests backfill data
-			response = self.coinapi.historical(item_index, new_limit)
+			response = Coinapi.historical(item_index, new_limit)
 
 			#extracts data and time_end from response
 			data = response['data']
@@ -513,6 +513,6 @@ class Database():
 
 			#updates historical_index with changes and saves to file
 			Database.historical_index[index_id] = index_item
-			self.save_files()
+			Database.save_files()
 
 		print('Backfill Complete')

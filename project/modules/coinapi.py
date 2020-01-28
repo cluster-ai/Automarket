@@ -46,18 +46,18 @@ class Coinapi():
 	#keeps track of coinapi period_id's
 
 
-	def __init__(self):
-		self.update_keys()
-		self.load_files()
+	def __init__():
+		Coinapi.update_keys()
+		Coinapi.load_files()
 
 
-	def load_files(self):
+	def load_files():
 		#NOTE: All coinapi indexes are share the same file
 		#Checks to see if index_path exists, if not creates one
 		if os.path.exists(Coinapi.index_path) == False:
 			open(Coinapi.index_path, 'w')
 			#uploads empty index variables to file
-			self.save_files()
+			Coinapi.save_files()
 
 		print('Loading Coinapi Files: ' + Coinapi.index_path)
 		#loads contents of file with path, "Coinapi.index_path"
@@ -78,25 +78,25 @@ class Coinapi():
 				filters = {
 					'length_seconds': 0
 				}
-				new_index = self.request('free_key', 
-										 url=Coinapi.periods_url,
-										 filters=filters,
-										 omit_filtered=True)
+				new_index = Coinapi.request('free_key', 
+											url=Coinapi.periods_url,
+										 	filters=filters,
+										 	omit_filtered=True)
 				Coinapi.period_index = new_index
 
 			#loads exchange_index
 			if indexes['exchange_index'] != []:
 				Coinapi.exchange_index = indexes['exchange_index']
 			else:
-				new_index = self.request('free_key', 
-										 url=Coinapi.exchanges_url)
+				new_index = Coinapi.request('free_key', 
+										 	url=Coinapi.exchanges_url)
 				Coinapi.exchange_index = new_index
 
 		#the class variables may have changed so this updates files
-		self.save_files()
+		Coinapi.save_files()
 
 
-	def save_files(self):
+	def save_files():
 		#NOTE: All coinapi indexes are share the same file
 
 		#consolidates all coinapi indexes to single dict and
@@ -115,7 +115,7 @@ class Coinapi():
 			json.dump(indexes, file, indent=4)
 
 
-	def update_keys(self):
+	def update_keys():
 		#checks on api_key X-RateLimit-Reset
 		#if expired, sets X-RateLimit-Remaining to X-RateLimit-Limit
 		for api_id, item_index in Coinapi.api_index.items():
@@ -125,7 +125,7 @@ class Coinapi():
 				Coinapi.api_index[api_id]['X-RateLimit-Remaining'] = limit
 
 
-	def period_id(self, time_increment):
+	def period_id(time_increment):
 		'''
 		Parameters:
 			- time_increment : (int) time_interval of data in 
@@ -140,7 +140,7 @@ class Coinapi():
 		raise ValueError(f'period_id not found for "{time_increment}"')
 
 
-	def verify_period(self, period_id):
+	def verify_period(period_id):
 		'''
 		Parameters:
 			period_id : (str) period_id str supported by coinapi
@@ -155,7 +155,7 @@ class Coinapi():
 		return False
 
 
-	def verify_increment(self, time_increment):
+	def verify_increment(time_increment):
 		'''
 		Parameters:
 			time_increment : (int) value used to match against
@@ -172,7 +172,7 @@ class Coinapi():
 		return False
 
 
-	def verify_exchange(self, exchange_id):
+	def verify_exchange(exchange_id):
 		'''
 		Parameters:
 			exchange_id : (str) Name of exchange in coinapi format
@@ -189,7 +189,7 @@ class Coinapi():
 		return False
 
 
-	def filter(self, data, filters, omit_filtered):
+	def filter(data, filters, omit_filtered):
 		'''
 		Parameters:
 			data         : (list of dict) 
@@ -245,7 +245,7 @@ class Coinapi():
 		return filtered
 
 
-	def request(self, api_key_id, url='', queries={}, 
+	def request(api_key_id, url='', queries={}, 
 				filters={}, omit_filtered=False):
 		'''
 		HTTP Codes:
@@ -260,7 +260,7 @@ class Coinapi():
 
 		Parameters:
 			url_ext      : (str)
-						   - is added to self.base_url in request
+						   - is added to Coinapi.base_url in request
 			api_key_id   : (str)
 						   - the dict key for what api key to use
 			queries      : (dict)
@@ -306,13 +306,13 @@ class Coinapi():
 
 			#updates the class variable api_key_index
 			Coinapi.api_index[api_key_id] = api_key_index
-			self.save_files()
+			Coinapi.save_files()
 
 			#response errors are no longer being handled so it is assigned
 			#to its json value and filtered
 			response = response.json()
 			if filters != {}:
-				response = self.filter(response, filters, omit_filtered)
+				response = Coinapi.filter(response, filters, omit_filtered)
 			else:
 				print('Notice: no response filter')
 
@@ -321,7 +321,7 @@ class Coinapi():
 			return response
 
 
-	def prep_historical(self, response):
+	def prep_historical(response):
 		'''
 		this function adds an isnan and average_price column
 		to the given df and appends empty rows for missing
@@ -330,7 +330,7 @@ class Coinapi():
 
 		Parameters:
 			response : (dict) data required for function 
-							  (see self.historical())
+							  (see Coinapi.historical())
 
 		return: {
 			'data': new_df,
@@ -426,7 +426,7 @@ class Coinapi():
 		return response
 
 
-	def historical(self, data_index, requests=None):
+	def historical(data_index, requests=None):
 		'''
 		Parameters:
 			index : (dict) historical_index of item being requested
@@ -440,7 +440,7 @@ class Coinapi():
 		}
 		'''
 		#updates api keys
-		self.update_keys()
+		Coinapi.update_keys()
 
 		#the key bing used
 		api_id = 'startup_key'
@@ -475,7 +475,7 @@ class Coinapi():
 
 		#api request
 		url = Coinapi.historical_url.format(data_index['symbol_id'])
-		response = self.request(api_id, url=url, queries=queries)
+		response = Coinapi.request(api_id, url=url, queries=queries)
 
 		#format the json response into a dataframe
 		response = pd.DataFrame.from_dict(response, orient='columns')
@@ -489,7 +489,7 @@ class Coinapi():
 		}
 
 		#preps historical data
-		response = self.prep_historical(response)
+		response = Coinapi.prep_historical(response)
 
 		#prep data for historical database and return df
 		return response

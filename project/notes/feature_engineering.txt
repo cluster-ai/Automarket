@@ -5,6 +5,7 @@ This section of development is to implement different ways to generate and store
 
 Thought: Nearly every raw historical data category may benefit from trend line analysis. Consider having 'elbows' in the regression lines for not only overal trend direction but also its change. (may have to use "binning" based on time_series to segregate data consistantly, see "feature engineering approach.txt")
 
+
 //Time Series//
 
 relevant time series features:
@@ -16,12 +17,27 @@ relevant time series features:
 
 
 //Average, High and Low Price//
+/column names/
+ - price_high, price_low, price_average
+/features/
  - trend: (slope, y-intercept), deviation of points to trend line (linear regression)
  - High and Low difference (perhaps a way of showing volatility per datapoint or across an entire sequence (trend line))
 
 
 //Volume Traded, Trades Count///
 NOTE: without orderbook data, this category is not very detailed.
+/column names/
+ - volume_traded, trades_count
+/features/
  - average trade size (volume_traded / trades_count)
  - trend: (slope, y-intercept), deviation of points to trend line (linear regression)
  - High and Low Volume or Trades Count difference (perhaps a way of showing volatility per datapoint or across an entire sequence (trend line))
+
+
+ /// | feature engineering functions and features | ///
+
+ //Functions//
+ /regression/
+  - creates a regression line from historical data
+  - this line is saved as slope, y-int, and interval
+  	of dataframe index (time_period_start) in dict
