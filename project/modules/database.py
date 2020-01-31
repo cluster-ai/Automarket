@@ -11,6 +11,7 @@ import numpy as np
 #local modules
 from .coinapi import Coinapi
 from .preproc import unix_to_date, date_to_unix
+import modules.features as features
 
 #79 character absolute limit
 ###############################################################################
@@ -81,7 +82,7 @@ class Database():
 			print(f'File Not Found -> {Database.training_index_path}')
 			open(Database.training_index_path, 'w')
 
-		print('Loading Training Index: '
+		print('Loading training Index: '
 			  + Database.training_index_path)
 		#loads indexes for training index
 		with open(Database.training_index_path) as file:
@@ -488,7 +489,7 @@ class Database():
 				#if there is existing_data, data is appended to it
 				existing_data = pd.read_csv(filepath)
 
-				#makes existing_data index equal to 'time_period_start'
+				#makes existing_data.index equal to 'time_period_start'
 				existing_data.set_index('time_period_start', drop=False,
 										inplace=True)
 
@@ -516,3 +517,127 @@ class Database():
 			Database.save_files()
 
 		print('Backfill Complete')
+
+
+	def historical(index_id, start_time=None, end_time=None):
+		'''
+		This funtion returns historical data
+
+		Parameters:
+			index_id   : (str) id to desired historical data
+
+			start_time : (int, unix-utc) returned data
+						 will be >= this time
+				NOTE: if start_time == None, all data
+					  is loaded before end_time
+
+			end_time   : (int, unix-utc) returned data
+						 will be <= this time
+				NOTE: if end_time == None, all data is
+					  is loaded after start_time
+
+		NOTE: start_time and end_time parameters both use
+				'time_period_start' column as reference for
+				the interval.
+		'''
+
+		#verifies given index_id
+		if index_id not in Database.historical_index:
+			raise KeyError(f'"{index_id}" not in Historical Index')
+
+		#makes sure start_time is <= end_time
+		if start_time != None and end_time != None: 
+			if start_time > end_time:
+				raise RuntimeError(f'start_time > end_time')
+
+		#loads data file path
+		filepath = Database.historical_index[index_id]['filepath']
+		#loads data file name
+		filename = Database.historical_index[index_id]['filename']
+
+		#loads all data from file
+		data = pd.read_csv(filepath)
+
+		#makes data.index equal to 'time_period_start' column
+		data.set_index('time_period_start', drop=False, inplace=True)
+
+		#slices data based on start_time if parameter was given
+		if start_time != None:
+			#catches out out of scope start_time
+			if start_time not in data.index:
+				raise IndexError(f'{start_time} index not in {filename}')
+			data = data.loc[start_time: , :]
+
+		#slices data based on end_time if parameter was given
+		if end_time != None:
+			#catches out out of scope end_time
+			if end_time not in data.index:
+				raise IndexError(f'{end_time} index not in {filename}')
+			data = data.loc[:end_time, :]
+
+		return data
+
+
+	def add_training_item(index_id):
+		'''
+		Adds training item to training_index
+
+		Parameters:
+			index_id   : (str) id to desired historical data
+		'''
+
+		#verifies given index_id
+		if index_id not in Database.historical_index:
+			raise KeyError(f'"{index_id}" not in Historical Index')
+
+		#verifies index_id not already in training_index
+		if index_id in Database.training_index:
+			print(f'NOTICE: {index_id} already in Training Index')
+
+		#historical_index of index_id
+		data_index = Database.historical_index[index_id]
+
+		#items needed for following directories
+		period_id = data_index['period_id']
+		exchange_id = data_index['exchange_id']
+		coin_id = data_index['coin_id']
+
+		#the first dir is the period_id str associated to time_increment
+		filepath = Database.training_base_path + f'/{period_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+		#the final dir is the coin_id
+		filepath += f'/{coin_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+
+		#filename-example: 'KRAKEN_BTC_5MIN.csv'
+		filename = f'{index_id}.csv'
+		filepath = filepath + f'/{filename}' #adds filename to dir
+		#creates file if there is none
+		if os.path.exists(filepath) == False:
+			open(filepath, 'w')
+
+		#fills out required information for new 
+		#training index_item
+		index_item = {
+			'filename': filename,
+			'filepath': filepath,
+			'symbol_id': coin_data['symbol_id'],
+			'exchange_id': exchange_id,
+			'asset_id_quote': coin_data['asset_id_quote'],
+			'asset_id_base': coin_data['asset_id_base'],
+			'period_id': period_id,
+			'time_increment': time_increment,
+			'datapoints': 0,
+			'data_start': coin_data['data_start'],
+			'data_end': coin_data['data_start'],#not a typo
+			'features': []
+		}
+
+		print(f'Added {index_id} to Training Index')
+
+		#updates historical_index
+		Database.training_index.update({index_id: index_item})
+		#saves changes to file
+		Database.save_files()

@@ -7,14 +7,14 @@ Thought: Nearly every raw historical data category may benefit from trend line a
 
 
 //Time Series//
-
-relevant time series features:
+/column names/
+ - time_period_start, time_period_end
+/features/
  - Month, Day, Year
  - Day of Week
  - National Holidays, Countries Acknowledging Holiday
  - Time of Day (hour, min, sec)
  - Data Sequence Interval
-
 
 //Average, High and Low Price//
 /column names/
@@ -22,7 +22,6 @@ relevant time series features:
 /features/
  - trend: (slope, y-intercept), deviation of points to trend line (linear regression)
  - High and Low difference (perhaps a way of showing volatility per datapoint or across an entire sequence (trend line))
-
 
 //Volume Traded, Trades Count///
 NOTE: without orderbook data, this category is not very detailed.
@@ -33,8 +32,13 @@ NOTE: without orderbook data, this category is not very detailed.
  - trend: (slope, y-intercept), deviation of points to trend line (linear regression)
  - High and Low Volume or Trades Count difference (perhaps a way of showing volatility per datapoint or across an entire sequence (trend line))
 
+ NOTE: Many of the features use a trend line. This works on a single
+ 	   interval but is not easily/helpfully used in sequence data.
 
- /// | feature engineering functions and features | ///
+ 	   For now I will flatten noise and keep the format (tabular)
+
+
+ /// | Feature Engineering Functions and Features | ///
 
  //Functions//
  /regression/
