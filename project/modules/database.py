@@ -603,26 +603,23 @@ class Database():
 		coin_id = data_index['coin_id']
 
 		#the first dir is the period_id str associated to time_increment
-		filepath = Database.training_base_path + f'/{period_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-		#the final dir is the coin_id
-		filepath += f'/{coin_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-
-		#filename-example: 'KRAKEN_BTC_5MIN.csv'
-		filename = f'{index_id}.csv'
-		filepath = filepath + f'/{filename}' #adds filename to dir
-		#creates file if there is none
-		if os.path.exists(filepath) == False:
-			open(filepath, 'w')
+		base_path = Database.training_base_path + f'/{period_id}'
+		if os.path.isdir(base_path) == False:
+			os.mkdir(base_path)
+		#the next dir is the coin_id
+		base_path += f'/{coin_id}'
+		if os.path.isdir(base_path) == False:
+			os.mkdir(base_path)
+		#the final dir is the index_id
+		base_path += f'/{index_id}'
+		if os.path.isdir(base_path) == False:
+			os.mkdir(base_path)
 
 		#fills out required information for new 
 		#training index_item
 		index_item = {
-			'filename': filename,
-			'filepath': filepath,
+			'base_path': base_path,
+			'files': {},
 			'symbol_id': coin_data['symbol_id'],
 			'exchange_id': exchange_id,
 			'asset_id_quote': coin_data['asset_id_quote'],
@@ -632,7 +629,6 @@ class Database():
 			'datapoints': 0,
 			'data_start': coin_data['data_start'],
 			'data_end': coin_data['data_start'],#not a typo
-			'features': []
 		}
 
 		print(f'Added {index_id} to Training Index')

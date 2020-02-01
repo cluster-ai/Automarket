@@ -34,7 +34,7 @@ def time_series(historical):
 		- hour
 		- minute
 
-	Uses folloing df historical columns
+	Uses following historical data
 		- time_period_start
 	'''
 
@@ -61,5 +61,74 @@ def time_series(historical):
 			datetime.datetime.utcfromtimestamp(time_start).strftime('%H'))
 		features.at[index, 'minute'] = int(
 			datetime.datetime.utcfromtimestamp(time_start).strftime('%M'))
+
+	return features
+
+
+def delta(historical):
+	'''
+	This function takes various historical values of crytpocurrency
+	and converters it to change values. 
+	ex: data[1] = (data[1] - data[0]) / data[0]
+
+	Creates the following features
+		/price/
+		- price_average
+		- price_low
+		- price_high
+		/other/
+		- volume_traded
+		- trades_count
+
+	Uses follwing historical data
+		- price_average
+		- price_low
+		- price_high
+		- volume_traded
+		- trades_count
+	'''
+
+	#empty df for the new feature data
+	features = pd.DataFrame(index=historical['time_period_start'].index)
+
+	#delta function: (data[1] - data[0]) / data[0]
+	delta = lambda historical, col, prev_index, index : (
+		(historical.at[index, col] / historical.at[prev_index, col]) - 1
+	)
+
+	#iterates through historical and computes delta
+	prev_index = None
+	for index, row in historical.iterrows():
+
+		#skips first row
+		if index == historical.index[0]:
+			prev_index = index
+			continue
+
+		#/price/ features
+		features.at[index, 'price_average'] = delta(historical,
+													'price_average',
+													prev_index,
+													index)
+		features.at[index, 'price_low'] = delta(historical,
+												'price_low',
+												prev_index,
+												index)
+		features.at[index, 'price_high'] = delta(historical,
+												 'price_high',
+												 prev_index,
+												 index)
+
+		#/other/ features
+		features.at[index, 'volume_traded'] = delta(historical,
+													'volume_traded',
+													prev_index,
+													index)
+		features.at[index, 'trades_count'] = delta(historical,
+												   'trades_count',
+												   prev_index,
+												   index)
+		#updates prev_index
+		prev_index = index
 
 	return features
