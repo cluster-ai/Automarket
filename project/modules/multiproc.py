@@ -25,7 +25,6 @@ right implementation. It is still recommended to use compute()
 with threads=1 when single threaded processing is needed.
 '''
 
-
 def proc_id(part, proc_num):
 	return f'{part}|{proc_num}'
 

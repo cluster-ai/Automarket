@@ -495,8 +495,6 @@ class Database():
 
 				#adds new data to existing
 				existing_data = existing_data.append(data)
-
-				print(existing_data)
 			else:
 				#if no data is found then existing_data = response_data
 				print('No existing data for:', filepath)

@@ -291,8 +291,12 @@ class Coinapi():
 		except HTTPError as http_err:
 			print(f'{http_err}')
 			raise ValueError('HTTPError: Killing Process')
+		except requests.ConnectionError as connection_err:
+			print(f'{connection_err}')
+			raise requests.ConnectionError('HTTP Connection Error')
 		except Exception as err:
 			print(f'{err}')
+			raise Exception(f'Exception Occured During HTTP Request')
 		else:
 			print(f'API Request Successful: code {response.status_code}')
 			

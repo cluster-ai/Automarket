@@ -24,10 +24,14 @@ class TestDproc(unittest.TestCase):
 				'date': '1970-01-01T02:46:40.9999999Z'
 			},
 			'case4': {
+				'unix': 0,
+				'date': '1970-01-01T00:00:00.0000000Z'
+			},
+			'case5': {
 				'unix': 0.1,
 				'date': '1970-01-01T00:00:00.1000000Z'
 			},
-			'case5': {
+			'case6': {
 				'unix': 0.9999999,
 				'date': '1970-01-01T00:00:00.9999999Z'
 			}
@@ -38,10 +42,6 @@ class TestDproc(unittest.TestCase):
 			date = vals['date']
 			self.assertEqual(preproc.unix_to_date(unix), date)
 			self.assertEqual(preproc.date_to_unix(date), unix)
-
-
-	def test_add_average_price(self):
-		pass
 
 
 	def test_scale(self):

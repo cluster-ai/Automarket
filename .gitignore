@@ -5,3 +5,4 @@ __pycache__
 **/coin_index.json
 *.csv
 **/test.py
+**/changes.txt
