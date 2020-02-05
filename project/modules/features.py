@@ -139,7 +139,7 @@ def delta(historical):
 	return features
 
 
-def smooth(historical, time_increment):
+def smooth(historical, time_increment, width=1):
 	'''
 	
 	THIS CAN BE USED TO SIMPLIFY DATA FOR LARGER SEQUENCES
@@ -147,6 +147,13 @@ def smooth(historical, time_increment):
 
 	This data iterates through DataFrame and averages each
 	value with values directly adjacent to it
+
+	Parameters:
+		historical     : (pd.DataFrame()) data from one exchange
+										  for one coin
+		time_increment : (int) time_series increment of data in seconds
+		width          : (positive int) number of points on each side
+										of value used in smoothing algo
 
 	Creates the following features
 		/price/
@@ -177,17 +184,8 @@ def smooth(historical, time_increment):
 	#this prevents changed values from influencing the algorithm
 	data = historical.copy()
 
-	#iterates through historical and converters data values
+	#iterates through historical and converts data values
 	for index, row in historical.iterrows():
-
-		prev_index = index - time_increment
-		next_index = index + time_increment
-
-		#verifies adjacent indexes exist
-		if (prev_index not in historical.index or 
-				next_index not in historical.index):
-			data.loc[index, :] = np.nan
-			continue
 
 		#iterates through columns
 		for col in historical.columns:
@@ -195,13 +193,33 @@ def smooth(historical, time_increment):
 			if col in ['price_high', 'price_low',
 					   'volume_traded', 'trades_count']:
 
-				#loads values
-				prev_val = historical.at[prev_index, col]
-				next_val = historical.at[next_index, col]
-				val = row[col]
+				#total is a list of all values being averaged for
+				#current iteration
+				total = []
+				for x in range(width+1):
+					total.append(row[col])
+				for x in range(width):
+					#x starts as 0
 
-				#creates new val and saves it to data
-				new_val = (prev_val + next_val + val) / 3
-				data.at[index, col] = new_val
+					#finds the left and right most index 
+					#for this iteration
+					left_index = index - (x+1) * time_increment
+					right_index = index + (x+1) * time_increment
+
+					#verifies min and max indexes exist
+					if (left_index not in historical.index and
+							right_index not in historical.index):
+						continue
+
+					#appends left and right most values
+					for i in range(width-x):
+						#verifies that the indexes exist
+						if left_index in historical.index:
+							total.append(historical.at[left_index, col])
+						if right_index in historical.index:
+							total.append(historical.at[right_index, col])
+
+				#appends average of total to current [index, col]
+				data.at[index, col] = np.sum(total) / len(total)
 
 	return data

@@ -7,7 +7,7 @@ import datetime
 import numpy as np
 import pandas as pd
 import multiprocessing
-from multiprocessing import Manager
+from multiprocessing import Manager, Process
 
 #79 character absolute limit
 ###############################################################################
@@ -21,8 +21,15 @@ and handles management of threads. Call it for any/all multiproc
 applications.
 
 The functions made for compute() can be used on their own with the 
-right implementation. It is still recommended to use compute()
+right implementation. It is still recommended to  use compute()
 with threads=1 when single threaded processing is needed.
+'''
+
+'''
+NOTES:
+	I found that initializing threads with recursion is basically
+	instantaneous while using a loop can takes seconds. To implement
+	this in multiproc.compute() it may need to be in a class.
 '''
 
 def proc_id(part, proc_num):
