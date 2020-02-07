@@ -26,34 +26,49 @@ without having to reopen it manually. (use kivy UI framework)
 '''
 
 from define import *
+import numpy as np
+import modules.preproc as preproc
 
 
 class Grapher():
 
 	def __init__(self):
-		self.interval = 100 #datapoints
+		'''
+		IMPORTANT:
+		Develope this class to utilize the database on
+		its own.
+		'''
+		self.datapoints = 100 #datapoints
 		self.data = Database.historical('KRAKEN_BTC_5MIN')
 		self.index = 0
 
 
 	def animate(self, i):
-
-		display_width = 300
-
-		end_time = 1470159900 + (300 * self.index)
-		start_time = end_time - (300 * display_width) + (300 * self.index)
+		offset = 300 * self.index
+		end_time = 1470159900 - offset
+		start_time = end_time - (300 * self.datapoints)
+		interval = abs(end_time - start_time)
 
 		self.index += 1
 
-		print(self.index)
+		display_data = self.data.loc[start_time:end_time, 'price_high']
 
-		'''start_time = start_time - (300 * self.index)
-		end_time = end_time - (300 * self.index)'''
+		xticks_count = 4
+		#the first value is start_time and the last value is end_time
+		xticks = np.multiply(range(xticks_count), 
+							 interval / (xticks_count - 1))
+		xticks = np.add(xticks, start_time)
+
+		#convert to date
+		xticks_labels = []
+		for unix in xticks:
+			xticks_labels.append(preproc.unix_to_date(unix, decimal=False))
 
 		plt.cla()
-		plt.plot(self.data.loc[start_time:end_time, 'price_high'])
+		plt.xticks(xticks, xticks_labels, rotation=10)
+		plt.plot(display_data)
 
 
 	def display(self):
-		ani = FuncAnimation(plt.gcf(), self.animate, interval=10)
+		ani = FuncAnimation(plt.gcf(), self.animate, interval=100)
 		plt.show()

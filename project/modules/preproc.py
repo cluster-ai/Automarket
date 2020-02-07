@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 
-def unix_to_date(unix):
+def unix_to_date(unix, decimal=True):
 	#the datetime package is only accurate to 6 decimals but 7 are 
 	#needed for date format being used. Since the decimal value is 
 	#the same regardless of unix or date, I have it copied over
@@ -27,7 +27,8 @@ def unix_to_date(unix):
 	#integer unix value converted to date string
 	date = datetime.datetime.utcfromtimestamp(unix).strftime('%Y-%m-%dT%H:%M:%S')
 	#decimal string added to datetime
-	date = date + f'.{decimal}Z'
+	if decimal == True:
+		date = date + f'.{decimal}Z'
 
 	#return format: 'yyyy-mm-ddTHH:MM:SS.fffffffZ'
 	return date
