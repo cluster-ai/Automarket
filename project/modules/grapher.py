@@ -25,41 +25,35 @@ being nested in a UI allowing the user to change graph data/options
 without having to reopen it manually. (use kivy UI framework)
 '''
 
-from modules.database import Database
-
-import define
+from define import *
 
 
+class Grapher():
 
-class Graph():
-	interval = 100 #datapoints
-	data = None
-	index = 0
-
-	def __init__():
-		Graph.data = Database.historical('KRAKEN_BTC_5MIN')
-
-Graph.__init__()
+	def __init__(self):
+		self.interval = 100 #datapoints
+		self.data = Database.historical('KRAKEN_BTC_5MIN')
+		self.index = 0
 
 
-def animate(i):
+	def animate(self, i):
 
-	display_width = 300
+		display_width = 300
 
-	end_time = 1568815800 - (300 * Graph.index)
-	start_time = end_time - (300 * display_width) - (300 * Graph.index)
+		end_time = 1470159900 + (300 * self.index)
+		start_time = end_time - (300 * display_width) + (300 * self.index)
 
-	Graph.index += 1
+		self.index += 1
 
-	print(Graph.index)
+		print(self.index)
 
-	'''start_time = start_time - (300 * self.index)
-	end_time = end_time - (300 * self.index)'''
+		'''start_time = start_time - (300 * self.index)
+		end_time = end_time - (300 * self.index)'''
 
-	plt.cla()
-	plt.plot(Graph.data.loc[start_time:end_time, 'price_high'])
+		plt.cla()
+		plt.plot(self.data.loc[start_time:end_time, 'price_high'])
 
 
-def display():
-	ani = FuncAnimation(plt.gcf(), animate, interval=500)
-	plt.show()
+	def display(self):
+		ani = FuncAnimation(plt.gcf(), self.animate, interval=10)
+		plt.show()
