@@ -30,14 +30,16 @@ import numpy as np
 import modules.preproc as preproc
 import modules.features as features
 
+'''
+
+'''
 
 class Grapher():
 
 	def __init__(self):
 		'''
 		IMPORTANT:
-		Develope this class to utilize the database on
-		its own.
+		Develope this class to utilize the database directly.
 		'''
 		self.datapoints = 300 #datapoints
 		self.raw = Database.historical('KRAKEN_BTC_5MIN')

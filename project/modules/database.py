@@ -173,26 +173,26 @@ class Database():
 		###TRACKED COINS###
 		#lists all supported coins from tracked exchanges
 		init_loop = True
-		coins = []
-		for exchange_id, item_index in Database.coin_index.items():
+		coins = {}
+		for exchange_id, exchange_index in Database.coin_index.items():
 			if init_loop == True:
 				init_loop = False
 				#the first iteration initializes coins with all data
 				#from that coin
-				for coin_data in item_index:
-					coins.append(coin_data['asset_id_base'])
+				coins = list(exchange_index.keys())
 			else:
 				#creates a new list of coins in current exchange
-				compare_list = []
-				for coin_data in item_index:
-					compare_list.append(coin_data['asset_id_base'])
+				compare_list = list(exchange_index.keys())
+
 				#compare new list to coins and delete coins that
 				#are not in both
-				for coin_id in coins:
+				for coin_id, coin_data in coins:
 					if coin_id not in compare_list:
 						coins.remove(coin_id)
 		#update settings
 		Database.settings['tracked_coins'] = coins
+
+		print(Database.settings)
 
 		print('NOTICE: reset database settings to their default')
 
