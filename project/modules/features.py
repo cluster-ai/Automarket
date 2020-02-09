@@ -6,6 +6,8 @@ import datetime
 import pandas as pd
 import numpy as np
 
+import time
+
 #79 character absolute limit
 ###############################################################################
 
@@ -141,7 +143,6 @@ def delta(historical):
 
 def smooth(historical, time_increment, width=1):
 	'''
-	
 	THIS CAN BE USED TO SIMPLIFY DATA FOR LARGER SEQUENCES
 	IT ALSO HELPS REMOVE OUTLIERS FROM THE DATA
 
@@ -184,42 +185,51 @@ def smooth(historical, time_increment, width=1):
 	#this prevents changed values from influencing the algorithm
 	data = historical.copy()
 
+	#max and min indexes of historical data
+	max_hist_index = historical.index.max()
+	min_hist_index = historical.index.min()
+
 	#iterates through historical and converts data values
+	count = 0
+	prev_time = time.time()#tracks duration
 	for index, row in historical.iterrows():
+
+		max_index = index + time_increment*width
+		min_index = index - time_increment*width
+
+		#if max or min indexes are outside of dataframe index,
+		#it sets it to the next closest one
+		if max_index >= max_hist_index:
+			max_index = max_hist_index
+		if min_index <= min_hist_index:
+			min_index = min_hist_index
 
 		#iterates through columns
 		for col in historical.columns:
 			#verifies col is one that will be converted
-			if col in ['price_high', 'price_low',
-					   'volume_traded', 'trades_count']:
+			'''if col in ['price_high', 'price_low',
+					   'volume_traded', 'trades_count']:'''
+			if col in ['price_high']:
 
-				#total is a list of all values being averaged for
-				#current iteration
-				total = []
-				for x in range(width+1):
-					total.append(row[col])
-				for x in range(width):
-					#x starts as 0
+				#array of values that will be used for average
+				#in order of index
+				vals = historical.loc[min_index:max_index, col]
 
-					#finds the left and right most index 
-					#for this iteration
-					left_index = index - (x+1) * time_increment
-					right_index = index + (x+1) * time_increment
+				#drop empty values
+				vals.dropna(inplace=True)
 
-					#verifies min and max indexes exist
-					if (left_index not in historical.index and
-							right_index not in historical.index):
-						continue
+				#average the vals
+				average = np.sum(vals) / len(vals.index)
 
-					#appends left and right most values
-					for i in range(width-x):
-						#verifies that the indexes exist
-						if left_index in historical.index:
-							total.append(historical.at[left_index, col])
-						if right_index in historical.index:
-							total.append(historical.at[right_index, col])
+				#apply new average value
+				data.at[index, col] = average
 
-				#appends average of total to current [index, col]
-				data.at[index, col] = np.sum(total) / len(total)
+		if count % 10000 == 0:
+			current_time = time.time()
+			duration = current_time - prev_time
+			prev_time = current_time
+			print(f"Count: {count} | Duration: {duration}")
+
+		count += 1
 
 	return data

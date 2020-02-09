@@ -28,6 +28,7 @@ without having to reopen it manually. (use kivy UI framework)
 from define import *
 import numpy as np
 import modules.preproc as preproc
+import modules.features as features
 
 
 class Grapher():
@@ -38,20 +39,25 @@ class Grapher():
 		Develope this class to utilize the database on
 		its own.
 		'''
-		self.datapoints = 100 #datapoints
-		self.data = Database.historical('KRAKEN_BTC_5MIN')
+		self.datapoints = 300 #datapoints
+		self.raw = Database.historical('KRAKEN_BTC_5MIN')
+		self.raw = self.raw.loc[1537761000:1550275800, :]
+		self.delta = features.delta(self.raw)
+		self.smooth = features.smooth(self.raw, 300, width=10)
 		self.index = 0
 
 
 	def animate(self, i):
 		offset = 300 * self.index
-		end_time = 1470159900 - offset
+		end_time = 1537789800 + offset
 		start_time = end_time - (300 * self.datapoints)
 		interval = abs(end_time - start_time)
 
 		self.index += 1
 
-		display_data = self.data.loc[start_time:end_time, 'price_high']
+		display_raw = self.raw.loc[start_time:end_time, 'price_high']
+		display_smooth = self.smooth.loc[start_time:end_time, 'price_high']
+		display_delta = self.delta.loc[start_time:end_time, 'price_high']
 
 		xticks_count = 4
 		#the first value is start_time and the last value is end_time
@@ -62,11 +68,13 @@ class Grapher():
 		#convert to date
 		xticks_labels = []
 		for unix in xticks:
-			xticks_labels.append(preproc.unix_to_date(unix, decimal=False))
+			xticks_labels.append(preproc.unix_to_date(unix, show_dec=False))
 
 		plt.cla()
 		plt.xticks(xticks, xticks_labels, rotation=10)
-		plt.plot(display_data)
+		plt.plot(display_raw)
+		#plt.plot(display_delta)
+		plt.plot(display_smooth)
 
 
 	def display(self):

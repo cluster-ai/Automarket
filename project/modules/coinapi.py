@@ -352,11 +352,15 @@ class Coinapi():
 		if df.empty == False:
 			#converters time_period_start to unix values
 			print('converting timestamps to unix')
+
+			#tracks duration
+			prev_time = time.time()
 			for index, row in df.iterrows():
 				for col in df.columns:
 
 					if 'time' in col:#dates are converted to unix format
 						df.at[index, col] = date_to_unix(row[col])
+						
 				if index % 5000 == 0 and index != 0:
 					current_time = time.time()
 					delay = current_time - prev_time
