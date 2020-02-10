@@ -2,8 +2,11 @@
 #kivy
 import kivy
 kivy.require('1.11.1') # replace with your current kivy version !
+
 from kivy.app import App
 from kivy.uix.label import Label
+from kivy.uix.boxlayout import BoxLayout
+from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 
 #standard libraries
 from itertools import count
@@ -46,10 +49,15 @@ pip install kivy.deps.angle
 pip install --upgrade kivy
 '''
 
+plt.plot([1, 23, 2, 4])
+plt.ylabel('some numbers')
+
 class Grapher(App):
 
-    def build(self):
-        return Label(text='Hello world')
+	def build(self):
+		box = BoxLayout()
+		box.add_widget(FigureCanvasKivyAgg(plt.gcf()))
+		return box
 
 '''
 class Grapher():
