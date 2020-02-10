@@ -1,12 +1,15 @@
 
-#kivy
-import kivy
-kivy.require('1.11.1') # replace with your current kivy version !
+#PyQt (GUI Framework)
+import sys
 
-from kivy.app import App
-from kivy.uix.label import Label
-from kivy.uix.boxlayout import BoxLayout
-from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
+from PyQt5.QtWidgets import QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QPushButton
+from PyQt5.QtGui import QIcon
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
+import random
 
 #standard libraries
 from itertools import count
@@ -21,6 +24,7 @@ from matplotlib.animation import FuncAnimation
 from define import *
 import modules.preproc as preproc
 import modules.features as features
+
 
 #79 character absolute limit
 ###############################################################################
@@ -39,39 +43,82 @@ be loaded into it via argument.
 
 For version 1 (if time permits), this module would benefit from
 being nested in a UI allowing the user to change graph data/options
-without having to reopen it manually. (use kivy UI framework)
-
-NOTE: Had to download the following for it to work
-pip install --upgraade pip wheel setuptools
-pip install docutils pygments pypiwin32 kivy.deps.sdl2 kivy.deps.glew
-pip install kivy.deps.gstreamer
-pip install kivy.deps.angle
-pip install --upgrade kivy
+without having to reopen it manually. (use PyQt UI framework)
 '''
 
-plt.plot([1, 23, 2, 4])
-plt.ylabel('some numbers')
+class App(QMainWindow):
 
-class Grapher(App):
+	def __init__(self):
+		super().__init__()
+		self.left = 10
+		self.top = 10
+		self.title = 'PyQt5 matplotlib example - pythonspot.com'
+		self.width = 640
+		self.height = 400
+		self.initUI()
 
-	def build(self):
-		box = BoxLayout()
-		box.add_widget(FigureCanvasKivyAgg(plt.gcf()))
-		return box
+	def initUI(self):
+		self.setWindowTitle(self.title)
+		self.setGeometry(self.left, self.top, self.width, self.height)
+
+		m = PlotCanvas(self, width=5, height=4)
+		m.move(0,0)
+
+		button = QPushButton('PyQt5 button', self)
+		button.setToolTip('This s an example button')
+		button.move(500,0)
+		button.resize(140,100)
+
+		self.show()
+
+
+class PlotCanvas(FigureCanvas):
+
+	def __init__(self, parent=None, width=5, height=4, dpi=100):
+		self.datapoints = 100 #datapoints
+		self.raw = Database.historical('KRAKEN_BTC_5MIN')
+
+		fig = Figure(figsize=(width, height), dpi=dpi)
+		self.axes = fig.add_subplot(111)
+
+		FigureCanvas.__init__(self, fig)
+		self.setParent(parent)
+
+		FigureCanvas.setSizePolicy(self,
+			QSizePolicy.Expanding,
+			QSizePolicy.Expanding)
+		FigureCanvas.updateGeometry(self)
+
+		self.animate(0)
+
+
+	def animate(self, i):
+		end_time = 1537789800
+		start_time = end_time - (300 * self.datapoints)
+
+		#self.index += 1
+		ax = self.figure.add_subplot(111)
+
+		display_raw = self.raw.loc[start_time:end_time, 'price_high']
+
+		ax.plot(display_raw)
+		ax.set_title('PyQt Matplotlib Example')
+		self.draw()
+
 
 '''
 class Grapher():
 
 	def __init__(self):
-		''
-		IMPORTANT:
-		Develope this class to utilize the database directly.
-		''
+		
+		#IMPORTANT:
+		#Develope this class to utilize the database directly.
+		
 		self.datapoints = 100 #datapoints
 		self.raw = Database.historical('KRAKEN_BTC_5MIN')
-		self.raw = self.raw.loc[1537761000:1550275800, :]
-		self.delta = features.delta(self.raw)
-		self.smooth = features.smooth(self.raw, 300, width=10)
+		#self.raw = self.raw.loc[1537761000:1550275800, :]
+		#self.delta = features.delta(self.raw)
+		#self.smooth = features.smooth(self.raw, 300, width=10)
 		self.index = 0
 
 
@@ -84,8 +131,8 @@ class Grapher():
 		#self.index += 1
 
 		display_raw = self.raw.loc[start_time:end_time, 'price_high']
-		display_smooth = self.smooth.loc[start_time:end_time, 'price_high']
-		display_delta = self.delta.loc[start_time:end_time, 'price_high']
+		#display_smooth = self.smooth.loc[start_time:end_time, 'price_high']
+		#display_delta = self.delta.loc[start_time:end_time, 'price_high']
 
 		xticks_count = 4
 		#the first value is start_time and the last value is end_time
@@ -102,7 +149,7 @@ class Grapher():
 		plt.xticks(xticks, xticks_labels, rotation=10)
 		plt.plot(display_raw)
 		#plt.plot(display_delta)
-		plt.plot(display_smooth)
+		#plt.plot(display_smooth)
 
 
 def graph():
