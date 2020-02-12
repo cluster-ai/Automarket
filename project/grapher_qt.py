@@ -27,7 +27,7 @@ class Ui_MainWindow(object):
         self.historical_tab = QtWidgets.QWidget()
         self.historical_tab.setObjectName("historical_tab")
         self.index_id_box = QtWidgets.QComboBox(self.historical_tab)
-        self.index_id_box.setGeometry(QtCore.QRect(80, 60, 211, 31))
+        self.index_id_box.setGeometry(QtCore.QRect(60, 60, 251, 31))
         self.index_id_box.setCurrentText("")
         self.index_id_box.setObjectName("index_id_box")
         self.hist_box_label = QtWidgets.QLabel(self.historical_tab)

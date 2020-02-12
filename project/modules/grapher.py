@@ -53,6 +53,9 @@ class Ui_MainWindow(object):
 		self.centralwidget = QtWidgets.QWidget(MainWindow)
 		self.centralwidget.setObjectName("centralwidget")
 
+		#initializes graph data variables
+		self.historical_data = pd.DataFrame()
+
 		###TAB WIDGET###
 		self.tab_widget = QtWidgets.QTabWidget(self.centralwidget)
 		self.tab_widget.setGeometry(QtCore.QRect(680, 0, 381, 651))
@@ -65,21 +68,27 @@ class Ui_MainWindow(object):
 		#historical tab
 		self.historical_tab = QtWidgets.QWidget()
 		self.historical_tab.setObjectName("historical_tab")
-		self.index_id_box = QtWidgets.QComboBox(self.historical_tab)
-		self.index_id_box.setGeometry(QtCore.QRect(80, 60, 211, 31))
-		self.index_id_box.setCurrentText("")
-		self.index_id_box.setObjectName("index_id_box")
+		#hist combo box
+		self.hist_box = QtWidgets.QComboBox(self.historical_tab)
+		self.hist_box.setGeometry(QtCore.QRect(60, 60, 251, 31))
+		self.hist_box.setCurrentText("")
+		self.hist_box.setObjectName("hist_box")
+		hist_list = list(Database.historical_index.keys())
+		self.hist_box_val = str(self.hist_box.currentText())
+
+		self.hist_box.addItems(hist_list)#populates combobox
 		self.hist_box_label = QtWidgets.QLabel(self.historical_tab)
 		self.hist_box_label.setGeometry(QtCore.QRect(80, 10, 221, 41))
 		self.hist_box_label.setObjectName("hist_box_label")
 		self.hist_submit_btn = QtWidgets.QPushButton(self.historical_tab)
 		self.hist_submit_btn.setGeometry(QtCore.QRect(120, 110, 131, 28))
 		self.hist_submit_btn.setObjectName("hist_submit_btn")
+		self.hist_submit_btn.clicked.connect(lambda: self.clicked_hist_submit())
+		#hist scroll widgets
 		self.hist_scroll_label = QtWidgets.QLabel(self.historical_tab)
 		self.hist_scroll_label.setGeometry(QtCore.QRect(10, 179, 351, 31))
 		self.hist_scroll_label.setAlignment(QtCore.Qt.AlignCenter)
 		self.hist_scroll_label.setObjectName("hist_scroll_label")
-		#hist scroll widgets
 		self.hist_scroll_area = QtWidgets.QScrollArea(self.historical_tab)
 		self.hist_scroll_area.setGeometry(QtCore.QRect(40, 230, 301, 231))
 		self.hist_scroll_area.setWidgetResizable(True)
@@ -89,28 +98,6 @@ class Ui_MainWindow(object):
 		self.hist_scroll_widget.setObjectName("hist_scroll_widget")
 		self.hist_scroll_area.setWidget(self.hist_scroll_widget)
 		self.hist_scroll_layout = QtWidgets.QVBoxLayout()
-		
-		#hist scroll buttons (temporary)
-		self.btn1 = QtWidgets.QPushButton()
-		self.btn1.setText('BTN1')
-		self.hist_scroll_layout.addWidget(self.btn1)
-		self.btn2 = QtWidgets.QPushButton()
-		self.btn2.setText('BTN2')
-		self.hist_scroll_layout.addWidget(self.btn2)
-		self.btn3 = QtWidgets.QPushButton()
-		self.btn3.setText('BTN3')
-		self.hist_scroll_layout.addWidget(self.btn3)
-		self.btn4 = QtWidgets.QPushButton()
-		self.btn4.setText('BTN4')
-		self.hist_scroll_layout.addWidget(self.btn4)
-		self.btn5 = QtWidgets.QPushButton()
-		self.btn5.setText('BTN5')
-		self.hist_scroll_layout.addWidget(self.btn5)
-		self.btn6 = QtWidgets.QPushButton()
-		self.btn6.setText('BTN6')
-		self.hist_scroll_layout.addWidget(self.btn6)
-
-		self.hist_scroll_widget.setLayout(self.hist_scroll_layout)
 
 		self.tab_widget.addTab(self.historical_tab, "")
 
@@ -188,6 +175,29 @@ class Ui_MainWindow(object):
 		self.interval_label1.setText(_translate("MainWindow", "Start Time:"))
 		self.interval_label2.setText(_translate("MainWindow", "End Time:"))
 		self.interval_btn.setText(_translate("MainWindow", "Update Graph"))
+
+
+	def clicked_hist_submit(self):
+		#find what the latest hist box value is (index_id of hist)
+		self.hist_box_val = str(self.hist_box.currentText())
+
+		#update scroll box label
+		self.hist_scroll_label.setText(f"Historical: {self.hist_box_val}")
+
+		#loads historical data into memory using hist_box index_id
+		self.historical_data = Database.historical(self.hist_box_val)
+
+		#clear layout
+		self.hist_scroll_layout = QtWidgets.QVBoxLayout()
+
+		#hist scroll buttons (shows data columns
+		#available for chosen hist data)
+		for col in self.historical_data.columns:
+			btn = QtWidgets.QPushButton()
+			btn.setText(col)
+			self.hist_scroll_layout.addWidget(btn)
+
+		self.hist_scroll_widget.setLayout(self.hist_scroll_layout)
 
 
 def window():
