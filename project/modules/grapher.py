@@ -1,13 +1,8 @@
 
 #PyQt (GUI Framework)
 import sys
-
-from PyQt5.QtWidgets import QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QPushButton
-from PyQt5.QtGui import QIcon
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
 
 import random
 
@@ -44,7 +39,174 @@ be loaded into it via argument.
 For version 1 (if time permits), this module would benefit from
 being nested in a UI allowing the user to change graph data/options
 without having to reopen it manually. (use PyQt UI framework)
+
+For Dynamic Scrolling List of Buttons:
+- a container widget that you put in the QScrollArea,
+- a QHBoxLayout on that widget.
+- add your new buttons to that horizontal layout.
 '''
+
+class Ui_MainWindow(object):
+	def setupUi(self, MainWindow):
+		MainWindow.setObjectName("MainWindow")
+		MainWindow.resize(1070, 710)
+		self.centralwidget = QtWidgets.QWidget(MainWindow)
+		self.centralwidget.setObjectName("centralwidget")
+
+		###TAB WIDGET###
+		self.tab_widget = QtWidgets.QTabWidget(self.centralwidget)
+		self.tab_widget.setGeometry(QtCore.QRect(680, 0, 381, 651))
+		self.tab_widget.setMinimumSize(QtCore.QSize(381, 0))
+		font = QtGui.QFont()
+		font.setPointSize(12)
+		self.tab_widget.setFont(font)
+		self.tab_widget.setIconSize(QtCore.QSize(20, 20))
+		self.tab_widget.setObjectName("tab_widget")
+		#historical tab
+		self.historical_tab = QtWidgets.QWidget()
+		self.historical_tab.setObjectName("historical_tab")
+		self.index_id_box = QtWidgets.QComboBox(self.historical_tab)
+		self.index_id_box.setGeometry(QtCore.QRect(80, 60, 211, 31))
+		self.index_id_box.setCurrentText("")
+		self.index_id_box.setObjectName("index_id_box")
+		self.hist_box_label = QtWidgets.QLabel(self.historical_tab)
+		self.hist_box_label.setGeometry(QtCore.QRect(80, 10, 221, 41))
+		self.hist_box_label.setObjectName("hist_box_label")
+		self.hist_submit_btn = QtWidgets.QPushButton(self.historical_tab)
+		self.hist_submit_btn.setGeometry(QtCore.QRect(120, 110, 131, 28))
+		self.hist_submit_btn.setObjectName("hist_submit_btn")
+		self.hist_scroll_label = QtWidgets.QLabel(self.historical_tab)
+		self.hist_scroll_label.setGeometry(QtCore.QRect(10, 179, 351, 31))
+		self.hist_scroll_label.setAlignment(QtCore.Qt.AlignCenter)
+		self.hist_scroll_label.setObjectName("hist_scroll_label")
+		#hist scroll widgets
+		self.hist_scroll_area = QtWidgets.QScrollArea(self.historical_tab)
+		self.hist_scroll_area.setGeometry(QtCore.QRect(40, 230, 301, 231))
+		self.hist_scroll_area.setWidgetResizable(True)
+		self.hist_scroll_area.setObjectName("hist_scroll_area")
+		self.hist_scroll_widget = QtWidgets.QWidget()
+		self.hist_scroll_widget.setGeometry(QtCore.QRect(0, 0, 299, 229))
+		self.hist_scroll_widget.setObjectName("hist_scroll_widget")
+		self.hist_scroll_area.setWidget(self.hist_scroll_widget)
+		self.hist_scroll_layout = QtWidgets.QVBoxLayout()
+		
+		#hist scroll buttons (temporary)
+		self.btn1 = QtWidgets.QPushButton()
+		self.btn1.setText('BTN1')
+		self.hist_scroll_layout.addWidget(self.btn1)
+		self.btn2 = QtWidgets.QPushButton()
+		self.btn2.setText('BTN2')
+		self.hist_scroll_layout.addWidget(self.btn2)
+		self.btn3 = QtWidgets.QPushButton()
+		self.btn3.setText('BTN3')
+		self.hist_scroll_layout.addWidget(self.btn3)
+		self.btn4 = QtWidgets.QPushButton()
+		self.btn4.setText('BTN4')
+		self.hist_scroll_layout.addWidget(self.btn4)
+		self.btn5 = QtWidgets.QPushButton()
+		self.btn5.setText('BTN5')
+		self.hist_scroll_layout.addWidget(self.btn5)
+		self.btn6 = QtWidgets.QPushButton()
+		self.btn6.setText('BTN6')
+		self.hist_scroll_layout.addWidget(self.btn6)
+
+		self.hist_scroll_widget.setLayout(self.hist_scroll_layout)
+
+		self.tab_widget.addTab(self.historical_tab, "")
+
+		#update graph btn
+		self.hist_update_btn = QtWidgets.QPushButton(self.historical_tab)
+		self.hist_update_btn.setGeometry(QtCore.QRect(92, 480, 191, 31))
+		self.hist_update_btn.setObjectName("hist_update_btn")
+		#feature tab
+		self.feature_tab = QtWidgets.QWidget()
+		self.feature_tab.setObjectName("feature_tab")
+		self.tab_widget.addTab(self.feature_tab, "")
+
+		###static widget###
+		self.static_widget = QtWidgets.QWidget(self.centralwidget)
+		self.static_widget.setGeometry(QtCore.QRect(0, 0, 681, 131))
+		self.static_widget.setObjectName("static_widget")
+		self.interval_widget = QtWidgets.QWidget(self.static_widget)
+		self.interval_widget.setGeometry(QtCore.QRect(360, 0, 321, 131))
+		font = QtGui.QFont()
+		font.setPointSize(10)
+		self.interval_widget.setFont(font)
+		self.interval_widget.setObjectName("interval_widget")
+		self.interval_label1 = QtWidgets.QLabel(self.interval_widget)
+		self.interval_label1.setGeometry(QtCore.QRect(10, 0, 101, 51))
+		font = QtGui.QFont()
+		font.setPointSize(11)
+		self.interval_label1.setFont(font)
+		self.interval_label1.setObjectName("interval_label1")
+		self.interval_label2 = QtWidgets.QLabel(self.interval_widget)
+		self.interval_label2.setGeometry(QtCore.QRect(20, 40, 91, 51))
+		font = QtGui.QFont()
+		font.setPointSize(11)
+		self.interval_label2.setFont(font)
+		self.interval_label2.setObjectName("interval_label2")
+		self.start_time = QtWidgets.QDateTimeEdit(self.interval_widget)
+		self.start_time.setGeometry(QtCore.QRect(110, 10, 201, 31))
+		font = QtGui.QFont()
+		font.setPointSize(10)
+		self.start_time.setFont(font)
+		self.start_time.setObjectName("start_time")
+		self.end_time = QtWidgets.QDateTimeEdit(self.interval_widget)
+		self.end_time.setGeometry(QtCore.QRect(110, 50, 201, 31))
+		font = QtGui.QFont()
+		font.setPointSize(10)
+		self.end_time.setFont(font)
+		self.end_time.setObjectName("end_time")
+		self.interval_btn = QtWidgets.QPushButton(self.interval_widget)
+		self.interval_btn.setGeometry(QtCore.QRect(50, 90, 221, 31))
+		self.interval_btn.setObjectName("interval_btn")
+		self.graph_widget = QtWidgets.QWidget(self.centralwidget)
+		self.graph_widget.setGeometry(QtCore.QRect(0, 130, 681, 521))
+		self.graph_widget.setObjectName("graph_widget")
+		MainWindow.setCentralWidget(self.centralwidget)
+		self.menubar = QtWidgets.QMenuBar(MainWindow)
+		self.menubar.setGeometry(QtCore.QRect(0, 0, 1070, 26))
+		self.menubar.setObjectName("menubar")
+		MainWindow.setMenuBar(self.menubar)
+		self.statusbar = QtWidgets.QStatusBar(MainWindow)
+		self.statusbar.setObjectName("statusbar")
+		MainWindow.setStatusBar(self.statusbar)
+
+		self.retranslateUi(MainWindow)
+		self.tab_widget.setCurrentIndex(0)
+		QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+	def retranslateUi(self, MainWindow):
+		_translate = QtCore.QCoreApplication.translate
+		MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+		self.hist_box_label.setText(_translate("MainWindow", "Exchange, Coin, Period:"))
+		self.hist_submit_btn.setText(_translate("MainWindow", "Submit"))
+		self.hist_scroll_label.setText(_translate("MainWindow", "No Item Selected"))
+		self.hist_update_btn.setText(_translate("MainWindow", "Update Graph"))
+		self.tab_widget.setTabText(self.tab_widget.indexOf(self.historical_tab), _translate("MainWindow", "Historical Data"))
+		self.tab_widget.setTabText(self.tab_widget.indexOf(self.feature_tab), _translate("MainWindow", "Feature Data"))
+		self.interval_label1.setText(_translate("MainWindow", "Start Time:"))
+		self.interval_label2.setText(_translate("MainWindow", "End Time:"))
+		self.interval_btn.setText(_translate("MainWindow", "Update Graph"))
+
+
+def window():
+	app = QtWidgets.QApplication(sys.argv)
+	MainWindow = QtWidgets.QMainWindow()
+	ui = Ui_MainWindow()
+	ui.setupUi(MainWindow)
+	MainWindow.show()
+	sys.exit(app.exec_())
+
+
+
+'''
+from PyQt5.QtWidgets import QPushButton, QSizePolicy
+from PyQt5.QtGui import QIcon
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 class App(QMainWindow):
 
@@ -74,7 +236,7 @@ class App(QMainWindow):
 
 class PlotCanvas(FigureCanvas):
 
-	def __init__(self, parent=None, width=5, height=4, dpi=100):
+	def __init__(self, parent=None, width=6, height=5, dpi=100):
 		self.datapoints = 100 #datapoints
 		self.raw = Database.historical('KRAKEN_BTC_5MIN')
 
@@ -89,10 +251,11 @@ class PlotCanvas(FigureCanvas):
 			QSizePolicy.Expanding)
 		FigureCanvas.updateGeometry(self)
 
-		self.animate(0)
+		self.plot()
 
 
-	def animate(self, i):
+
+	def plot(self):
 		end_time = 1537789800
 		start_time = end_time - (300 * self.datapoints)
 
@@ -106,55 +269,8 @@ class PlotCanvas(FigureCanvas):
 		self.draw()
 
 
-'''
-class Grapher():
-
-	def __init__(self):
-		
-		#IMPORTANT:
-		#Develope this class to utilize the database directly.
-		
-		self.datapoints = 100 #datapoints
-		self.raw = Database.historical('KRAKEN_BTC_5MIN')
-		#self.raw = self.raw.loc[1537761000:1550275800, :]
-		#self.delta = features.delta(self.raw)
-		#self.smooth = features.smooth(self.raw, 300, width=10)
-		self.index = 0
-
-
-	def animate(self, i):
-		offset = 300 * self.index
-		end_time = 1537789800 + offset
-		start_time = end_time - (300 * self.datapoints)
-		interval = abs(end_time - start_time)
-
-		#self.index += 1
-
-		display_raw = self.raw.loc[start_time:end_time, 'price_high']
-		#display_smooth = self.smooth.loc[start_time:end_time, 'price_high']
-		#display_delta = self.delta.loc[start_time:end_time, 'price_high']
-
-		xticks_count = 4
-		#the first value is start_time and the last value is end_time
-		xticks = np.multiply(range(xticks_count), 
-							 interval / (xticks_count - 1))
-		xticks = np.add(xticks, start_time)
-
-		#convert to date
-		xticks_labels = []
-		for unix in xticks:
-			xticks_labels.append(preproc.unix_to_date(unix, show_dec=False))
-
-		plt.cla()
-		plt.xticks(xticks, xticks_labels, rotation=10)
-		plt.plot(display_raw)
-		#plt.plot(display_delta)
-		#plt.plot(display_smooth)
-
-
-def graph():
-	graph = Grapher()
-
-	ani = FuncAnimation(plt.gcf(), graph.animate, interval=100)
-	plt.show()
+def start():
+	app = QApplication(sys.argv)
+	ex = App()
+	sys.exit(app.exec_())
 '''
