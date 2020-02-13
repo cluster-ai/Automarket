@@ -4,6 +4,10 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
 
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
 import random
 
 #standard libraries
@@ -55,6 +59,10 @@ class Ui_MainWindow(object):
 
 		#initializes graph data variables
 		self.historical_data = pd.DataFrame()
+		self.graph_data = pd.DataFrame()#each column is another plot
+		self.start_time = None
+		self.end_time = None
+		self.default_interval = 100 #100 datapoints
 
 		###TAB WIDGET###
 		self.tab_widget = QtWidgets.QTabWidget(self.centralwidget)
@@ -81,7 +89,7 @@ class Ui_MainWindow(object):
 		self.hist_box_label.setGeometry(QtCore.QRect(80, 10, 221, 41))
 		self.hist_box_label.setObjectName("hist_box_label")
 		self.hist_submit_btn = QtWidgets.QPushButton(self.historical_tab)
-		self.hist_submit_btn.setGeometry(QtCore.QRect(120, 110, 131, 28))
+		self.hist_submit_btn.setGeometry(QtCore.QRect(120, 130, 131, 28))
 		self.hist_submit_btn.setObjectName("hist_submit_btn")
 		self.hist_submit_btn.clicked.connect(lambda: self.clicked_hist_submit())
 		#hist scroll widgets
@@ -90,21 +98,23 @@ class Ui_MainWindow(object):
 		self.hist_scroll_label.setAlignment(QtCore.Qt.AlignCenter)
 		self.hist_scroll_label.setObjectName("hist_scroll_label")
 		self.hist_scroll_area = QtWidgets.QScrollArea(self.historical_tab)
-		self.hist_scroll_area.setGeometry(QtCore.QRect(40, 230, 301, 231))
+		self.hist_scroll_area.setGeometry(QtCore.QRect(40, 230, 301, 311))
 		self.hist_scroll_area.setWidgetResizable(True)
 		self.hist_scroll_area.setObjectName("hist_scroll_area")
 		self.hist_scroll_widget = QtWidgets.QWidget()
-		self.hist_scroll_widget.setGeometry(QtCore.QRect(0, 0, 299, 229))
+		self.hist_scroll_widget.setGeometry(QtCore.QRect(0, 0, 299, 309))
 		self.hist_scroll_widget.setObjectName("hist_scroll_widget")
 		self.hist_scroll_area.setWidget(self.hist_scroll_widget)
 		self.hist_scroll_layout = QtWidgets.QVBoxLayout()
+		self.hist_scroll_widget.setLayout(self.hist_scroll_layout)
 
 		self.tab_widget.addTab(self.historical_tab, "")
 
 		#update graph btn
 		self.hist_update_btn = QtWidgets.QPushButton(self.historical_tab)
-		self.hist_update_btn.setGeometry(QtCore.QRect(92, 480, 191, 31))
+		self.hist_update_btn.setGeometry(QtCore.QRect(92, 560, 191, 31))
 		self.hist_update_btn.setObjectName("hist_update_btn")
+		self.hist_update_btn.clicked.connect(self.update_graph)
 		#feature tab
 		self.feature_tab = QtWidgets.QWidget()
 		self.feature_tab.setObjectName("feature_tab")
@@ -132,21 +142,23 @@ class Ui_MainWindow(object):
 		font.setPointSize(11)
 		self.interval_label2.setFont(font)
 		self.interval_label2.setObjectName("interval_label2")
-		self.start_time = QtWidgets.QDateTimeEdit(self.interval_widget)
-		self.start_time.setGeometry(QtCore.QRect(110, 10, 201, 31))
+		self.start_time_box = QtWidgets.QDateTimeEdit(self.interval_widget)
+		self.start_time_box.setGeometry(QtCore.QRect(110, 10, 201, 31))
 		font = QtGui.QFont()
 		font.setPointSize(10)
-		self.start_time.setFont(font)
-		self.start_time.setObjectName("start_time")
-		self.end_time = QtWidgets.QDateTimeEdit(self.interval_widget)
-		self.end_time.setGeometry(QtCore.QRect(110, 50, 201, 31))
+		self.start_time_box.setFont(font)
+		self.start_time_box.setObjectName("start_time_box")
+		self.end_time_box = QtWidgets.QDateTimeEdit(self.interval_widget)
+		self.end_time_box.setGeometry(QtCore.QRect(110, 50, 201, 31))
 		font = QtGui.QFont()
 		font.setPointSize(10)
-		self.end_time.setFont(font)
-		self.end_time.setObjectName("end_time")
+		self.end_time_box.setFont(font)
+		self.end_time_box.setObjectName("end_time_box")
 		self.interval_btn = QtWidgets.QPushButton(self.interval_widget)
 		self.interval_btn.setGeometry(QtCore.QRect(50, 90, 221, 31))
 		self.interval_btn.setObjectName("interval_btn")
+		self.interval_btn.clicked.connect(self.update_graph)
+		#graph widget
 		self.graph_widget = QtWidgets.QWidget(self.centralwidget)
 		self.graph_widget.setGeometry(QtCore.QRect(0, 130, 681, 521))
 		self.graph_widget.setObjectName("graph_widget")
@@ -188,16 +200,83 @@ class Ui_MainWindow(object):
 		self.historical_data = Database.historical(self.hist_box_val)
 
 		#clear layout
-		self.hist_scroll_layout = QtWidgets.QVBoxLayout()
+		for i in reversed(range(self.hist_scroll_layout.count())): 
+			self.hist_scroll_layout.itemAt(i).widget().setParent(None)
 
 		#hist scroll buttons (shows data columns
 		#available for chosen hist data)
 		for col in self.historical_data.columns:
 			btn = QtWidgets.QPushButton()
+			btn.setCheckable(True)
 			btn.setText(col)
+			btn.clicked.connect(lambda: print('clicked'))
 			self.hist_scroll_layout.addWidget(btn)
 
-		self.hist_scroll_widget.setLayout(self.hist_scroll_layout)
+
+	def update_graph(self):
+		#find interval of data
+		data_end = self.graph_data.index.max()
+		data_start = self.graph_data.index.min()
+
+		self.start_time = 1537789800
+		self.end_time = data_end - 300*100
+
+		#keep graph interval in range of data
+		if self.start_time > self.end_time:
+			self.start_time = self.end_time
+		#start time
+		if self.start_time < data_start:
+			self.start_time = data_start
+		elif self.start_time > data_end:
+			self.start_time = data_end
+		#end time
+		if self.end_time < data_start:
+			self.end_time = data_start
+		elif self.end_time > data_end:
+			self.end_time = data_end
+
+		#finds which hist_box column buttons are selected
+		items = (
+			self.hist_scroll_layout.itemAt(i) 
+			for i in range(self.hist_scroll_layout.count()))
+
+		selected_columns = []
+		for w in items:
+			if w.isChecked() == True:
+				selected_columns.append(w.text())
+		print(selected_columns)
+
+		data = self.graph_data.loc[self.start_time:self.end_time, :]
+
+		m = Graph(self, data)
+
+
+class Graph(FigureCanvas):
+	def __init__(self, data, parent=None, width=6, height=5, dpi=100):
+
+		fig = Figure()
+		self.axes = fig.add_subplot(111)
+
+		FigureCanvas.__init__(self, fig)
+
+		FigureCanvas.setSizePolicy(self,
+			QSizePolicy.Expanding,
+			QSizePolicy.Expanding)
+		FigureCanvas.updateGeometry(self)
+
+		self.plot(data)
+
+
+	def plot(self, data):
+		#self.index += 1
+		ax = self.figure.add_subplot(111)
+
+		for col in data.columns:
+			ax.plot(data.loc[:, col])
+
+		ax.set_title('PyQt Matplotlib Example')
+		self.draw()
+
 
 
 def window():
@@ -207,7 +286,6 @@ def window():
 	ui.setupUi(MainWindow)
 	MainWindow.show()
 	sys.exit(app.exec_())
-
 
 
 '''
