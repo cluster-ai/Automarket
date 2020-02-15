@@ -59,6 +59,7 @@ class Ui_MainWindow(object):
 
 		#initializes graph data variables
 		self.historical_data = pd.DataFrame()
+		self.historical_cols = []
 		self.graph_data = pd.DataFrame()#each column is another plot
 		self.start_time = None
 		self.end_time = None
@@ -199,6 +200,9 @@ class Ui_MainWindow(object):
 		#loads historical data into memory using hist_box index_id
 		self.historical_data = Database.historical(self.hist_box_val)
 
+		#resets historical col list
+		self.historical_cols = []
+
 		#clear layout
 		for i in reversed(range(self.hist_scroll_layout.count())): 
 			self.hist_scroll_layout.itemAt(i).widget().setParent(None)
@@ -209,7 +213,7 @@ class Ui_MainWindow(object):
 			btn = QtWidgets.QPushButton()
 			btn.setCheckable(True)
 			btn.setText(col)
-			btn.clicked.connect(lambda: print('clicked'))
+			#btn.clicked.connect()
 			self.hist_scroll_layout.addWidget(btn)
 
 
@@ -236,15 +240,17 @@ class Ui_MainWindow(object):
 			self.end_time = data_end
 
 		#finds which hist_box column buttons are selected
-		items = (
-			self.hist_scroll_layout.itemAt(i) 
-			for i in range(self.hist_scroll_layout.count()))
+		widgets = (self.hist_scroll_layout.itemAt(i).widget() 
+					for i in range(self.hist_scroll_layout.count()))
 
 		selected_columns = []
-		for w in items:
-			if w.isChecked() == True:
-				selected_columns.append(w.text())
-		print(selected_columns)
+		for widget in widgets:
+			if isinstance(widget, QtWidgets.QPushButton):
+				print(widget.text())
+				print(widget.isChecked())
+				if widget.isChecked() == True:
+					selected_columns.append(widget.text())
+		print(f'COLUMNS: {selected_columns}')
 
 		data = self.graph_data.loc[self.start_time:self.end_time, :]
 
