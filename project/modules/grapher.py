@@ -4,7 +4,10 @@ import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
 
+
+import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
@@ -161,8 +164,16 @@ class Ui_MainWindow(object):
 		self.interval_btn.clicked.connect(self.update_graph)
 		#graph widget
 		self.graph_widget = QtWidgets.QWidget(self.centralwidget)
-		self.graph_widget.setGeometry(QtCore.QRect(0, 130, 681, 521))
+		self.graph_widget.setGeometry(QtCore.QRect(-1, 129, 681, 521))
 		self.graph_widget.setObjectName("graph_widget")
+		self.graph_layout = QtWidgets.QVBoxLayout(self.graph_widget)
+		self.graph_layout.setContentsMargins(0, 0, 0, 0)
+		self.graph_layout.setObjectName("graph_layout")
+
+		self.figure = MatplotlibFigure()
+		self.graph_layout.addWidget(self.figure)
+		self.graph_widget.setLayout(self.graph_layout)
+
 		MainWindow.setCentralWidget(self.centralwidget)
 		self.menubar = QtWidgets.QMenuBar(MainWindow)
 		self.menubar.setGeometry(QtCore.QRect(0, 0, 1070, 26))
@@ -219,12 +230,15 @@ class Ui_MainWindow(object):
 
 	def update_graph(self):
 		#find interval of data
+		'''
 		data_end = self.graph_data.index.max()
 		data_start = self.graph_data.index.min()
+		'''
 
-		self.start_time = 1537789800
-		self.end_time = data_end - 300*100
+		self.start_time = 1568690100
+		self.end_time = self.start_time + 300*100
 
+		'''
 		#keep graph interval in range of data
 		if self.start_time > self.end_time:
 			self.start_time = self.end_time
@@ -238,6 +252,7 @@ class Ui_MainWindow(object):
 			self.end_time = data_start
 		elif self.end_time > data_end:
 			self.end_time = data_end
+		'''
 
 		#finds which hist_box column buttons are selected
 		widgets = (self.hist_scroll_layout.itemAt(i).widget() 
@@ -246,43 +261,35 @@ class Ui_MainWindow(object):
 		selected_columns = []
 		for widget in widgets:
 			if isinstance(widget, QtWidgets.QPushButton):
-				print(widget.text())
-				print(widget.isChecked())
 				if widget.isChecked() == True:
 					selected_columns.append(widget.text())
-		print(f'COLUMNS: {selected_columns}')
 
-		data = self.graph_data.loc[self.start_time:self.end_time, :]
+		#adds selected columns to graph data
+		self.graph_data = self.historical_data.loc[self.start_time:self.end_time, selected_columns]
+		
+		self.figure.plot(self.graph_data)
 
-		m = Graph(self, data)
 
+class MatplotlibFigure(QtWidgets.QWidget):
 
-class Graph(FigureCanvas):
-	def __init__(self, data, parent=None, width=6, height=5, dpi=100):
+	# constructor
+	def __init__(self):
+		super().__init__()
+		#self.layout = QBoxLayout()
+		self.figure = matplotlib.figure.Figure()
+		self.canvas = FigureCanvas(self.figure)
+		self.toolbar = NavigationToolbar(self.canvas, self)
 
-		fig = Figure()
-		self.axes = fig.add_subplot(111)
-
-		FigureCanvas.__init__(self, fig)
-
-		FigureCanvas.setSizePolicy(self,
-			QSizePolicy.Expanding,
-			QSizePolicy.Expanding)
-		FigureCanvas.updateGeometry(self)
-
-		self.plot(data)
-
+		layout = QtWidgets.QVBoxLayout(self)
+		layout.addWidget(self.toolbar)
+		layout.addWidget(self.canvas)
 
 	def plot(self, data):
-		#self.index += 1
+		self.figure.clf()
 		ax = self.figure.add_subplot(111)
-
 		for col in data.columns:
 			ax.plot(data.loc[:, col])
-
-		ax.set_title('PyQt Matplotlib Example')
-		self.draw()
-
+		self.canvas.draw_idle()
 
 
 def window():

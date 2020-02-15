@@ -249,15 +249,16 @@
      </widget>
     </widget>
    </widget>
-   <widget class="QWidget" name="graph_widget" native="true">
+   <widget class="QWidget" name="verticalLayoutWidget">
     <property name="geometry">
      <rect>
-      <x>0</x>
-      <y>130</y>
+      <x>-1</x>
+      <y>129</y>
       <width>681</width>
       <height>521</height>
      </rect>
     </property>
+    <layout class="QVBoxLayout" name="graph_layout"/>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
