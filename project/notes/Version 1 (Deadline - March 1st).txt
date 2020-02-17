@@ -1,12 +1,17 @@
 
 
 Application Target:
+
+DONE:
 - This application needs to accuratly request, store and interpret historical cryptocurrency data for any number of exchanges using the coinapi.io service.
+
+In Progress:
+- The data graph will be nested in a PyQT5 app that allows manipulation of graph features and settings for displaying raw historical and feature data
+
 - The user will be able to visualize data in real time using slide, expand, zoom features from matplotlib. This data will need to have the option of being normalized so that different sets of data on the same interval can be compared simultaneously
-- The data graph will be nested in a kivy app that allows manipulation of graph features and settings for displaying raw historical and feature data
 - The application will support the creation of feautures for feature engineering using several preprocessed sets of functions saved in the database.
 - the feauture sets saved in database must be attatched to a neural net architecture and saved to database to be considered training_data.
-- The user will have the ability to draw from the neural/feauture set pair and train the net seemlessly to see the effectiveness of their work.
+- The user will have the ability to draw from the neural/feauture set pair and train the neural net seemlessly to see the effectiveness of their work.
 NOTE: at this time, version 1 will not have any functionality beyond training the network
 
 The entire system will need to be encased in a simple and straightforward command line in the terminal. The commands for which will need to be expanded upon in the readme/instruction doc.

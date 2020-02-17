@@ -204,25 +204,36 @@ def smooth(historical, time_increment, width=1):
 		if min_index <= min_hist_index:
 			min_index = min_hist_index
 
-		#iterates through columns
-		for col in historical.columns:
-			#verifies col is one that will be converted
-			'''if col in ['price_high', 'price_low',
-					   'volume_traded', 'trades_count']:'''
-			if col in ['price_high']:
+		#columns being smoothed
+		columns = ['price_high']
 
-				#array of values that will be used for average
-				#in order of index
-				vals = historical.loc[min_index:max_index, col]
+		#array of values that will be used for average
+		#in order of index
+		vals = historical.loc[min_index:max_index, columns]
 
-				#drop empty values
-				vals.dropna(inplace=True)
+		#starts index count at zero for row 1 but
+		#still incrementing by time_increment
+		vals.index = vals.index - vals.index.min()
 
-				#average the vals
-				average = np.sum(vals) / len(vals.index)
+		#centers actual value at index 0
+		#also sets index increment to 1
+		vals.index = ((vals.index - width*time_increment)
+					  / time_increment)
 
-				#apply new average value
-				data.at[index, col] = average
+		#calculates the multiplier and adds it as a col
+		vals['multiplier'] = vals.index
+		vals['multiplier'] = width - abs(vals.loc[:, 'multiplier']) + 1
+
+		#drop empty values
+		vals.dropna(inplace=True)
+
+		for col in columns:
+			#average the vals
+			average = (np.sum(vals[col]*vals['multiplier']) 
+					   / np.sum(vals['multiplier']))
+
+			#apply new average value
+			data.at[index, col] = average
 
 		if count % 10000 == 0:
 			current_time = time.time()

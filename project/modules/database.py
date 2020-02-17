@@ -26,15 +26,15 @@ class Database():
 	historical_base_path = base_path + '/historical_data'
 	historical_index_path = (historical_base_path 
 							 + '/historical_index.json')
-	training_base_path = base_path + '/training_data'
-	training_index_path = (training_base_path
-						   + '/training_index.json')
+	features_base_path = base_path + '/features_data'
+	features_index_path = (features_base_path
+						   + '/features_index.json')
 	settings_path = base_path + '/settings.json'
 	coin_index_path = base_path + '/coin_index.json'
 
 	#dict variables that track/index data in database
 	historical_index = {}
-	training_index = {}
+	features_index = {}
 	coin_index = {}
 
 	#used by the other modules to store program wide information
@@ -49,8 +49,8 @@ class Database():
 		if os.path.isdir(Database.historical_base_path) == False:
 			os.mkdir(Database.historical_base_path)
 
-		if os.path.isdir(Database.training_base_path) == False:
-			os.mkdir(Database.training_base_path)
+		if os.path.isdir(Database.features_base_path) == False:
+			os.mkdir(Database.features_base_path)
 
 
 		#loads index and settings files to Database
@@ -78,20 +78,20 @@ class Database():
 		###TRAINING_INDEX###
 		print('...')
 		#Checks to see if path exists, if not creates one
-		if os.path.exists(Database.training_index_path) == False:
-			print(f'File Not Found -> {Database.training_index_path}')
-			open(Database.training_index_path, 'w')
+		if os.path.exists(Database.features_index_path) == False:
+			print(f'File Not Found -> {Database.features_index_path}')
+			open(Database.features_index_path, 'w')
 
-		print('Loading training Index: '
-			  + Database.training_index_path)
+		print('Loading features Index: '
+			  + Database.features_index_path)
 		#loads indexes for training index
-		with open(Database.training_index_path) as file:
+		with open(Database.features_index_path) as file:
 			try: 
-				Database.training_index = json.load(file)
+				Database.features_index = json.load(file)
 			except ValueError:
-				Database.training_index = []
+				Database.features_index = []
 				print('NOTICE: file is empty -> '
-					  + Database.training_index_path)
+					  + Database.features_index_path)
 
 		###HISTORICAL_INDEX###
 		print('...')
@@ -576,20 +576,22 @@ class Database():
 		return data
 
 
-	def add_training_item(index_id):
+	def add_features_group(index_id):
 		'''
-		Adds training item to training_index
+		This function takes in a historical index_id and 
+		creates a features group for it
 
 		Parameters:
 			index_id   : (str) id to desired historical data
+							   (ex: KRAKEN_BTC_5MIN)
 		'''
 
 		#verifies given index_id
 		if index_id not in Database.historical_index:
 			raise KeyError(f'"{index_id}" not in Historical Index')
 
-		#verifies index_id not already in training_index
-		if index_id in Database.training_index:
+		#verifies index_id not already in features_index
+		if index_id in Database.features_index:
 			print(f'NOTICE: {index_id} already in Training Index')
 
 		#historical_index of index_id
@@ -632,6 +634,6 @@ class Database():
 		print(f'Added {index_id} to Training Index')
 
 		#updates historical_index
-		Database.training_index.update({index_id: index_item})
+		Database.features_index.update({index_id: index_item})
 		#saves changes to file
 		Database.save_files()
