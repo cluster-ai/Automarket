@@ -86,7 +86,7 @@ class Ui_MainWindow(object):
         self.month_btn.setGeometry(QtCore.QRect(220, 50, 81, 28))
         self.month_btn.setObjectName("month_btn")
         self.interval_label = QtWidgets.QLabel(self.interval_widget)
-        self.interval_label.setGeometry(QtCore.QRect(50, 80, 221, 31))
+        self.interval_label.setGeometry(QtCore.QRect(10, 80, 301, 31))
         font = QtGui.QFont()
         font.setPointSize(12)
         self.interval_label.setFont(font)

@@ -65,7 +65,12 @@ class Ui_MainWindow(object):
 		self.historical_cols = []
 		self.graph_data = pd.DataFrame()#each column is another plot
 		self.start_time = None
-		self.end_time = None
+		self.intervals = {#item is interval period in seconds
+			'1 Day': 86400, 
+			'1 Week': 604800, 
+			'1 Month': 2592000
+		}
+		self.current_interval = '1 Day'
 		self.default_interval = 100 #100 datapoints
 
 		###TAB WIDGET###
@@ -149,14 +154,17 @@ class Ui_MainWindow(object):
 		self.day_btn = QtWidgets.QPushButton(self.interval_widget)
 		self.day_btn.setGeometry(QtCore.QRect(20, 50, 81, 28))
 		self.day_btn.setObjectName("day_btn")
+		self.day_btn.clicked.connect(lambda: self.clicked_interval('1 Day'))
 		self.week_btn = QtWidgets.QPushButton(self.interval_widget)
 		self.week_btn.setGeometry(QtCore.QRect(120, 50, 81, 28))
 		self.week_btn.setObjectName("week_btn")
+		self.week_btn.clicked.connect(lambda: self.clicked_interval('1 Week'))
 		self.month_btn = QtWidgets.QPushButton(self.interval_widget)
 		self.month_btn.setGeometry(QtCore.QRect(220, 50, 81, 28))
 		self.month_btn.setObjectName("month_btn")
+		self.month_btn.clicked.connect(lambda: self.clicked_interval('1 Month'))
 		self.interval_label = QtWidgets.QLabel(self.interval_widget)
-		self.interval_label.setGeometry(QtCore.QRect(50, 80, 221, 31))
+		self.interval_label.setGeometry(QtCore.QRect(10, 80, 301, 31))
 		font = QtGui.QFont()
 		font.setPointSize(12)
 		self.interval_label.setFont(font)
@@ -200,7 +208,15 @@ class Ui_MainWindow(object):
 		self.day_btn.setText(_translate("MainWindow", "1 Day"))
 		self.week_btn.setText(_translate("MainWindow", "1 Week"))
 		self.month_btn.setText(_translate("MainWindow", "1 Month"))
-		self.interval_label.setText(_translate("MainWindow", "Current Interval: 1 Day"))
+		self.interval_label.setText(
+			_translate("MainWindow", 
+					   f"Current Interval: {self.current_interval}")
+		)
+
+
+	def clicked_interval(self, interval):
+		self.current_interval = interval
+		self.interval_label.setText(f"Current Interval: {self.current_interval}")
 
 
 	def clicked_hist_submit(self):
