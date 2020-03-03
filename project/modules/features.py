@@ -224,6 +224,8 @@ def smooth(historical, time_increment, width=1):
 		vals['multiplier'] = vals.index
 		vals['multiplier'] = width - abs(vals.loc[:, 'multiplier']) + 1
 
+		print('\n', vals)
+
 		#drop empty values
 		vals.dropna(inplace=True)
 

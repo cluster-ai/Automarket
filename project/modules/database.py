@@ -25,10 +25,10 @@ class Database():
 
 	historical_base_path = base_path + '/historical_data'
 	historical_index_path = (historical_base_path 
-							 + '/historical_index.json')
+							+ '/historical_index.json')
 	features_base_path = base_path + '/features_data'
 	features_index_path = (features_base_path
-						   + '/features_index.json')
+						  + '/features_index.json')
 	settings_path = base_path + '/settings.json'
 	coin_index_path = base_path + '/coin_index.json'
 

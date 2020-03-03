@@ -286,7 +286,7 @@ class Ui_MainWindow(object):
 		self.graph_data = self.historical_data.loc[self.start_time:self.end_time, selected_columns]
 		
 		smooth_data = self.historical_data.loc[self.start_time:self.end_time, :]
-		smooth_data = features.smooth(smooth_data, 300, 8)
+		smooth_data = features.smooth(smooth_data, 300, 6)
 		self.graph_data['smooth'] = smooth_data['price_high']
 
 		self.figure.plot(self.graph_data)
