@@ -52,7 +52,6 @@ class Database():
 		if os.path.isdir(Database.features_base_path) == False:
 			os.mkdir(Database.features_base_path)
 
-
 		#loads index and settings files to Database
 		Database.load_files()
 
