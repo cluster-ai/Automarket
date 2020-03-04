@@ -518,7 +518,7 @@ class Database():
 
 	def historical(index_id, start_time=None, end_time=None):
 		'''
-		This funtion returns historical data
+		Returns dataframe for the specified historical data
 
 		Parameters:
 			index_id   : (str) id to desired historical data
@@ -575,14 +575,77 @@ class Database():
 		return data
 
 
-	def add_features_group(index_id):
+	def feature_group(index_id, start_time=None, end_time=None):
 		'''
-		This function takes in a historical index_id and 
-		creates a features group for it
+		Returns dataframe for the specified feature_group
 
 		Parameters:
-			index_id   : (str) id to desired historical data
-							   (ex: KRAKEN_BTC_5MIN)
+			index_id : (str) id for historical_data item
+						and its corresponding feature_group
+
+			start_time : (int, unix-utc) returned data
+						 will be >= this time
+				NOTE: if start_time == None, all data
+					  is loaded before end_time
+
+			end_time   : (int, unix-utc) returned data
+						 will be <= this time
+				NOTE: if end_time == None, all data is
+					  is loaded after start_time
+
+		NOTE: This assumes time_period_start data is included
+		with the data
+		'''
+
+		#verifies given index_id
+		if index_id not in Database.features_index:
+			raise KeyError(f'"{index_id}" not in Features Index')
+
+		#makes sure start_time is <= end_time
+		if start_time != None and end_time != None: 
+			if start_time > end_time:
+				raise RuntimeError(f'start_time > end_time')
+
+		#loads data file path
+		filepath = Database.features_index[index_id]['filepath']
+		#loads data file name
+		filename = Database.features_index[index_id]['filename']
+
+		#loads all data from file
+		data = pd.read_csv(filepath)
+
+		#makes data.index equal to 'time_period_start' column
+		data.set_index('time_period_start', drop=False, inplace=True)
+
+		#slices data based on start_time if parameter was given
+		if start_time != None:
+			#catches out out of scope start_time
+			if start_time not in data.index:
+				raise IndexError(f'{start_time} index not in {filename}')
+			data = data.loc[start_time: , :]
+
+		#slices data based on end_time if parameter was given
+		if end_time != None:
+			#catches out out of scope end_time
+			if end_time not in data.index:
+				raise IndexError(f'{end_time} index not in {filename}')
+			data = data.loc[:end_time, :]
+
+		return data
+
+
+	def add_feature(index_id, feature_id):
+		'''
+		This function is used by the feature.py
+		module to add a feature/feature_group. 
+
+		Parameters:
+			index_id   : (str) id used for the feature group
+						  (it is the same as historical_data)
+			feature_id : (str) id used for a single feature
+							   within a feature group
+			data       : (pd.Series) data that will overwrite 
+							the current items in feautre 
 		'''
 
 		#verifies given index_id
@@ -591,48 +654,98 @@ class Database():
 
 		#verifies index_id not already in features_index
 		if index_id in Database.features_index:
-			print(f'NOTICE: {index_id} already in Training Index')
+			print(f'NOTICE: {index_id} already in Features Index')
 
-		#historical_index of index_id
+		#historical index data from index_id
 		data_index = Database.historical_index[index_id]
 
-		#items needed for following directories
-		period_id = data_index['period_id']
-		exchange_id = data_index['exchange_id']
-		coin_id = data_index['coin_id']
+		###################################################
+		###Verify Feature Group
 
 		#the first dir is the period_id str associated to time_increment
-		base_path = Database.training_base_path + f'/{period_id}'
-		if os.path.isdir(base_path) == False:
-			os.mkdir(base_path)
+		filepath = Database.features_base_path + f'/{period_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
 		#the next dir is the coin_id
-		base_path += f'/{coin_id}'
-		if os.path.isdir(base_path) == False:
-			os.mkdir(base_path)
+		filepath += f'/{coin_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
 		#the final dir is the index_id
-		base_path += f'/{index_id}'
-		if os.path.isdir(base_path) == False:
-			os.mkdir(base_path)
+		filename = f'{index_id}.csv'
+		filepath += f'/{filename}'
 
-		#fills out required information for new 
-		#training index_item
-		index_item = {
-			'base_path': base_path,
-			'files': {},
-			'symbol_id': coin_data['symbol_id'],
-			'exchange_id': exchange_id,
-			'asset_id_quote': coin_data['asset_id_quote'],
-			'asset_id_base': coin_data['asset_id_base'],
-			'period_id': period_id,
-			'time_increment': time_increment,
-			'datapoints': 0,
-			'data_start': coin_data['data_start'],
-			'data_end': coin_data['data_start'],#not a typo
-		}
+		#if either index or file not found, re-initialize feature-group
+		if (os.path.exists(filepath) == False or 
+				index_id not in Database.features_index):
 
-		print(f'Added {index_id} to Training Index')
+			#creates new file if one is not found
+			if os.path.exists(filepath) == False:
+				open(filepath, 'w')
+			
+			#overwrites file with time_period_start col from historical
+			df = Database.historical(index_id).loc[:, ['time_period_start']]
+			df.to_csv(filepath, index=False)
 
-		#updates historical_index
-		Database.features_index.update({index_id: index_item})
-		#saves changes to file
-		Database.save_files()
+			index_item = {
+				'filename': filename,
+				'filepath': filepath,
+				'features': {},
+				'symbol_id': data_index['symbol_id'],
+				'exchange_id': data_index['exchange_id'],
+				'asset_id_quote': data_index['asset_id_quote'],
+				'asset_id_base': data_index['asset_id_base'],
+				'period_id': data_index['period_id'],
+				'time_increment': time_data_index['increment'],
+				'even_features': False,
+				'data_start': data_index['data_start'],
+				'data_end': data_index['data_start']#not a typo
+			}
+
+			print(f'Added {index_id} to Features Index')
+
+			#updates historical_index
+			Database.features_index.update({index_id: index_item})
+			#saves changes to file
+			Database.save_files()
+
+		###################################################
+		###Adds Feature
+
+		#database does not care what feature_id is, it is
+		#only useful to feature.py module when updating
+
+		#loads feature group
+		group_index = Database.features_index[index_id]
+
+		#verifies that feature does not exist
+		if feature_id not in group_index['features']:
+			#update features_index with feature
+			Database.features_index[index_id]['features'].update(feature_id)
+			print(f'Added {feature_id} to {index_id} Feature Group')
+		else:
+			print(f'NOTICE: {feauture_id} already exists for {index_id}')
+
+
+	def update_feature_group(index_id):
+		'''
+		This function updates every feature in "index_id" 
+		feature group to the most recent historical_data 
+		values.
+
+		NOTE: Database does not care about the contents
+		of feature_group['features'] or filname.csv
+
+		Parameters:
+			index_id : (str) id for historical_index item
+							and corresponding feature_group
+		'''
+
+		#feature_group index
+		group_index = Database.features_index[index_id]
+
+		#feature_group data
+		group_df = Database.feature_group(index_id)
+
+		#calls feature.py function to update features df and
+		#the feature_group['features'] index
+		'''features.function(group_index, group_df)'''

@@ -1,5 +1,5 @@
 
- - implement database.reload_historical_index() and database.reload_training_index(). If the data in any index.json files are corrupted or altered to not match the actual data, there needs to be a way of reloading that index.
+ - implement database.reload_historical_index() and database.reload_features_index(). If the data in any index.json files are corrupted or altered to not match the actual data, there needs to be a way of reloading that index.
 
 - I ran a backfill on XRP for the most recent data at 9:13 but it gave me data for 9:15, MAKE SURE the data is not partial for that time period (I think they just send what they have so far instead of waiting for the full period to elapse)
 
