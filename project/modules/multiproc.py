@@ -16,16 +16,20 @@ from multiprocessing import Manager, Process
 ########################################################################
 
 '''
+Multiproc.py Design Target:
+	Call multiproc.compute(), input ANY custom 
+	algorithm dealing with a dataframe and it 
+	will process it with specified thread count.
+
+
 The compute() function is the primary object used in this module
 and handles management of threads. Call it for any/all multiproc
 applications.
 
 The functions made for compute() can be used on their own with the 
-right implementation. It is still recommended to  use compute()
+right implementation. It is still recommended to use compute()
 with threads=1 when single threaded processing is needed.
-'''
 
-'''
 NOTES:
 	I found that initializing threads with recursion is basically
 	instantaneous while using a loop can takes seconds. To implement

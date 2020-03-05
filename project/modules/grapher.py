@@ -42,15 +42,6 @@ The "Graph" class will be used as a continuously updating
 representation of data. The built in features of this class
 will be for data stored in the database, any other data must 
 be loaded into it via argument.
-
-For version 1 (if time permits), this module would benefit from
-being nested in a UI allowing the user to change graph data/options
-without having to reopen it manually. (use PyQt UI framework)
-
-For Dynamic Scrolling List of Buttons:
-- a container widget that you put in the QScrollArea,
-- a QHBoxLayout on that widget.
-- add your new buttons to that horizontal layout.
 '''
 
 class Ui_MainWindow(object):

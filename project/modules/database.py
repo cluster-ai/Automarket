@@ -19,6 +19,13 @@ import modules.features as features
 #72 character recommended limit
 ########################################################################
 
+'''
+Database.py Design Target:
+	Directly handles the mechanism responsible for
+	retreiving, storing, and tracking historical
+	and feature data.
+'''
+
 class Database():
 	#filepaths to different portions of database file structure
 	base_path = 'database'

@@ -14,15 +14,41 @@ import time
 #72 character recommended limit
 ########################################################################
 
-def time_series(historical):
+'''
+Features.py Design Target:
+	A tool for creating feature data and
+	the mechanism used to update those features.
+
+	Features is primarily used by database to create
+	features. The features and their corresponding
+	item_index (used for remembering parameters) is fed 
+	back into the feature class for updating. Control of 
+	the database of features is facilitated by the 
+	database class.
+
+	Data fed into any feature function can be categorized 
+	into 2 different camps: categorical and numerical.
+	These camps are important to consider when stacking
+	feature functions but may still be joinable in some
+	manner. 
+	EX: isolate one-hot encoded categorical data to 
+	individual columns of bool values (1 and 0) and 
+	compute it with a numerical column somehow.
+
+	The "default" feature functions are located below, 
+	outside of the feature class. They can, however, come 
+	from anywhere as long as they can be used the same way.
+'''
+
+def time_series(historical): #numerical and categorical
 	'''
 	Creates following features
-		/date/
+		/date/ "categorical"
 		- weekday
 		- month
 		- day
 		- year
-		/time/
+		/time/ "numerical"
 		- hour
 		- minute
 
@@ -57,7 +83,7 @@ def time_series(historical):
 	return features
 
 
-def delta(historical):
+def delta(historical): #numerical
 	'''
 	This function takes various historical values of crytpocurrency
 	and converters it to change values. 
@@ -130,7 +156,7 @@ def delta(historical):
 	return features
 
 
-def smooth(historical, time_increment, width=1):
+def smooth(historical, time_increment, width=1): #numerical
 	'''
 	THIS CAN BE USED TO SIMPLIFY DATA FOR LARGER SEQUENCES
 	IT ALSO HELPS REMOVE OUTLIERS FROM THE DATA
@@ -238,14 +264,6 @@ def smooth(historical, time_increment, width=1):
 
 
 class Feature():
-	'''
-	THE AQUISITION OF FEATURES IS AN EXTENSION OF DATABASE
-	FUNCTIONALITY. THIS CLASS IS DESIGNED TO ALLOW AN ABSTRACTED
-	USE OF FEATURE CREATION, STORAGE AND RETREIVAL. 
-
-	In essence the database does not know or care about how the 
-	index and data of features works.
-	'''
 
 	def __init__(self, feature_id=None, df=None):
 		'''

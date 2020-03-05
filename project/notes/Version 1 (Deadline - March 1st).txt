@@ -14,13 +14,9 @@ In Progress:
 - The user will have the ability to draw from the neural/feauture set pair and train the neural net seemlessly to see the effectiveness of their work.
 NOTE: at this time, version 1 will not have any functionality beyond training the network
 
-- features may need to be broken up into a features_toolkit (has each computation available) and a features class module (abstracted layer that allows custom features and interatction with database for updating the custom features)
+- feature functions should only create the columns specified
 
 The entire system will need to be encased in a simple and straightforward command line in the terminal. The commands for which will need to be expanded upon in the readme/instruction doc.
-
-
-database "features" functions:
-- add feature (argument is the )
 
 
 If time permits, complete unittesting prioritizing more mission critical functions. (use discretion)

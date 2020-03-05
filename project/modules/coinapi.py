@@ -22,6 +22,13 @@ import numpy as np
 #72 character recommended limit
 ########################################################################
 
+'''
+Coinapi.py Design Target:
+	An abstraction of coinapi.io requests used
+	primarily by the database to backfill historical
+	data.
+'''
+
 class Coinapi():
 	base_url = 'https://rest.coinapi.io/v1/'
 	#base url for coinapi.io requests
