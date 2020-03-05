@@ -1,0 +1,10 @@
+
+
+Deadline: unclear
+
+The main points to hit with this version is to separate the database and neural net training from the "client" machine and instead have it run through a server of some kind. The core of this functionality will use SQL as well as some backend on the server side to communicate with and deliver information to and from client effectively. 
+
+
+Questions:
+- Since the datasets are small, perhaps the entire contents of the coins/exchanges being worked on can be loaded in their entirety? \
+- Is it necessary or beneficial to preprocess the data from the server or the client?

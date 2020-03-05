@@ -88,7 +88,7 @@ class Database():
 			try: 
 				Database.features_index = json.load(file)
 			except ValueError:
-				Database.features_index = []
+				Database.features_index = {}
 				print('NOTICE: file is empty -> '
 					  + Database.features_index_path)
 
@@ -416,8 +416,8 @@ class Database():
 			print(f'WARNING: "{coin_id}" is not being tracked')
 			return None
 
-		print('Backfilling Historical Data')
 		print('----------------------------------------------------')
+		print('Backfilling Historical Data')
 
 		#loads an index_id for each tracked exchange
 		backfill = {}
@@ -575,7 +575,7 @@ class Database():
 		return data
 
 
-	def feature_group(index_id, start_time=None, end_time=None):
+	def features(index_id, start_time=None, end_time=None):
 		'''
 		Returns dataframe for the specified feature_group
 
@@ -637,7 +637,9 @@ class Database():
 	def add_feature(index_id, feature_id):
 		'''
 		This function is used by the feature.py
-		module to add a feature/feature_group. 
+		module to add a feature (creates new
+		feature group in database if one does not
+		exist for requested feature). 
 
 		Parameters:
 			index_id   : (str) id used for the feature group
@@ -726,7 +728,7 @@ class Database():
 			print(f'NOTICE: {feauture_id} already exists for {index_id}')
 
 
-	def update_feature_group(index_id):
+	def update_features(index_id):
 		'''
 		This function updates every feature in "index_id" 
 		feature group to the most recent historical_data 

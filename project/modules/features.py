@@ -14,17 +14,6 @@ import time
 #72 character recommended limit
 ########################################################################
 
-'''
-Features.py will be a too filled scrypt for creating features
-
-New features can be added seamlessly as long as they return unique
-names in the following format
-features_return = new_df
-
-new_df = pd.DataFrame(columns=['feature1', 'feature2'...], 
-					  index='time_period_start')
-'''
-
 def time_series(historical):
 	'''
 	Creates following features
@@ -246,3 +235,35 @@ def smooth(historical, time_increment, width=1):
 		count += 1
 
 	return data
+
+
+class Feature():
+	'''
+	THE AQUISITION OF FEATURES IS AN EXTENSION OF DATABASE
+	FUNCTIONALITY. THIS CLASS IS DESIGNED TO ALLOW AN ABSTRACTED
+	USE OF FEATURE CREATION, STORAGE AND RETREIVAL. 
+
+	In essence the database does not know or care about how the 
+	index and data of features works.
+	'''
+
+	def __init__(self, feature_id=None, df=None):
+		'''
+		Parameters:
+			feature_id : (dict) data index of feature group
+				NOTE: given if loading existing feature
+			df         : (pd.DataFrame()) all data for feature
+		'''
+
+		print('----------------------------------------------------')
+		print('Loading Feature')
+
+		#at the very least a group_index needs to be given
+		if feature_id != None:
+
+			self.id = feature_id
+
+			if df == None:
+				print('NOTICE: no df given')
+		elif feature_id == None:
+			print('WARNING: feature_id not given')
