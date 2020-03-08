@@ -38,6 +38,13 @@ Features.py Design Target:
 	The "default" feature functions are located below, 
 	outside of the feature class. They can, however, come 
 	from anywhere as long as they can be used the same way.
+
+
+NEW FEATURE IDEA
+	Find the spikes in the data and compare the difference
+	to the smooth version of graph. Can also track when the
+	raw data crosses the smooth graph line and the difference
+	in slope.
 '''
 
 def time_series(historical): #numerical and categorical

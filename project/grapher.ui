@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1072</width>
-    <height>712</height>
+    <width>1091</width>
+    <height>711</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -35,7 +35,7 @@
      </font>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <property name="iconSize">
      <size>
@@ -47,68 +47,13 @@
      <attribute name="title">
       <string>Historical Data</string>
      </attribute>
-     <widget class="QComboBox" name="index_id_box">
-      <property name="geometry">
-       <rect>
-        <x>60</x>
-        <y>60</y>
-        <width>251</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="currentText">
-       <string/>
-      </property>
-     </widget>
-     <widget class="QLabel" name="hist_box_label">
-      <property name="geometry">
-       <rect>
-        <x>80</x>
-        <y>10</y>
-        <width>221</width>
-        <height>41</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Exchange, Coin, Period:</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="hist_submit_btn">
-      <property name="geometry">
-       <rect>
-        <x>120</x>
-        <y>110</y>
-        <width>131</width>
-        <height>28</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Submit</string>
-      </property>
-     </widget>
-     <widget class="QLabel" name="hist_scroll_label">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>179</y>
-        <width>351</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>No Item Selected</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
      <widget class="QScrollArea" name="hist_scroll">
       <property name="geometry">
        <rect>
         <x>40</x>
-        <y>230</y>
+        <y>70</y>
         <width>301</width>
-        <height>311</height>
+        <height>451</height>
        </rect>
       </property>
       <property name="widgetResizable">
@@ -120,16 +65,32 @@
          <x>0</x>
          <y>0</y>
          <width>299</width>
-         <height>309</height>
+         <height>449</height>
         </rect>
        </property>
       </widget>
      </widget>
+     <widget class="QLabel" name="hist_label">
+      <property name="geometry">
+       <rect>
+        <x>80</x>
+        <y>20</y>
+        <width>221</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>No Item Selected</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
      <widget class="QPushButton" name="hist_update_btn">
       <property name="geometry">
        <rect>
-        <x>92</x>
-        <y>560</y>
+        <x>90</x>
+        <y>550</y>
         <width>191</width>
         <height>31</height>
        </rect>
@@ -143,122 +104,69 @@
      <attribute name="title">
       <string>Feature Data</string>
      </attribute>
-    </widget>
-   </widget>
-   <widget class="QWidget" name="static_widget" native="true">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>0</y>
-      <width>681</width>
-      <height>121</height>
-     </rect>
-    </property>
-    <widget class="QWidget" name="interval_widget" native="true">
-     <property name="geometry">
-      <rect>
-       <x>360</x>
-       <y>0</y>
-       <width>321</width>
-       <height>121</height>
-      </rect>
-     </property>
-     <property name="font">
-      <font>
-       <pointsize>10</pointsize>
-      </font>
-     </property>
-     <widget class="QLabel" name="time_label">
+     <widget class="QScrollArea" name="feat_scroll">
       <property name="geometry">
        <rect>
-        <x>10</x>
-        <y>0</y>
-        <width>101</width>
-        <height>51</height>
-       </rect>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>Start Time:</string>
-      </property>
-     </widget>
-     <widget class="QDateTimeEdit" name="start_time">
-      <property name="geometry">
-       <rect>
-        <x>110</x>
-        <y>10</y>
-        <width>201</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>10</pointsize>
-       </font>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="day_btn">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>50</y>
-        <width>81</width>
-        <height>28</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>1 Day</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="week_btn">
-      <property name="geometry">
-       <rect>
-        <x>120</x>
-        <y>50</y>
-        <width>81</width>
-        <height>28</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>1 Week</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="month_btn">
-      <property name="geometry">
-       <rect>
-        <x>220</x>
-        <y>50</y>
-        <width>81</width>
-        <height>28</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>1 Month</string>
-      </property>
-     </widget>
-     <widget class="QLabel" name="interval_label">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>80</y>
+        <x>40</x>
+        <y>130</y>
         <width>301</width>
+        <height>391</height>
+       </rect>
+      </property>
+      <property name="widgetResizable">
+       <bool>true</bool>
+      </property>
+      <widget class="QWidget" name="scrollAreaWidgetContents_2">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>0</y>
+         <width>299</width>
+         <height>389</height>
+        </rect>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QLabel" name="feat_label">
+      <property name="geometry">
+       <rect>
+        <x>80</x>
+        <y>20</y>
+        <width>221</width>
         <height>31</height>
        </rect>
       </property>
-      <property name="font">
-       <font>
-        <pointsize>12</pointsize>
-       </font>
-      </property>
       <property name="text">
-       <string>Current Interval: 1 Day</string>
+       <string>No Item Selected</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="feat_update_btn">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>550</y>
+        <width>191</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Update Graph</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="create_feat_btn">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>70</y>
+        <width>191</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Create Feature</string>
       </property>
      </widget>
     </widget>
@@ -267,12 +175,174 @@
     <property name="geometry">
      <rect>
       <x>-1</x>
-      <y>119</y>
+      <y>129</y>
       <width>681</width>
-      <height>531</height>
+      <height>521</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="graph_layout"/>
+   </widget>
+   <widget class="QWidget" name="interval_widget" native="true">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>0</y>
+      <width>341</width>
+      <height>131</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>10</pointsize>
+     </font>
+    </property>
+    <widget class="QLabel" name="time_label">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>0</y>
+       <width>101</width>
+       <height>51</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>11</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Start Time:</string>
+     </property>
+    </widget>
+    <widget class="QDateTimeEdit" name="start_time">
+     <property name="geometry">
+      <rect>
+       <x>120</x>
+       <y>10</y>
+       <width>201</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>10</pointsize>
+      </font>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="day_btn">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>50</y>
+       <width>81</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>1 Day</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="week_btn">
+     <property name="geometry">
+      <rect>
+       <x>130</x>
+       <y>50</y>
+       <width>81</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>1 Week</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="month_btn">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>50</y>
+       <width>81</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>1 Month</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="interval_label">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>90</y>
+       <width>301</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Current Interval: 1 Day</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="index_id_widget" native="true">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>341</width>
+      <height>131</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <widget class="QComboBox" name="index_id_box">
+     <property name="geometry">
+      <rect>
+       <x>50</x>
+       <y>40</y>
+       <width>251</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="currentText">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="index_id_btn">
+     <property name="geometry">
+      <rect>
+       <x>110</x>
+       <y>80</y>
+       <width>121</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Submit</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="index_id_label">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>0</y>
+       <width>191</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Exchange, Coin, Period:</string>
+     </property>
+    </widget>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -280,7 +350,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1072</width>
+     <width>1091</width>
      <height>26</height>
     </rect>
    </property>

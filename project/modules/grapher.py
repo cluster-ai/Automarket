@@ -76,33 +76,18 @@ class Ui_MainWindow(object):
 		#historical tab
 		self.historical_tab = QtWidgets.QWidget()
 		self.historical_tab.setObjectName("historical_tab")
-		#hist combo box
-		self.hist_box = QtWidgets.QComboBox(self.historical_tab)
-		self.hist_box.setGeometry(QtCore.QRect(60, 60, 251, 31))
-		self.hist_box.setCurrentText("")
-		self.hist_box.setObjectName("hist_box")
-		hist_list = list(Database.historical_index.keys())
-		self.hist_box_val = str(self.hist_box.currentText())
-
-		self.hist_box.addItems(hist_list)#populates combobox
-		self.hist_box_label = QtWidgets.QLabel(self.historical_tab)
-		self.hist_box_label.setGeometry(QtCore.QRect(80, 10, 221, 41))
-		self.hist_box_label.setObjectName("hist_box_label")
-		self.hist_submit_btn = QtWidgets.QPushButton(self.historical_tab)
-		self.hist_submit_btn.setGeometry(QtCore.QRect(120, 130, 131, 28))
-		self.hist_submit_btn.setObjectName("hist_submit_btn")
-		self.hist_submit_btn.clicked.connect(lambda: self.clicked_hist_submit())
+		#historical data tab label
+		self.hist_label = QtWidgets.QLabel(self.historical_tab)
+		self.hist_label.setGeometry(QtCore.QRect(80, 20, 221, 31))
+		self.hist_label.setAlignment(QtCore.Qt.AlignCenter)
+		self.hist_label.setObjectName("hist_label")
 		#hist scroll widgets
-		self.hist_scroll_label = QtWidgets.QLabel(self.historical_tab)
-		self.hist_scroll_label.setGeometry(QtCore.QRect(10, 179, 351, 31))
-		self.hist_scroll_label.setAlignment(QtCore.Qt.AlignCenter)
-		self.hist_scroll_label.setObjectName("hist_scroll_label")
 		self.hist_scroll_area = QtWidgets.QScrollArea(self.historical_tab)
-		self.hist_scroll_area.setGeometry(QtCore.QRect(40, 230, 301, 311))
+		self.hist_scroll_area.setGeometry(QtCore.QRect(40, 70, 301, 451))
 		self.hist_scroll_area.setWidgetResizable(True)
 		self.hist_scroll_area.setObjectName("hist_scroll_area")
 		self.hist_scroll_widget = QtWidgets.QWidget()
-		self.hist_scroll_widget.setGeometry(QtCore.QRect(0, 0, 299, 309))
+		self.hist_scroll_widget.setGeometry(QtCore.QRect(0, 0, 299, 449))
 		self.hist_scroll_widget.setObjectName("hist_scroll_widget")
 		self.hist_scroll_area.setWidget(self.hist_scroll_widget)
 		self.hist_scroll_layout = QtWidgets.QVBoxLayout()
@@ -112,26 +97,46 @@ class Ui_MainWindow(object):
 
 		#update graph btn
 		self.hist_update_btn = QtWidgets.QPushButton(self.historical_tab)
-		self.hist_update_btn.setGeometry(QtCore.QRect(92, 560, 191, 31))
+		self.hist_update_btn.setGeometry(QtCore.QRect(90, 550, 191, 31))
 		self.hist_update_btn.setObjectName("hist_update_btn")
 		self.hist_update_btn.clicked.connect(self.update_graph)
+
 		#feature tab
 		self.feature_tab = QtWidgets.QWidget()
 		self.feature_tab.setObjectName("feature_tab")
+		#feat label
+		self.feat_label = QtWidgets.QLabel(self.feature_tab)
+		self.feat_label.setGeometry(QtCore.QRect(80, 20, 221, 31))
+		self.feat_label.setAlignment(QtCore.Qt.AlignCenter)
+		self.feat_label.setObjectName("feat_label")
+		#feat scroll widget
+		self.feat_scroll_area = QtWidgets.QScrollArea(self.feature_tab)
+		self.feat_scroll_area.setGeometry(QtCore.QRect(40, 130, 301, 391))
+		self.feat_scroll_area.setWidgetResizable(True)
+		self.feat_scroll_area.setObjectName("feat_scroll_area")
+		self.feat_scroll_widget = QtWidgets.QWidget()
+		self.feat_scroll_widget.setGeometry(QtCore.QRect(0, 0, 299, 389))
+		self.feat_scroll_widget.setObjectName("feat_scroll_widget")
+		self.feat_scroll_area.setWidget(self.feat_scroll_widget)
+		#graph update button
+		self.feat_update_btn = QtWidgets.QPushButton(self.feature_tab)
+		self.feat_update_btn.setGeometry(QtCore.QRect(90, 550, 191, 31))
+		self.feat_update_btn.setObjectName("feat_update_btn")
+		self.create_feat_btn = QtWidgets.QPushButton(self.feature_tab)
+		self.create_feat_btn.setGeometry(QtCore.QRect(90, 70, 191, 31))
+		self.create_feat_btn.setObjectName("create_feat_btn")
 		self.tab_widget.addTab(self.feature_tab, "")
 
-		###static widget###
-		self.static_widget = QtWidgets.QWidget(self.centralwidget)
-		self.static_widget.setGeometry(QtCore.QRect(0, 0, 681, 121))
-		self.static_widget.setObjectName("static_widget")
-		self.interval_widget = QtWidgets.QWidget(self.static_widget)
-		self.interval_widget.setGeometry(QtCore.QRect(360, 0, 321, 121))
+
+		self.interval_widget = QtWidgets.QWidget(self.centralwidget)
+		self.interval_widget.setGeometry(QtCore.QRect(340, 0, 341, 131))
 		font = QtGui.QFont()
 		font.setPointSize(10)
 		self.interval_widget.setFont(font)
 		self.interval_widget.setObjectName("interval_widget")
+		#interval selector widget
 		self.time_label = QtWidgets.QLabel(self.interval_widget)
-		self.time_label.setGeometry(QtCore.QRect(10, 0, 101, 51))
+		self.time_label.setGeometry(QtCore.QRect(20, 0, 101, 51))
 		font = QtGui.QFont()
 		font.setPointSize(11)
 		self.time_label.setFont(font)
@@ -143,27 +148,51 @@ class Ui_MainWindow(object):
 		self.start_time_box.setFont(font)
 		self.start_time_box.setObjectName("start_time_box")
 		self.day_btn = QtWidgets.QPushButton(self.interval_widget)
-		self.day_btn.setGeometry(QtCore.QRect(20, 50, 81, 28))
+		self.day_btn.setGeometry(QtCore.QRect(30, 50, 81, 31))
 		self.day_btn.setObjectName("day_btn")
 		self.day_btn.clicked.connect(lambda: self.clicked_interval('1 Day'))
 		self.week_btn = QtWidgets.QPushButton(self.interval_widget)
-		self.week_btn.setGeometry(QtCore.QRect(120, 50, 81, 28))
+		self.week_btn.setGeometry(QtCore.QRect(130, 50, 81, 31))
 		self.week_btn.setObjectName("week_btn")
 		self.week_btn.clicked.connect(lambda: self.clicked_interval('1 Week'))
 		self.month_btn = QtWidgets.QPushButton(self.interval_widget)
-		self.month_btn.setGeometry(QtCore.QRect(220, 50, 81, 28))
+		self.month_btn.setGeometry(QtCore.QRect(230, 50, 81, 31))
 		self.month_btn.setObjectName("month_btn")
 		self.month_btn.clicked.connect(lambda: self.clicked_interval('1 Month'))
 		self.interval_label = QtWidgets.QLabel(self.interval_widget)
-		self.interval_label.setGeometry(QtCore.QRect(10, 80, 301, 31))
+		self.interval_label.setGeometry(QtCore.QRect(20, 90, 301, 31))
 		font = QtGui.QFont()
 		font.setPointSize(12)
 		self.interval_label.setFont(font)
 		self.interval_label.setAlignment(QtCore.Qt.AlignCenter)
 		self.interval_label.setObjectName("interval_label")
+		#index_id selector widget
+		self.index_id_widget = QtWidgets.QWidget(self.centralwidget)
+		self.index_id_widget.setGeometry(QtCore.QRect(0, 0, 341, 131))
+		font = QtGui.QFont()
+		font.setPointSize(11)
+		self.index_id_widget.setFont(font)
+		self.index_id_widget.setObjectName("index_id_widget")
+		#index_id combo box
+		self.index_id_box = QtWidgets.QComboBox(self.index_id_widget)
+		self.index_id_box.setGeometry(QtCore.QRect(50, 40, 251, 31))
+		self.index_id_box.setCurrentText("")
+		self.index_id_box.setObjectName("index_id_box")
+		index_id_list = list(Database.historical_index.keys())
+		self.index_id = str(self.index_id_box.currentText())
+		self.index_id_box.addItems(index_id_list)#populates combobox
+		#index id gui items
+		self.index_id_btn = QtWidgets.QPushButton(self.index_id_widget)
+		self.index_id_btn.setGeometry(QtCore.QRect(110, 80, 121, 31))
+		self.index_id_btn.setObjectName("index_id_btn")
+		self.index_id_label = QtWidgets.QLabel(self.index_id_widget)
+		self.index_id_label.setGeometry(QtCore.QRect(80, 0, 191, 41))
+		self.index_id_label.setObjectName("index_id_label")
+		self.index_id_btn.clicked.connect(lambda: self.clicked_index_id_btn())
+
 		#graph widget
 		self.graph_widget = QtWidgets.QWidget(self.centralwidget)
-		self.graph_widget.setGeometry(QtCore.QRect(-1, 119, 681, 531))
+		self.graph_widget.setGeometry(QtCore.QRect(-1, 129, 681, 521))
 		self.graph_widget.setObjectName("graph_widget")
 		self.graph_layout = QtWidgets.QVBoxLayout(self.graph_widget)
 		self.graph_layout.setContentsMargins(0, 0, 0, 0)
@@ -175,7 +204,7 @@ class Ui_MainWindow(object):
 
 		MainWindow.setCentralWidget(self.centralwidget)
 		self.menubar = QtWidgets.QMenuBar(MainWindow)
-		self.menubar.setGeometry(QtCore.QRect(0, 0, 1070, 26))
+		self.menubar.setGeometry(QtCore.QRect(0, 0, 1091, 26))
 		self.menubar.setObjectName("menubar")
 		MainWindow.setMenuBar(self.menubar)
 		self.statusbar = QtWidgets.QStatusBar(MainWindow)
@@ -189,16 +218,19 @@ class Ui_MainWindow(object):
 	def retranslateUi(self, MainWindow):
 		_translate = QtCore.QCoreApplication.translate
 		MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-		self.hist_box_label.setText(_translate("MainWindow", "Exchange, Coin, Period:"))
-		self.hist_submit_btn.setText(_translate("MainWindow", "Submit"))
-		self.hist_scroll_label.setText(_translate("MainWindow", "No Item Selected"))
+		self.hist_label.setText(_translate("MainWindow", "No Item Selected"))
 		self.hist_update_btn.setText(_translate("MainWindow", "Update Graph"))
 		self.tab_widget.setTabText(self.tab_widget.indexOf(self.historical_tab), _translate("MainWindow", "Historical Data"))
+		self.feat_label.setText(_translate("MainWindow", "No Item Selected"))
+		self.feat_update_btn.setText(_translate("MainWindow", "Update Graph"))
+		self.create_feat_btn.setText(_translate("MainWindow", "Create Feature"))
 		self.tab_widget.setTabText(self.tab_widget.indexOf(self.feature_tab), _translate("MainWindow", "Feature Data"))
 		self.time_label.setText(_translate("MainWindow", "Start Time:"))
 		self.day_btn.setText(_translate("MainWindow", "1 Day"))
 		self.week_btn.setText(_translate("MainWindow", "1 Week"))
 		self.month_btn.setText(_translate("MainWindow", "1 Month"))
+		self.index_id_btn.setText(_translate("MainWindow", "Submit"))
+		self.index_id_label.setText(_translate("MainWindow", "Exchange, Coin, Period:"))
 		self.interval_label.setText(
 			_translate("MainWindow", 
 					   f"Current Interval: {self.current_interval}")
@@ -210,15 +242,19 @@ class Ui_MainWindow(object):
 		self.interval_label.setText(f"Current Interval: {self.current_interval}")
 
 
-	def clicked_hist_submit(self):
+	def clicked_index_id_btn(self):
 		#find what the latest hist box value is (index_id of hist)
-		self.hist_box_val = str(self.hist_box.currentText())
+		self.index_id = str(self.index_id_box.currentText())
 
-		#update scroll box label
-		self.hist_scroll_label.setText(f"Historical: {self.hist_box_val}")
+		#update tab labels (feature_data and historical_data)
+		self.hist_label.setText(self.index_id)
+		self.feat_label.setText(self.index_id)
 
-		#loads historical data into memory using hist_box index_id
-		self.historical_data = Database.historical(self.hist_box_val)
+		##################################
+		###Update Historical Scroll Box###
+
+		#loads historical data into memory using index_id
+		self.historical_data = Database.historical(self.index_id)
 
 		#resets historical col list
 		self.historical_cols = []
@@ -235,6 +271,9 @@ class Ui_MainWindow(object):
 			btn.setText(col)
 			#btn.clicked.connect()
 			self.hist_scroll_layout.addWidget(btn)
+
+		##############################
+		##Update Feature Scroll Box###
 
 
 	def update_graph(self):
