@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1091, 711)
+        MainWindow.resize(1065, 711)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.tab_widget = QtWidgets.QTabWidget(self.centralwidget)
@@ -35,7 +35,7 @@ class Ui_MainWindow(object):
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.hist_scroll.setWidget(self.scrollAreaWidgetContents)
         self.hist_label = QtWidgets.QLabel(self.historical_tab)
-        self.hist_label.setGeometry(QtCore.QRect(80, 20, 221, 31))
+        self.hist_label.setGeometry(QtCore.QRect(20, 20, 331, 31))
         self.hist_label.setAlignment(QtCore.Qt.AlignCenter)
         self.hist_label.setObjectName("hist_label")
         self.hist_update_btn = QtWidgets.QPushButton(self.historical_tab)
@@ -53,7 +53,7 @@ class Ui_MainWindow(object):
         self.scrollAreaWidgetContents_2.setObjectName("scrollAreaWidgetContents_2")
         self.feat_scroll.setWidget(self.scrollAreaWidgetContents_2)
         self.feat_label = QtWidgets.QLabel(self.feature_tab)
-        self.feat_label.setGeometry(QtCore.QRect(80, 20, 221, 31))
+        self.feat_label.setGeometry(QtCore.QRect(20, 20, 331, 31))
         self.feat_label.setAlignment(QtCore.Qt.AlignCenter)
         self.feat_label.setObjectName("feat_label")
         self.feat_update_btn = QtWidgets.QPushButton(self.feature_tab)
@@ -121,7 +121,7 @@ class Ui_MainWindow(object):
         self.index_id_label.setObjectName("index_id_label")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1091, 26))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1065, 26))
         self.menubar.setObjectName("menubar")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
@@ -129,7 +129,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
 
         self.retranslateUi(MainWindow)
-        self.tab_widget.setCurrentIndex(1)
+        self.tab_widget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):

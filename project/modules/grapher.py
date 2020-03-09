@@ -25,7 +25,7 @@ from matplotlib.animation import FuncAnimation
 #local modules
 from define import *
 import modules.preproc as preproc
-import modules.features as features
+import modules.feature as feature
 
 
 #79 character absolute limit
@@ -78,7 +78,7 @@ class Ui_MainWindow(object):
 		self.historical_tab.setObjectName("historical_tab")
 		#historical data tab label
 		self.hist_label = QtWidgets.QLabel(self.historical_tab)
-		self.hist_label.setGeometry(QtCore.QRect(80, 20, 221, 31))
+		self.hist_label.setGeometry(QtCore.QRect(20, 20, 331, 31))
 		self.hist_label.setAlignment(QtCore.Qt.AlignCenter)
 		self.hist_label.setObjectName("hist_label")
 		#hist scroll widgets
@@ -106,7 +106,7 @@ class Ui_MainWindow(object):
 		self.feature_tab.setObjectName("feature_tab")
 		#feat label
 		self.feat_label = QtWidgets.QLabel(self.feature_tab)
-		self.feat_label.setGeometry(QtCore.QRect(80, 20, 221, 31))
+		self.feat_label.setGeometry(QtCore.QRect(20, 20, 331, 31))
 		self.feat_label.setAlignment(QtCore.Qt.AlignCenter)
 		self.feat_label.setObjectName("feat_label")
 		#feat scroll widget
@@ -247,8 +247,9 @@ class Ui_MainWindow(object):
 		self.index_id = str(self.index_id_box.currentText())
 
 		#update tab labels (feature_data and historical_data)
-		self.hist_label.setText(self.index_id)
-		self.feat_label.setText(self.index_id)
+		label_val = f"Data: {self.index_id}"
+		self.hist_label.setText(label_val)
+		self.feat_label.setText(label_val)
 
 		##################################
 		###Update Historical Scroll Box###

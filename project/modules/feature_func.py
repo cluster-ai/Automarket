@@ -1,4 +1,3 @@
-
 #standard libraries
 import datetime
 
@@ -15,37 +14,24 @@ import time
 ########################################################################
 
 '''
-Features.py Design Target:
-	A tool for creating feature data and
-	the mechanism used to update those features.
-
-	Features is primarily used by database to create
-	features. The features and their corresponding
-	item_index (used for remembering parameters) is fed 
-	back into the feature class for updating. Control of 
-	the database of features is facilitated by the 
-	database class.
-
-	Data fed into any feature function can be categorized 
-	into 2 different camps: categorical and numerical.
-	These camps are important to consider when stacking
-	feature functions but may still be joinable in some
-	manner. 
-	EX: isolate one-hot encoded categorical data to 
-	individual columns of bool values (1 and 0) and 
-	compute it with a numerical column somehow.
-
-	The "default" feature functions are located below, 
-	outside of the feature class. They can, however, come 
-	from anywhere as long as they can be used the same way.
-
-
 NEW FEATURE IDEA
 	Find the spikes in the data and compare the difference
-	to the smooth version of graph. Can also track when the
-	raw data crosses the smooth graph line and the difference
-	in slope.
+	to the smooth version of graph at the same time values. 
+	Can also track when the raw data crosses the smooth graph
+	line and the difference in slope at that point. To minimize
+	the effect of outliers, you could do the same graph comparison
+	but with a very smooth and less smooth graph rather than raw
+	data.
 '''
+
+
+global func_list
+func_list = [
+	'time_series',
+	'delta',
+	'smooth'
+]
+
 
 def time_series(historical): #numerical and categorical
 	'''
@@ -163,7 +149,7 @@ def delta(historical): #numerical
 	return features
 
 
-def smooth(historical, time_increment, width=1): #numerical
+def smooth(historical, time_increment, width): #numerical
 	'''
 	THIS CAN BE USED TO SIMPLIFY DATA FOR LARGER SEQUENCES
 	IT ALSO HELPS REMOVE OUTLIERS FROM THE DATA
@@ -268,27 +254,3 @@ def smooth(historical, time_increment, width=1): #numerical
 		count += 1
 
 	return data
-
-
-class Feature():
-
-	def __init__(self, feature_id=None, df=None):
-		'''
-		Parameters:
-			feature_id : (dict) data index of feature group
-				NOTE: given if loading existing feature
-			df         : (pd.DataFrame()) all data for feature
-		'''
-
-		print('----------------------------------------------------')
-		print('Loading Feature')
-
-		#at the very least a group_index needs to be given
-		if feature_id != None:
-
-			self.id = feature_id
-
-			if df == None:
-				print('NOTICE: no df given')
-		elif feature_id == None:
-			print('WARNING: feature_id not given')

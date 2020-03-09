@@ -20,7 +20,7 @@ There is an entry gap for people to get value from the money they have dumped in
 
 /Algorithm performance targets/
 
-Taking a portion of profit on trades makes having an optimized and powerfull trading algorithm very important ( overall revenue is tied very closely to performance). In light of this, I do not want to launch this algorithm without at least an average 1.07% return per month because that is roughly the point a client would double their assets in one year. However, if there is a large enough "vaccuum" of business to be had in this niche and I am confident of at least 100 customers in growth a year in customers; I will certainly consider settling for a growth rate of less than 1.07%.
+Taking a portion of profit on trades makes having an optimized and powerfull trading algorithm very important ( overall revenue is tied very closely to performance). In light of this, I do not want to launch this algorithm without at least an average 7% return per month because that is roughly the point a client would double their assets in one year. However, if there is a large enough "vaccuum" of business to be had in this niche and I am confident of at least 100 customers in growth a year in customers; I will certainly consider settling for a growth rate of less than 7%.
 
 
 //Neural Network Architecture//

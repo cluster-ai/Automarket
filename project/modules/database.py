@@ -11,7 +11,7 @@ import numpy as np
 #local modules
 from .coinapi import Coinapi
 from .preproc import unix_to_date, date_to_unix
-import modules.features as features
+import modules.feature as feature
 
 #79 character absolute limit
 ###############################################################################
