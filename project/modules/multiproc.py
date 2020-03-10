@@ -17,9 +17,10 @@ from multiprocessing import Manager, Process
 
 '''
 Multiproc.py Design Target:
-	Call multiproc.compute(), input ANY custom 
-	algorithm dealing with a dataframe and it 
-	will process it with specified thread count.
+	This module is an abstraction of 
+	multiprocessing and allows any module
+	to multithread a task so long as it follows
+	the protocols outlined below.
 
 
 The compute() function is the primary object used in this module

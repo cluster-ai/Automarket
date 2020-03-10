@@ -13,8 +13,12 @@ In Progress:
 - the feauture sets saved in database must be attatched to a neural net architecture and saved to database to be considered training_data.
 - The user will have the ability to draw from the neural/feauture set pair and train the neural net seemlessly to see the effectiveness of their work.
 NOTE: at this time, version 1 will not have any functionality beyond training the network
-
-- feature functions should only create the columns specified
+	
+New Controller module task list:
+	- merge multiproc process object functions (trend) with feature_func and potentially name it something else. Make a class in feature_func.py
+	that can use the feature functions and keeps track of each ones required
+	args, types of output, making individual feature indexes, etc
+	- move Coinapi.json file to the database as well as all "verification" functions (Coinapi.verify_increment()).
 
 The entire system will need to be encased in a simple and straightforward command line in the terminal. The commands for which will need to be expanded upon in the readme/instruction doc.
 

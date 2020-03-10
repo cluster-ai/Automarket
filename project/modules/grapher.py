@@ -25,7 +25,7 @@ from matplotlib.animation import FuncAnimation
 #local modules
 from define import *
 import modules.preproc as preproc
-import modules.feature as feature
+import modules.feature_func as feature_func
 
 
 #79 character absolute limit
@@ -316,8 +316,9 @@ class Ui_MainWindow(object):
 		#adds selected columns to graph data
 		self.graph_data = self.historical_data.loc[self.start_time:self.end_time, selected_columns]
 		
-		smooth_data = self.historical_data.loc[self.start_time:self.end_time, :]
-		smooth_data = features.smooth(smooth_data, 300, 6)
+		smooth_data = self.historical_data.loc[(self.start_time-300*100):self.end_time, :]
+		smooth_data = feature_func.smooth(smooth_data, 300, 6)
+		smooth_data = smooth_data.loc[self.start_time:self.end_time, :]
 		self.graph_data['smooth'] = smooth_data['price_high']
 
 		self.figure.plot(self.graph_data)

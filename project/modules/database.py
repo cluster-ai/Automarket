@@ -9,9 +9,8 @@ import pandas as pd
 import numpy as np
 
 #local modules
-from .coinapi import Coinapi
+from define import *
 from .preproc import unix_to_date, date_to_unix
-import modules.feature as feature
 
 #79 character absolute limit
 ###############################################################################
@@ -21,9 +20,9 @@ import modules.feature as feature
 
 '''
 Database.py Design Target:
-	Directly handles the mechanism responsible for
-	retreiving, storing, and tracking historical
-	and feature data.
+	Handles the mechanisms at which this program
+	stores and retrieves data. The only local 
+	module this module imports is preproc.py.
 '''
 
 class Database():
@@ -64,8 +63,12 @@ class Database():
 
 
 	def load_files():
-		###SETTINGS###
+
+		print('----------------------------------------------------')
+		print('Loading Files...')
 		print('...')
+
+		###SETTINGS###
 		#Checks to see if path exists, if not creates one
 		if os.path.exists(Database.settings_path) == False:
 			print(f'File Not Found -> {Database.settings_path}')
@@ -82,13 +85,12 @@ class Database():
 					  + Database.settings_path)
 
 		###TRAINING_INDEX###
-		print('...')
 		#Checks to see if path exists, if not creates one
 		if os.path.exists(Database.features_index_path) == False:
 			print(f'File Not Found -> {Database.features_index_path}')
 			open(Database.features_index_path, 'w')
 
-		print('Loading features Index: '
+		print('Loading Features Index: '
 			  + Database.features_index_path)
 		#loads indexes for training index
 		with open(Database.features_index_path) as file:
@@ -100,7 +102,6 @@ class Database():
 					  + Database.features_index_path)
 
 		###HISTORICAL_INDEX###
-		print('...')
 		#Checks to see if path exists, if not creates one
 		if os.path.exists(Database.historical_index_path) == False:
 			print(f'File Not Found -> {Database.historical_index_path}')
@@ -118,7 +119,6 @@ class Database():
 					  + Database.historical_index_path)
 
 		###COIN_INDEX###
-		print('...')
 		#Checks to see if path exists, if not creates one
 		if os.path.exists(Database.coin_index_path) == False:
 			print(f'File Not Found -> {Database.coin_index_path}')
@@ -139,38 +139,30 @@ class Database():
 
 
 	def save_files():
+
+		#function for saving files
+		def save(path, data):
+			'''
+			Parameters:
+				path : (str) full path from main file
+				data : (json) data being saved to file
+			'''
+			#Checks to see if path exists, if not it creates one
+			if os.path.exists(path) == False:
+				open(path, 'x')
+			#saves settings dict class variable to file by default
+			#can change settings parameter to custom settings dict
+			with open(path, 'w') as file:
+				json.dump(data, file, indent=4)
+
 		###SETTINGS###
-		#Checks to see if path exists, if not it creates one
-		if os.path.exists(Database.settings_path) == False:
-			open(Database.settings_path, 'x')
-		#saves settings dict class variable to file by default
-		#can change settings parameter to custom settings dict
-		with open(Database.settings_path, 'w') as file:
-			json.dump(Database.settings, file, indent=4)
-
+		Database.save(Database.settings_path, Database.settings)
 		###TRAINING_INDEX###
-		#Checks to see if path exists, if not it creates one
-		if os.path.exists(Database.training_index_path) == False:
-			open(Database.training_index_path, 'x')
-		#saves training_index dict class variable to file
-		with open(Database.training_index_path, 'w') as file:
-			json.dump(Database.training_index, file, indent=4)
-
+		Database.save(Database.training_index_path, Database.training_index)
 		###HISTORICAL_INDEX###
-		#Checks to see if path exists, if not it creates one
-		if os.path.exists(Database.historical_index_path) == False:
-			open(Database.historical_index_path, 'x')
-		#saves historical_index dict class variable to file
-		with open(Database.historical_index_path, 'w') as file:
-			json.dump(Database.historical_index, file, indent=4)
-
+		Database.save(Database.historical_index_path, Database.historical_index)
 		###COIN_INDEX###
-		#Checks to see if path exists, if not it creates one
-		if os.path.exists(Database.coin_index_path) == False:
-			open(Database.coin_index_path, 'x')
-		#saves coin_index dict class variable to file
-		with open(Database.coin_index_path, 'w') as file:
-			json.dump(Database.coin_index, file, indent=4)
+		Database.save(Database.coin_index_path, Database.coin_index)
 
 
 	def reset_tracked():
@@ -328,201 +320,6 @@ class Database():
 			Database.reset_coin_index()
 
 
-	def add_historical_item(exchange_id, coin_id, time_increment):
-		'''
-		Adds historical item to historical_index
-
-		Parameters:
-			coin_id        : (str) crytpocurrency id: 'BTC'
-			time_increment : (int) time increment of data in seconds
-						  - val must be supported by coinapi period_id
-			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
-		'''
-		#verifies that parameters are supported by coinapi
-		if Coinapi.verify_increment(time_increment) == False:
-			return None
-		elif coin_id not in Database.settings['tracked_coins']:
-			print(f'WARNING: "{coin_id}" is not being tracked')
-			return None
-		elif exchange_id != None:
-			if (exchange_id not in 
-					Database.settings['tracked_exchanges']):
-				print(f'WARNING: "{exchange_id}" is not being tracked')
-				return None
-
-		#index_id used as a key for historical_index items
-		index_id = Database.index_id(exchange_id, coin_id, time_increment)
-
-		#stops function if item already found in historical_index
-		if index_id in Database.historical_index:
-			print(f'NOTICE: Historical Index already has {index_id}')
-			return None
-
-		#period_id string equivalent to time_increments
-		period_id = Coinapi.period_id(time_increment)
-
-		#the first dir is the period_id str associated to time_increment
-		filepath = Database.historical_base_path + f'/{period_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-		#the final dir is the coin_id
-		filepath += f'/{coin_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-
-		#loads coin_data for new index_item
-		coin_data = Database.coin_index[exchange_id][coin_id]
-
-		#filename-example: 'KRAKEN_BTC_5MIN.csv'
-		filename = f'{index_id}.csv'
-		filepath = filepath + f'/{filename}' #adds filename to dir
-		#creates file if there is none
-		if os.path.exists(filepath) == False:
-			open(filepath, 'w')
-
-		#fills out required information for new 
-		#historical index_item
-		index_item = {
-			'filename': filename,
-			'filepath': filepath,
-			'symbol_id': coin_data['symbol_id'],
-			'exchange_id': exchange_id,
-			'asset_id_quote': coin_data['asset_id_quote'],
-			'asset_id_base': coin_data['asset_id_base'],
-			'period_id': period_id,
-			'time_increment': time_increment,
-			'datapoints': 0,
-			'data_start': coin_data['data_start'],
-			'data_end': coin_data['data_start']#not a typo
-		}
-
-		print(f'Added {index_id} to Historical Index')
-
-		#updates historical_index
-		Database.historical_index.update({index_id: index_item})
-		#saves changes to file
-		Database.save_files()
-
-
-	def backfill(coin_id, time_increment, limit=None):
-		'''
-		This function accepts a coin_id and backfills all 
-		tracked exchanges for that coin unless a specific 
-		exchange_id is given
-
-		Parameters:
-			coin_id        : (str) crytpocurrency id: 'BTC'
-								   - the currency being backfilled
-			limit          : (int) limit for each coinapi request
-		'''
-
-		#verifies coin_id and time_increment parameters
-		if Coinapi.verify_increment(time_increment) == False:
-			return None
-		elif coin_id not in Database.settings['tracked_coins']:
-			print(f'WARNING: "{coin_id}" is not being tracked')
-			return None
-
-		print('----------------------------------------------------')
-		print('Backfilling Historical Data')
-
-		#loads an index_id for each tracked exchange
-		backfill = {}
-		match_date = None
-		no_match = False
-		for tracked_exchange in Database.settings['tracked_exchanges']:
-			#generates index_id
-			index_id = Database.index_id(tracked_exchange, coin_id,
-										 time_increment)
-			#loads id into backfill dict
-			backfill.update({index_id: tracked_exchange})
-
-			#generates historical_item for current item
-			#if it doesn't already exist
-			if index_id not in Database.historical_index:
-				Database.add_historical_item(tracked_exchange, coin_id, 
-											 time_increment)
-
-			#loads index of current item
-			item_index = Database.historical_index[index_id]
-
-			#determines index_id with most recent 'data_end' value
-			if match_date == None:
-				#initializes match_date for first item
-				match_date = item_index['data_end']
-			elif (date_to_unix(match_date) < 
-					date_to_unix(item_index['data_end'])):
-				no_match = True #true if data_end does not all match
-				#determines if current item has more recent data_end
-				#than the other items so far
-				match_date = item_index['data_end']
-
-		#period_id string equivalent to time_increments
-		period_id = Coinapi.period_id(time_increment)
-
-		if no_match == True:
-			print(f"NOTICE: backfill items don't match")
-
-		#The following backfills all items items in backfill
-		for index_id, exchange_id in backfill.items():
-			#loads the index of current item
-			item_index = Database.historical_index[index_id]
-			#location of historical_data file for current item
-			filepath = item_index['filepath']
-
-			#doesn't backfill past match_date if no_match==True
-			new_limit = limit
-			if no_match == True:
-				#match_limit is the number of requests to reach match_date
-				match_limit = (date_to_unix(match_date) - 
-							   date_to_unix(item_index['data_end']))
-				match_limit = match_limit / item_index['time_increment']
-				#limit will not be higher the given parameter 'limit'
-				if match_limit < limit:
-					new_limit = match_limit
-
-			#requests backfill data
-			response = Coinapi.historical(item_index, new_limit)
-
-			#extracts data and time_end from response
-			data = response['data']
-			time_start = response['time_start']
-			time_end = response['time_end']
-
-			#loads existing data and adds new data to it
-			if (os.path.exists(filepath) == True and 
-					item_index['datapoints'] > 0):
-				#if there is existing_data, data is appended to it
-				existing_data = pd.read_csv(filepath)
-
-				#makes existing_data.index equal to 'time_period_start'
-				existing_data.set_index('time_period_start', drop=False,
-										inplace=True)
-
-				#adds new data to existing
-				existing_data = existing_data.append(data)
-			else:
-				#if no data is found then existing_data = response_data
-				print('No existing data for:', filepath)
-				existing_data = data
-
-			#saves new data to file
-			existing_data.to_csv(filepath, index=False)
-
-			#loads index and changes values according to new data
-			index_item = Database.historical_index[index_id]
-			#datapoints
-			index_item['datapoints'] = len(existing_data.index)
-			#data_end 
-			index_item['data_end'] = time_end
-
-			#updates historical_index with changes and saves to file
-			Database.historical_index[index_id] = index_item
-			Database.save_files()
-
-		print('Backfill Complete')
-
-
 	def historical(index_id, start_time=None, end_time=None):
 		'''
 		Returns dataframe for the specified historical data
@@ -639,122 +436,3 @@ class Database():
 			data = data.loc[:end_time, :]
 
 		return data
-
-
-	def add_feature(index_id, feature_id):
-		'''
-		This function is used by the feature.py
-		module to add a feature (creates new
-		feature group in database if one does not
-		exist for requested feature). 
-
-		Parameters:
-			index_id   : (str) id used for the feature group
-						  (it is the same as historical_data)
-			feature_id : (str) id used for a single feature
-							   within a feature group
-			data       : (pd.Series) data that will overwrite 
-							the current items in feautre 
-		'''
-
-		#verifies given index_id
-		if index_id not in Database.historical_index:
-			raise KeyError(f'"{index_id}" not in Historical Index')
-
-		#verifies index_id not already in features_index
-		if index_id in Database.features_index:
-			print(f'NOTICE: {index_id} already in Features Index')
-
-		#historical index data from index_id
-		data_index = Database.historical_index[index_id]
-
-		###################################################
-		###Verify Feature Group
-
-		#the first dir is the period_id str associated to time_increment
-		filepath = Database.features_base_path + f'/{period_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-		#the next dir is the coin_id
-		filepath += f'/{coin_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-		#the final dir is the index_id
-		filename = f'{index_id}.csv'
-		filepath += f'/{filename}'
-
-		#if either index or file not found, re-initialize feature-group
-		if (os.path.exists(filepath) == False or 
-				index_id not in Database.features_index):
-
-			#creates new file if one is not found
-			if os.path.exists(filepath) == False:
-				open(filepath, 'w')
-			
-			#overwrites file with time_period_start col from historical
-			df = Database.historical(index_id).loc[:, ['time_period_start']]
-			df.to_csv(filepath, index=False)
-
-			index_item = {
-				'filename': filename,
-				'filepath': filepath,
-				'features': {},
-				'symbol_id': data_index['symbol_id'],
-				'exchange_id': data_index['exchange_id'],
-				'asset_id_quote': data_index['asset_id_quote'],
-				'asset_id_base': data_index['asset_id_base'],
-				'period_id': data_index['period_id'],
-				'time_increment': time_data_index['increment'],
-				'even_features': False,
-				'data_start': data_index['data_start'],
-				'data_end': data_index['data_start']#not a typo
-			}
-
-			print(f'Added {index_id} to Features Index')
-
-			#updates historical_index
-			Database.features_index.update({index_id: index_item})
-			#saves changes to file
-			Database.save_files()
-
-		###################################################
-		###Adds Feature
-
-		#database does not care what feature_id is, it is
-		#only useful to feature.py module when updating
-
-		#loads feature group
-		group_index = Database.features_index[index_id]
-
-		#verifies that feature does not exist
-		if feature_id not in group_index['features']:
-			#update features_index with feature
-			Database.features_index[index_id]['features'].update(feature_id)
-			print(f'Added {feature_id} to {index_id} Feature Group')
-		else:
-			print(f'NOTICE: {feauture_id} already exists for {index_id}')
-
-
-	def update_features(index_id):
-		'''
-		This function updates every feature in "index_id" 
-		feature group to the most recent historical_data 
-		values.
-
-		NOTE: Database does not care about the contents
-		of feature_group['features'] or filname.csv
-
-		Parameters:
-			index_id : (str) id for historical_index item
-							and corresponding feature_group
-		'''
-
-		#feature_group index
-		group_index = Database.features_index[index_id]
-
-		#feature_group data
-		group_df = Database.feature_group(index_id)
-
-		#calls feature.py function to update features df and
-		#the feature_group['features'] index
-		'''features.function(group_index, group_df)'''

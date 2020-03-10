@@ -25,6 +25,7 @@ NEW FEATURE IDEA
 '''
 
 
+#class Feature
 global func_list
 func_list = [
 	'time_series',
