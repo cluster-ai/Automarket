@@ -1,4 +1,10 @@
 
+
+
+NOTICE: This is the doc for using the financial model of cryptocurrency assuming it is able to meet the requirements in the business model outlined below.
+
+
+
 ////Cluster.Ai - Automarket//// v1.0 - Alpha (Pre-Launch)
 
 This program is meant to interact with cryptocurrency markets in a way that maximizes profits through trading between different crypto-coins (no fiat currency interaction). Using historical data of the desired currencies, a LSTM neural network takes historical data from a crypto API in order to improve its predictive ability as well as track its likelyhood of that prediction to be false. In doing so this model can intelligently intuit trading actions based on that model.

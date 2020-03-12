@@ -4,3 +4,7 @@
 - I ran a backfill on XRP for the most recent data at 9:13 but it gave me data for 9:15, MAKE SURE the data is not partial for that time period (I think they just send what they have so far instead of waiting for the full period to elapse)
 
 - some VERY important files are in gitignore for security. When the repo is cloned it is overly complicated to get started (the gitignore files are not initialized by the program if missing).
+
+- may need to add a manager for GUI notifications in case several pop-up at
+once. Ideally the program is structured in a way that doesn't do this 
+(Only one error should be possible from a single button click?).
