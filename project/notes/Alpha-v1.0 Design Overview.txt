@@ -39,10 +39,13 @@ Outline:
 		- Track particular user-defined exchanges to declutter UI
 		- Track all the available currencies that are common across all
 		tracked exchanges
+		- manages coinapi data in the database
 		- Monitor and record request errors and display relevent request
 		data to the user (remaining, reset, limit)
 		- provide an api set-up feature to add api keys and what you want 
 		each key to be used for (backfilling and exchange/currency tracking)
+		- provides tooling for checking validity of coinapi related data
+		even if it is stored in the database
 
 	Custom Feature Creation (feature.py):
 		- Provide a core set of feature functions
