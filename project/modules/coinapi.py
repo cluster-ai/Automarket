@@ -223,6 +223,7 @@ class Coinapi():
 		print('Request Filters:')
 		if filters == {}:
 			print('   - NONE')
+			return request
 		for key, val in filters.items():
 			print(f'   - {key} | {val}')
 
@@ -266,7 +267,7 @@ class Coinapi():
 
 
 	def request(key_id, url='', queries={}, 
-				filters={}, omit_filtered=False):
+				filters={}, remaining=False):
 		'''
 		Parameters:
 			url_ext   : (str) is added to Coinapi.base_url in request
@@ -295,27 +296,25 @@ class Coinapi():
 			# If the response was successful, no Exception will be raised
 			response.raise_for_status()
 		except HTTPError as http_err:
+			#catches http errors
 			print(f'{http_err}')
 			raise ValueError('HTTPError: Killing Process')
 		except requests.ConnectionError as connection_err:
+			#no connection to internet/coinapi.io
 			print(f'{connection_err}')
 			raise requests.ConnectionError('HTTP Connection Error')
 		except Exception as err:
+			#catches any other exceptions
 			print(f'{err}')
 			raise Exception(f'Exception Occured During HTTP Request')
 		else:
 			print(f'API Request Successful: code {response.status_code}')
 			
-			#updates key_index rate limit information in database
+			#updates key_index rate limit information in database 
 			Coinapi.update_key(key_id, response.headers)
 
-			#response is converted to json
-			response = response.json()
-			if filters != {}:
-				#filters response
-				response = Coinapi.filter(response, filters, omit_filtered)
-			else:
-				print('Notice: no response filter')
+			#response is converted to json and filtered
+			response = Coinapi.filter(response.json(), filters, remaining)
 
 			print('----------------------------------------------------')
 
@@ -330,12 +329,7 @@ class Coinapi():
 			requests : (int) number of timesteps (datapoints) 
 							 being requested times 100
 						- 100 datapoints = 1 request
-
-		return : (dict) {
-			"data": pd.DataFrame(),
-			"time_start": (str),
-			"time_end": (str)
-		}
+		return: (pd.DataFrame) the data that was requested
 		'''
 		#updates specified api key
 		Coinapi.update_keys(key_id)
@@ -395,72 +389,26 @@ class Coinapi():
 		#make the api request
 		response = Coinapi.request(key_id, url=url, queries=queries)
 
-		#format the json response into a dataframe
-		response = pd.DataFrame.from_dict(response, orient='columns')
+		#json response data into a pandas dataframe (df)
+		df = pd.DataFrame.from_dict(df, orient='columns')
 
-		#####################################################
-		###End of Progress Alpha-v1.0
-		#####################################################
+		################################################
+		###Formats Historical Data
 
-		#formats response for 'prep_historical'
-		response = {
-			'data': response,
-			'time_start': time_start,
-			'time_end': time_end,
-			'hist_index': hist_index
-		}
-
-		#preps historical data
-		response = Coinapi.prep_historical(response)
-
-		#prep data for historical database and return df
-		return response
-
-
-	def prep_historical(response):
-		'''
-		this function adds an isnan and average_price column
-		to the given df and appends empty rows for missing
-		datapoints so that each timestep is equal spacing and
-		equal to 'time_increment' in seconds.
-
-		Parameters:
-			response : (dict) data required for function 
-							  (see Coinapi.historical())
-
-		return: {
-			'data': new_df,
-			'time_start': time_start,
-			'time_end': time_end
-		}
-		'''
-
-		#isolates relevant response dict items
-		time_increment = response['data_index']['time_increment']
-		time_start = response['time_start']
-		time_end = response['time_end']
-		df = response['data']
 
 		if df.empty == False:
-			#converters time_period_start to unix values
+			#convertes time_period_start to unix values
 			print('converting timestamps to unix')
 
-			#tracks duration
-			prev_time = time.time()
+			#iterates each row
 			for index, row in df.iterrows():
+				#iterates each column
 				for col in df.columns:
 
 					if 'time' in col:#dates are converted to unix format
 						df.at[index, col] = date_to_unix(row[col])
-						
-				if index % 5000 == 0 and index != 0:
-					current_time = time.time()
-					delay = current_time - prev_time
-					print(f"index: {index} || delay: {delay}")
-					prev_time = current_time
 
-			#determines the values of the price_average column and inserts it
-			#into df
+			#calculates price_average using price_low and price_high
 			price_low = df.loc[:, 'price_low'].values
 			price_high = df.loc[:, 'price_high'].values
 			price_average = np.divide(np.add(price_low, price_high), 2)
@@ -480,9 +428,10 @@ class Coinapi():
 			df = pd.DataFrame(columns=columns)
 			price_average = np.nan
 
+		#create price_average column and set it to local variable
 		df['price_average'] = price_average
 
-		#initializes isnan with False for every row
+		#initializes isnan with False for every row with data
 		df['isnan'] = False
 
 		#finds the total number of expected datapoints (if none were missing)
@@ -500,7 +449,7 @@ class Coinapi():
 		#new_df is
 		df.set_index('time_period_start', inplace=True, drop=False)
 
-		#overwrite df data onto new_df
+		#overwrite df onto new_df
 		new_df.update(df)
 
 		#df has missing time_period_start values, need to be filled
@@ -510,18 +459,8 @@ class Coinapi():
 		new_df['time_period_end'] = np.add(new_df.loc[:, 'time_period_start'], 
 										   time_increment)
 
-		#update isnan values for new data
+		#update 'isnan' values for new new_df
 		new_df.isnan.fillna(True, inplace=True)
 
-		#print('OLD DF:\n\n\n', df)
-		#print('NEW DF:\n\n\n', new_df)
-
-		#saves response with only the necessary information
-		response = {
-			'data': new_df,
-			'time_start': time_start,
-			'time_end': time_end
-		}
-
-		return response
-
+		#prep new_df for historical database and return df
+		return new_df
