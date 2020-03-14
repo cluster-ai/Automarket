@@ -1,5 +1,5 @@
 # Automarket
-Automarket is a multi-purpose graph analyzer tool to find predictable patterns within data
+Automarket is a multi-purpose data visualization tool to find predictable patterns within data
 
 ## Automarket Alpha-v1.0 Design Overview
 ### 3/9/20
