@@ -47,6 +47,13 @@ class Coinapi():
 	REQUEST TOOLS:
 		def filter(request, filters, remaining=False):
 			#filters request data and returns filtered or remaining
+
+		def request(key_id, url='', queries={}, 
+					filters={}, omit_filtered=False):
+			#makes api requests
+
+		def historical(key_id, index_id, requests=None):
+			#requests and formats historical data
 '''
 
 
@@ -200,17 +207,12 @@ class Coinapi():
 		return False
 
 
-#############################################################
-###Alpha-v1.0 progress stops here
-#############################################################
-
-
 	def filter(request, filters, remaining=False):
 		'''
 		Parameters:
-			request      : (list of dicts) coinapi json request data
-			filters      : (dict) dict of filters that need to be passed
-								  for data to be added to filtered
+			request   : (list of dicts) coinapi json request data
+			filters   : (dict) dict of filters that need to be passed
+							   for data to be added to filtered
 			remaining : (bool) returns remaining instead of filtered if True
 
 		NOTE: each item needs to pass ALL filters to be in filtered,
@@ -225,81 +227,70 @@ class Coinapi():
 			print(f'   - {key} | {val}')
 
 		#filtered items have passed all given filters
-		filtered = []
+		filtered_items = []
 		#remaining items have failed at least one filter
-		remaining = []
+		remaining_items = []
 
-		count = 0
+		#total items in request
 		total = len(request)
 		print(f'filtering {total} items')
+
+		#iterates through request items for filtering
 		for item in request:
-			#mismatch is True if it does not match filter values
-			mismatch = False
+			mismatch = False #default val is False
+
+			#iterates through each filter for current item
 			for filter_key, filter_val in filters.items():
-				#if filter matches item val, no mismatch
 				if filter_key in item:
+					#current item has the filter key
 					if item[filter_key] != filter_val:
+						#value of item does not match current filter
 						mismatch = True
-				else:#item does not have filter_key
+				else:
+					#item does not have filter_key
 					mismatch = True
-			#mismatched items are appended to remaining
+
 			if mismatch == False:
-				filtered.append(item)
+				#item passed all filteres
+				filtered_items.append(item)
 			else:
-				remaining.append(item)
+				#item did not pass all filters
+				remaining_items.append(item)
 
-			if total >= 10000:#not worth printing for less than 10000
-				#updates count and print loading bar
-				count += 1
-				print_progress_bar(count, total)
+		if remaining_items == True:
+			print('Notice: returning remaining items')
+			return remaining_items
 
-		if omit_filtered == True:
-			print('Notice: omiting filtered')
-			return remaining
-
-		return filtered
+		print('Notice: returning filtered items')
+		return filtered_items
 
 
 	def request(key_id, url='', queries={}, 
 				filters={}, omit_filtered=False):
 		'''
-		HTTP Codes:
-			200 - Successful Request
-		HTTP Errors:
-			400	Bad Request – There is something wrong with your request
-			401	Unauthorized – Your API key is wrong
-			403	Forbidden – Your API key doesn’t have enough privileges 
-							to access this resource
-			429	Too many requests – You have exceeded API key rate limit
-			550	No data – You requested unavailable specific single item
-
 		Parameters:
-			url_ext      : (str)
-						   - is added to Coinapi.base_url in request
-			api_key_id   : (str)
-						   - the dict key for what api key to use
-			queries      : (dict)
-						   - a premade dict of params for the request
-			filters      : (dict) 
-						   - filtered items are added to return value
-			omit_fitered : (bool)
-						   - if True: omits filtered instead of adding
+			url_ext   : (str) is added to Coinapi.base_url in request
+			key_id    : (str) name of the api_key being used
+			queries   : (dict) a premade dict of params for the request
+			filters   : (dict) dict of filters that need to be passed
+							 for data to be added to filtered
+			remaining : (bool) returns remaining instead of filtered if True
 
-		NOTE: queries include: ['time_start', 'limit', 'period_id']
+		queries example: {
+			'time_start': '2018-02-15T12:53:50.0000000Z',
+			'limit': 100,
+			'period_id': 'KRAKEN_BTC_5MIN'
+		}
 		'''
+
 		print('----------------------------------------------------')
 
-		tracked_headers = ['X-RateLimit-Cost',
-						   'X-RateLimit-Remaining',
-						   'X-RateLimit-Limit', 
-						   'X-RateLimit-Reset']
-
-		#creates a local api index with only "api_key_id" data 
-		api_key_index = Coinapi.api_index[api_key_id]
+		#creates a local api index with only "key_id" data 
+		key_index = Database.api_index[key_id]
 
 		try:
 			print("Making API Request at:", url)
-			response = requests.get(url, headers=api_key_index['api_key'], 
+			response = requests.get(url, headers=key_index['api_key'], 
 									params=queries)
 			# If the response was successful, no Exception will be raised
 			response.raise_for_status()
@@ -315,22 +306,13 @@ class Coinapi():
 		else:
 			print(f'API Request Successful: code {response.status_code}')
 			
-			#updates RateLimit info in api_key_index with response.headers
-			for header in tracked_headers:
-				#verifies tracked_header is in response.headers
-				if header in response.headers:
-					#updates api_id 
-					api_key_index[header] = response.headers[header]
-					print(f'	{header}:', api_key_index[header])
+			#updates key_index rate limit information in database
+			Coinapi.update_key(key_id, response.headers)
 
-			#updates the class variable api_key_index
-			Coinapi.api_index[api_key_id] = api_key_index
-			#Coinapi.save_files()
-
-			#response errors are no longer being handled so it is assigned
-			#to its json value and filtered
+			#response is converted to json
 			response = response.json()
 			if filters != {}:
+				#filters response
 				response = Coinapi.filter(response, filters, omit_filtered)
 			else:
 				print('Notice: no response filter')
@@ -338,6 +320,101 @@ class Coinapi():
 			print('----------------------------------------------------')
 
 			return response
+
+
+	def historical(key_id, index_id, requests=None):
+		'''
+		Parameters:
+			key_id   : (str) name of the api key being used
+			index_id : (dict) historical_index of item being requested
+			requests : (int) number of timesteps (datapoints) 
+							 being requested times 100
+						- 100 datapoints = 1 request
+
+		return : (dict) {
+			"data": pd.DataFrame(),
+			"time_start": (str),
+			"time_end": (str)
+		}
+		'''
+		#updates specified api key
+		Coinapi.update_keys(key_id)
+
+		#loads the key_index
+		key_index = Database.api_index[key_id]
+		#loads historical index of data being requested
+		hist_index = Database.historical_index[index_id]
+
+		if requests == None:
+			#requests value not given
+			requests = key_index['remaining']
+		elif requests > key_index['remaining']:
+			#requests parameter larger than remaining
+			requests = key_index['remaining']
+			print(f'NOTICE: only {requests} requests left for {key_id}')
+
+		#sets start time based on last datapoint
+		time_start = hist_index['data_end']
+		#determines interval based on number of requests
+		time_interval = requests * hist_index['time_increment'] * 100
+		print('requests:', requests)
+		#time_end is the date of the last datapoint being requested
+		time_end = unix_to_date(date_to_unix(time_start) + time_interval)
+
+		#catches time_end values that go past current date
+		current_time = time.time()
+		if date_to_unix(time_end) > current_time:
+			#current time is less than time_end
+			remainder = current_time % hist_index['time_interval']
+			#new time_end rounded down to nearest multiple of interval
+			time_end = current_time - remainder
+
+		#shorts function if no data exists
+		if requests == 0:
+			print(f'NOTICE: no requests left')
+			response = {
+				'data': pd.DataFrame(),
+				'time_start': time_start,
+				'time_end': time_start
+			}
+			return response
+
+		#queries for request
+		queries = {
+			'limit': key_index['remaining'],
+			'time_start': time_start,
+			'time_end': time_end,
+			'period_id': hist_index['period_id']
+		}
+
+		#load url
+		url = Coinapi.historical_url.substitute(
+			symbol_id=hist_index['symbol_id']
+		)
+
+		#make the api request
+		response = Coinapi.request(key_id, url=url, queries=queries)
+
+		#format the json response into a dataframe
+		response = pd.DataFrame.from_dict(response, orient='columns')
+
+		#####################################################
+		###End of Progress Alpha-v1.0
+		#####################################################
+
+		#formats response for 'prep_historical'
+		response = {
+			'data': response,
+			'time_start': time_start,
+			'time_end': time_end,
+			'hist_index': hist_index
+		}
+
+		#preps historical data
+		response = Coinapi.prep_historical(response)
+
+		#prep data for historical database and return df
+		return response
 
 
 	def prep_historical(response):
@@ -446,74 +523,5 @@ class Coinapi():
 			'time_end': time_end
 		}
 
-		return response
-
-
-	def historical(data_index, requests=None):
-		'''
-		Parameters:
-			index : (dict) historical_index of item being requested
-			requests : (int) number of timesteps (datapoints) 
-							 being requested
-
-		return : (dict) {
-			"data": pd.DataFrame(),
-			"time_start": (str),
-			"time_end": (str)
-		}
-		'''
-		#updates api keys
-		Coinapi.update_keys()
-
-		#the key bing used
-		api_id = 'startup_key'
-		remaining = Coinapi.api_index[api_id]['X-RateLimit-Remaining']
-		remaining = int(remaining)#converts to int
-
-		if requests == None:
-			requests = remaining * 100
-
-		#determines time_start and time_end values for request
-		time_start = data_index['data_end']
-		time_interval = requests * data_index['time_increment']
-		print('requests:', requests)
-		time_end = unix_to_date(date_to_unix(time_start) + time_interval)
-
-		#shorts function if no data exists
-		if requests == 0:
-			response = {
-				'data': pd.DataFrame(),
-				'time_start': time_start,
-				'time_end': time_end
-			}
-			return response
-
-		#queries for request
-		queries = {
-			'limit': remaining,
-			'time_start': time_start,
-			'time_end': time_end,
-			'period_id': data_index['period_id']
-		}
-
-		#api request
-		url = Coinapi.historical_url.format(data_index['symbol_id'])
-		response = Coinapi.request(api_id, url=url, queries=queries)
-
-		#format the json response into a dataframe
-		response = pd.DataFrame.from_dict(response, orient='columns')
-
-		#formats response for 'prep_historical'
-		response = {
-			'data': response,
-			'time_start': time_start,
-			'time_end': time_end,
-			'data_index': data_index
-		}
-
-		#preps historical data
-		response = Coinapi.prep_historical(response)
-
-		#prep data for historical database and return df
 		return response
 
