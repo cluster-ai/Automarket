@@ -1,0 +1,82 @@
+[
+    {
+        "period_id": "1MTH",
+        "length_seconds": 0,
+        "length_months": 1,
+        "unit_count": 1,
+        "unit_name": "month",
+        "display_name": "1 Month"
+    },
+    {
+        "period_id": "2MTH",
+        "length_seconds": 0,
+        "length_months": 2,
+        "unit_count": 2,
+        "unit_name": "month",
+        "display_name": "2 Months"
+    },
+    {
+        "period_id": "3MTH",
+        "length_seconds": 0,
+        "length_months": 3,
+        "unit_count": 3,
+        "unit_name": "month",
+        "display_name": "3 Months"
+    },
+    {
+        "period_id": "4MTH",
+        "length_seconds": 0,
+        "length_months": 4,
+        "unit_count": 4,
+        "unit_name": "month",
+        "display_name": "4 Months"
+    },
+    {
+        "period_id": "6MTH",
+        "length_seconds": 0,
+        "length_months": 6,
+        "unit_count": 6,
+        "unit_name": "month",
+        "display_name": "6 Months"
+    },
+    {
+        "period_id": "1YRS",
+        "length_seconds": 0,
+        "length_months": 12,
+        "unit_count": 1,
+        "unit_name": "year",
+        "display_name": "1 Year"
+    },
+    {
+        "period_id": "2YRS",
+        "length_seconds": 0,
+        "length_months": 24,
+        "unit_count": 2,
+        "unit_name": "year",
+        "display_name": "2 Years"
+    },
+    {
+        "period_id": "3YRS",
+        "length_seconds": 0,
+        "length_months": 36,
+        "unit_count": 3,
+        "unit_name": "year",
+        "display_name": "3 Years"
+    },
+    {
+        "period_id": "4YRS",
+        "length_seconds": 0,
+        "length_months": 48,
+        "unit_count": 4,
+        "unit_name": "year",
+        "display_name": "4 Years"
+    },
+    {
+        "period_id": "5YRS",
+        "length_seconds": 0,
+        "length_months": 60,
+        "unit_count": 5,
+        "unit_name": "year",
+        "display_name": "5 Years"
+    }
+]

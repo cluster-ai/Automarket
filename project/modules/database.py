@@ -12,51 +12,73 @@ import numpy as np
 from define import *
 from .preproc import unix_to_date, date_to_unix
 
+
+'''
+Module - database.py
+
+Last Refactor: Alpha-v1.0 (In Progress)
+
+
+CONTENTS:
+
+class Database():
+	def load_files():
+		#loads every database json file into memory
+
+	def save_files():
+		#saves every database json file into memory
+'''
+
+
 #79 character absolute limit
 ###############################################################################
 
 #72 character recommended limit
 ########################################################################
 
-'''
-Database.py Design Target:
-	Handles the mechanisms at which this program
-	stores and retrieves data. The only local 
-	module this module imports is preproc.py.
-'''
 
 class Database():
 	#filepaths to different portions of database file structure
-	base_path = 'database'
+	#NOTE: dir -> to folder, path -> to file
+	base_dir = 'database'
 
-	historical_base_path = base_path + '/historical_data'
-	historical_index_path = (historical_base_path 
-							+ '/historical_index.json')
-	features_base_path = base_path + '/features_data'
-	features_index_path = (features_base_path
-						  + '/features_index.json')
-	settings_path = base_path + '/settings.json'
-	coin_index_path = base_path + '/coin_index.json'
+	historical_dir = base_dir + '/historical'
+	historical_index_path = historical_dir + '/historical_index.json'
+	features_dir = base_dir + '/features'
+	features_index_path = features_dir + '/features_index.json'
+	settings_path = base_dir + '/settings.json'
+
+	#coinapi data paths
+	coinapi_dir = base_dir + '/coinapi'
+	coin_index_path = coinapi_dir + '/coin_index.json'
+	exchange_index_path = coinapi_dir + '/exchange_index.json'
+	period_index_path = coinapi_dir + '/period_index.json'
+	api_index_path = coinapi_dir + '/api_index.json'
 
 	#dict variables that track/index data in database
 	historical_index = {}
 	features_index = {}
 	coin_index = {}
-
-	#used by the other modules to store program wide information
-	settings = {}
+	exchange_index = {}
+	period_index = {}
+	api_index = {}
+	settings = {} #stores application configs
 
 
 	def __init__():
-		#loads base paths (directories)
-		if os.path.isdir(Database.base_path) == False:
-			os.mkdir(Database.base_path)
-
-		if os.path.isdir(Database.historical_base_path) == False:
-			os.mkdir(Database.historical_base_path)
-
-		if os.path.isdir(Database.features_base_path) == False:
-			os.mkdir(Database.features_base_path)
+		#makes sure fixed directories all exist (directories)
+		###BASE_DIR###
+		if os.path.isdir(Database.base_dir) == False:
+			os.mkdir(Database.base_dir)
+		###HISTORICAL_DIR###
+		if os.path.isdir(Database.historical_dir) == False:
+			os.mkdir(Database.historical_dir)
+		###FEATURES_DIR###
+		if os.path.isdir(Database.features_dir) == False:
+			os.mkdir(Database.features_dir)
+		###COINAPI_DIR###
+		if os.path.isdir(Database.coinapi_dir) == False:
+			os.mkdir(Database.coinapi_dir)
 
 		#loads index and settings files to Database
 		Database.load_files()
@@ -64,76 +86,85 @@ class Database():
 
 	def load_files():
 
+		#function for loading files
+		def load(path, try_func, fail_func):
+			'''
+			Parameters:
+				path      : (str) path to file from main directory
+				try_func  : (function) scrypt that is run to load file
+					NOTE: has 1 argument 'json'
+				fail_func : (function) scrypt that is run if load fails 
+					NOTE: has no arguments
+			'''
+			#creates file if not found
+			if os.path.exists(path) == False:
+				print(f'NOTICE: creating file -> {path}')
+				open(path, 'w')
+				fail_func()
+			else:
+				print('Loading: ' + path)
+				#loads contents of file with path, "Database.setting_path"
+				with open(path) as file:
+					try: 
+						try_func(json.load(file))
+					except ValueError:
+						fail_func()
+						print('NOTICE: file empty -> ' + path)
+
 		print('----------------------------------------------------')
-		print('Loading Files...')
-		print('...')
+		print('Loading Files...\n')
 
 		###SETTINGS###
-		#Checks to see if path exists, if not creates one
-		if os.path.exists(Database.settings_path) == False:
-			print(f'File Not Found -> {Database.settings_path}')
-			open(Database.settings_path, 'w')
+		def try_func(json):
+			Database.settings = json
+		def fail_func():
+			Database.settings = {}
+		load(Database.settings_path, try_func, fail_func)
 
-		print('Loading Settings: ' + Database.settings_path)
-		#loads contents of file with path, "Database.setting_path"
-		with open(Database.settings_path) as file:
-			try: 
-				Database.settings = json.load(file)
-			except ValueError:
-				Database.settings = []
-				print('NOTICE: file is empty -> '
-					  + Database.settings_path)
-
-		###TRAINING_INDEX###
-		#Checks to see if path exists, if not creates one
-		if os.path.exists(Database.features_index_path) == False:
-			print(f'File Not Found -> {Database.features_index_path}')
-			open(Database.features_index_path, 'w')
-
-		print('Loading Features Index: '
-			  + Database.features_index_path)
-		#loads indexes for training index
-		with open(Database.features_index_path) as file:
-			try: 
-				Database.features_index = json.load(file)
-			except ValueError:
-				Database.features_index = {}
-				print('NOTICE: file is empty -> '
-					  + Database.features_index_path)
+		###FEATURES_INDEX###
+		def try_func(json):
+			Database.features_index = json
+		def fail_func():
+			Database.features_index = {}
+		load(Database.features_index_path, try_func, fail_func)
 
 		###HISTORICAL_INDEX###
-		#Checks to see if path exists, if not creates one
-		if os.path.exists(Database.historical_index_path) == False:
-			print(f'File Not Found -> {Database.historical_index_path}')
-			open(Database.historical_index_path, 'w')
-
-		print('Loading Historical Index: '
-			  + Database.historical_index_path)
-		#loads indexes for historical index
-		with open(Database.historical_index_path) as file:
-			try: 
-				Database.historical_index = json.load(file)
-			except ValueError:
-				Database.historical_index = []
-				print('NOTICE: file is empty -> '
-					  + Database.historical_index_path)
+		def try_func(json):
+			Database.historical_index = json
+		def fail_func():
+			Database.historical_index = {}
+		load(Database.historical_index_path, try_func, fail_func)
 
 		###COIN_INDEX###
-		#Checks to see if path exists, if not creates one
-		if os.path.exists(Database.coin_index_path) == False:
-			print(f'File Not Found -> {Database.coin_index_path}')
-			open(Database.coin_index_path, 'w')
+		def try_func(json):
+			Database.coin_index = json
+		def fail_func():
+			pass
+			#Database.reset_coin_index()
+		load(Database.coin_index_path, try_func, fail_func)
 
-		print('Loading Coin Index: '
-			  + Database.coin_index_path)
-		#loads indexes for training index
-		with open(Database.coin_index_path) as file:
-			try: 
-				Database.coin_index = json.load(file)
-			except ValueError:
-				self.reset_coin_index()
-				print('NOTICE: file is empty -> '
-					  + Database.coin_index_path)
+		###EXCHANGE_INDEX###
+		def try_func(json):
+			Database.exchange_index = json
+		def fail_func():
+			pass
+			#Database.reset_exchange_index()
+		load(Database.exchange_index_path, try_func, fail_func)
+
+		###PERIOD_INDEX###
+		def try_func(json):
+			Database.period_index = json
+		def fail_func():
+			pass
+			#Database.reset_period_index()
+		load(Database.period_index_path, try_func, fail_func)
+
+		###API_INDEX###
+		def try_func(json):
+			Database.api_index = json
+		def fail_func():
+			Database.api_index = {}
+		load(Database.api_index_path, try_func, fail_func)
 
 		print('----------------------------------------------------')
 
@@ -156,13 +187,25 @@ class Database():
 				json.dump(data, file, indent=4)
 
 		###SETTINGS###
-		Database.save(Database.settings_path, Database.settings)
+		save(Database.settings_path, Database.settings)
 		###TRAINING_INDEX###
-		Database.save(Database.training_index_path, Database.training_index)
+		save(Database.features_index_path, Database.features_index)
 		###HISTORICAL_INDEX###
-		Database.save(Database.historical_index_path, Database.historical_index)
+		save(Database.historical_index_path, Database.historical_index)
+		
 		###COIN_INDEX###
-		Database.save(Database.coin_index_path, Database.coin_index)
+		save(Database.coin_index_path, Database.coin_index)
+		###EXCHANGE_INDEX###
+		save(Database.exchange_index_path, Database.exchange_index)
+		###PERIOD_INDEX###
+		save(Database.period_index_path, Database.period_index)
+		###API_INDEX###
+		save(Database.api_index_path, Database.api_index)
+
+
+	#######################################################
+	###Alpha-v1.0 end of progress
+	#######################################################
 
 
 	def reset_tracked():
