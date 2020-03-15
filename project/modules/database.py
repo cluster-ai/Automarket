@@ -22,11 +22,19 @@ Last Refactor: Alpha-v1.0 (In Progress)
 CONTENTS:
 
 class Database():
+	def load_file(path, try_func, fail_func):
+		#tool for loading a single file
+
 	def load_files():
-		#loads every database json file into memory
+		#loads all database index files
+		#NOTE: DOES NOT LOAD COINAPI FILES
+
+	def save_file(path, data):
+		#tool for saving a single json file into database
 
 	def save_files():
-		#saves every database json file into memory
+		#commits database indexes to file
+		#NOTE: DOES NOT SAVE COINAPI FILES
 '''
 
 
@@ -84,32 +92,45 @@ class Database():
 		Database.load_files()
 
 
-	def load_files():
+	def load_file(path, try_func, fail_func):
+		'''
+		Parameters:
+			path      : (str) path to file from main directory
+			try_func  : (function) scrypt that is run to load file
+				NOTE: has 1 argument 'json'
+			fail_func : (function) scrypt that is run if load fails 
+				NOTE: has no arguments
 
-		#function for loading files
-		def load(path, try_func, fail_func):
-			'''
-			Parameters:
-				path      : (str) path to file from main directory
-				try_func  : (function) scrypt that is run to load file
-					NOTE: has 1 argument 'json'
-				fail_func : (function) scrypt that is run if load fails 
-					NOTE: has no arguments
-			'''
-			#creates file if not found
-			if os.path.exists(path) == False:
-				print(f'NOTICE: creating file -> {path}')
-				open(path, 'w')
-				fail_func()
-			else:
-				print('Loading: ' + path)
-				#loads contents of file with path, "Database.setting_path"
-				with open(path) as file:
-					try: 
-						try_func(json.load(file))
+		Tool for loading a single json file
+		'''
+		#creates file if not found
+		if os.path.exists(path) == False:
+			print(f'NOTICE: creating file -> {path}')
+			open(path, 'w')
+			fail_func()
+		else:
+			print('Loading: ' + path)
+			#loads contents of file with path, "Database.setting_path"
+			with open(path) as file:
+
+				#loads json file
+				file_data = json.load(file)
+
+				if file_data == {} or file_data == []:
+					#file has only {} or []
+					fail_func()
+					print('NOTICE: file empty -> ' + path)
+				else:
+					try:#attempts to load file contents
+						try_func(file_data)
 					except ValueError:
 						fail_func()
 						print('NOTICE: file empty -> ' + path)
+
+
+	def load_files():
+		#loads all database index files
+		#NOTE: DOES NOT LOAD COINAPI FILES
 
 		print('----------------------------------------------------')
 		print('Loading Files...\n')
@@ -119,88 +140,55 @@ class Database():
 			Database.settings = json
 		def fail_func():
 			Database.settings = {}
-		load(Database.settings_path, try_func, fail_func)
+		Database.load_file(Database.settings_path, try_func, fail_func)
 
 		###FEATURES_INDEX###
 		def try_func(json):
 			Database.features_index = json
 		def fail_func():
 			Database.features_index = {}
-		load(Database.features_index_path, try_func, fail_func)
+		Database.load_file(Database.features_index_path, try_func, fail_func)
 
 		###HISTORICAL_INDEX###
 		def try_func(json):
 			Database.historical_index = json
 		def fail_func():
 			Database.historical_index = {}
-		load(Database.historical_index_path, try_func, fail_func)
-
-		###COIN_INDEX###
-		def try_func(json):
-			Database.coin_index = json
-		def fail_func():
-			pass
-			#Database.reset_coin_index()
-		load(Database.coin_index_path, try_func, fail_func)
-
-		###EXCHANGE_INDEX###
-		def try_func(json):
-			Database.exchange_index = json
-		def fail_func():
-			pass
-			#Database.reset_exchange_index()
-		load(Database.exchange_index_path, try_func, fail_func)
-
-		###PERIOD_INDEX###
-		def try_func(json):
-			Database.period_index = json
-		def fail_func():
-			pass
-			#Database.reset_period_index()
-		load(Database.period_index_path, try_func, fail_func)
-
-		###API_INDEX###
-		def try_func(json):
-			Database.api_index = json
-		def fail_func():
-			Database.api_index = {}
-		load(Database.api_index_path, try_func, fail_func)
+		Database.load_file(Database.historical_index_path, try_func, fail_func)
 
 		print('----------------------------------------------------')
 
 
-	def save_files():
+	def save_file(path, data):
+		'''
+		Parameters:
+			path : (str) full path from main file
+			data : (json) data being saved to file
 
-		#function for saving files
-		def save(path, data):
-			'''
-			Parameters:
-				path : (str) full path from main file
-				data : (json) data being saved to file
-			'''
-			#Checks to see if path exists, if not it creates one
-			if os.path.exists(path) == False:
-				open(path, 'x')
-			#saves settings dict class variable to file by default
-			#can change settings parameter to custom settings dict
-			with open(path, 'w') as file:
-				json.dump(data, file, indent=4)
+		tool for saving a single json file into database
+		'''
+		#Checks to see if path exists, if not it creates one
+		if os.path.exists(path) == False:
+			open(path, 'x')
+		#saves settings dict class variable to file by default
+		#can change settings parameter to custom settings dict
+		with open(path, 'w') as file:
+			json.dump(data, file, indent=4)
+
+
+	def save_files():
+		#commits database indexes to file
+		#NOTE: DOES NOT SAVE COINAPI FILES
 
 		###SETTINGS###
-		save(Database.settings_path, Database.settings)
+		Database.save_file(Database.settings_path, 
+						   Database.settings)
 		###TRAINING_INDEX###
-		save(Database.features_index_path, Database.features_index)
+		Database.save_file(Database.features_index_path, 
+						   Database.features_index)
 		###HISTORICAL_INDEX###
-		save(Database.historical_index_path, Database.historical_index)
-		
-		###COIN_INDEX###
-		save(Database.coin_index_path, Database.coin_index)
-		###EXCHANGE_INDEX###
-		save(Database.exchange_index_path, Database.exchange_index)
-		###PERIOD_INDEX###
-		save(Database.period_index_path, Database.period_index)
-		###API_INDEX###
-		save(Database.api_index_path, Database.api_index)
+		Database.save_file(Database.historical_index_path, 
+						   Database.historical_index)
 
 
 	#######################################################
@@ -238,50 +226,6 @@ class Database():
 		print('NOTICE: reset database settings to their default')
 
 		Database.save_files()
-
-
-	def reset_coin_index():
-		#reloads the coins for each tracked exchange
-
-		if Database.settings['tracked_exchanges'] == []:
-			Database.coin_index = {}
-			print('NOTICE: No Tracked Exchanges')
-		else:
-			filters = {
-				'asset_id_quote': Coinapi.asset_id_quote
-			}
-			#requests all currency data and filters by fiat currency
-			response = Coinapi.request('free_key',
-									   url=Coinapi.coins_url,
-									   filters=filters)
-
-			#sets index to empty dict
-			Database.coin_index = {}
-
-			print('Resetting Coin Index')
-
-			#iterates through each tracked exchange
-			for exchange_id in Database.settings['tracked_exchanges']:
-				#filters request and appends relevant data to coin_index
-				#for current exchange_id
-				filters = {'exchange_id': exchange_id}
-				exchange_coins = Coinapi.filter(response,
-												filters,
-												False)
-				#creates a dict of exchange_coins where each coin
-				#key is its coin_id
-				coin_dict = {}
-				for coin_data in exchange_coins:
-					coin_id = coin_data['asset_id_base']
-					coin_dict.update({coin_id: coin_data})
-
-				#adds data to coin_index and saves to file
-				Database.coin_index.update({exchange_id: coin_dict})
-
-		#saves coin_index to file
-		Database.save_files()
-
-		print('----------------------------------------------------')
 
 
 	def index_id(exchange_id, coin_id, 

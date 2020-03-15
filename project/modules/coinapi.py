@@ -27,23 +27,29 @@ CONTENTS:
 
 class Coinapi():
 	TOOLS:
+		def load_files():
+			#loads all coinapi files into database
+
+		def save_files():
+			#saves all coinapi database indexes to database
+
 		def update_key(key_id, headers=None):
 			#Updates Rate Limit values of specified key in database
 
 		def increment_to_period(time_increment):
-			#converts time_increment to period_id
+			#converts time_increment (int) to period_id (str)
 
 		def period_to_increment(period_id):
-			#converts period_id to time_increment
+			#converts period_id (str) to time_increment (int)
 
 		def verify_period(period_id):
-			#makes sure period_id is supported by Coinapi.io
+			#confirms whether period_id is supported by Coinapi.io
 
 		def verify_increment(time_increment):
-			#makes sure time_increment is supported by Coinapi.io
+			#confirms whether time_increment is supported by Coinapi.io
 
 		def verify_exchange(exchange_id):
-			#makes sure exchange is supported by Coinapi.io
+			#confirms whether exchange is supported by Coinapi.io
 
 		def filter(request, filters, remaining=False):
 			#filters request data and returns filtered or remaining
@@ -91,8 +97,56 @@ class Coinapi():
 
 
 	def __init__():
-		#Coinapi.update_keys()
-		pass
+		Coinapi.load_files()
+
+
+	def load_files():
+		#loads all coinapi files to database
+
+		###API_INDEX###
+		def try_func(json):
+			Database.api_index = json
+		def fail_func():
+			Database.api_index = {}
+		Database.load_file(Database.api_index_path, try_func, fail_func)
+
+		###COIN_INDEX###
+		def try_func(json):
+			Database.coin_index = json
+		def fail_func():
+			Coinapi.reload_coins('free_key')
+		Database.load_file(Database.coin_index_path, try_func, fail_func)
+
+		###EXCHANGE_INDEX###
+		def try_func(json):
+			Database.exchange_index = json
+		def fail_func():
+			Coinapi.reload_exchanges('free_key')
+		Database.load_file(Database.exchange_index_path, try_func, fail_func)
+
+		###PERIOD_INDEX###
+		def try_func(json):
+			Database.period_index = json
+		def fail_func():
+			Coinapi.reload_periods('free_key')
+		Database.load_file(Database.period_index_path, try_func, fail_func)
+
+
+	def save_files():
+		#commits all coinapi indexes to file in database
+
+		###COIN_INDEX###
+		Database.save_file(Database.coin_index_path, 
+						   Database.coin_index)
+		###EXCHANGE_INDEX###
+		Database.save_file(Database.exchange_index_path, 
+						   Database.exchange_index)
+		###PERIOD_INDEX###
+		Database.save_file(Database.period_index_path, 
+						   Database.period_index)
+		###API_INDEX###
+		Database.save_file(Database.api_index_path, 
+						   Database.api_index)
 
 
 	def update_key(key_id, headers=None):
@@ -108,7 +162,7 @@ class Coinapi():
 		NOTE: If headers are not given, api_id is updated based on
 			the last X-RateLimit_Reset time
 		'''
-		
+
 		#the current stored api information in database
 		key_index = Database.api_index[key_id]
 
@@ -132,7 +186,7 @@ class Coinapi():
 					Database.api_index[key_id]['reset'] = value
 
 		#commits changes
-		Database.save_files()
+		Coinapi.save_files()
 
 
 	def increment_to_period(time_increment):
@@ -532,7 +586,7 @@ class Coinapi():
 			Database.coin_index[exchange_id].update(coin)
 
 		#saves coin_index to file
-		Database.save_files()
+		Coinapi.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
@@ -570,8 +624,8 @@ class Coinapi():
 			#adds exchange to exchange_index
 			Database.exchange_index.update(exchange)
 
-		#saves coin_index to file
-		Database.save_files()
+		#saves exchange_index to file
+		Coinapi.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
@@ -603,8 +657,8 @@ class Coinapi():
 		#sets period_index to response
 		Database.period_index = response
 
-		#saves coin_index to file
-		Database.save_files()
+		#saves period_index to file
+		Coinapi.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
