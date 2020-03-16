@@ -22,19 +22,30 @@ Last Refactor: Alpha-v1.0 (In Progress)
 CONTENTS:
 
 class Database():
-	def load_file(path, try_func, fail_func):
-		#tool for loading a single file
+	TOOLS:
+		def load_file(path, try_func, fail_func):
+			#tool for loading a single file
 
-	def load_files():
-		#loads all database index files
-		#NOTE: DOES NOT LOAD COINAPI FILES
+		def load_files():
+			#loads all database index files
+			#NOTE: DOES NOT LOAD COINAPI FILES
 
-	def save_file(path, data):
-		#tool for saving a single json file into database
+		def save_file(path, data):
+			#tool for saving a single json file into database
 
-	def save_files():
-		#commits database indexes to file
-		#NOTE: DOES NOT SAVE COINAPI FILES
+		def save_files():
+			#commits database indexes to file
+			#NOTE: DOES NOT SAVE COINAPI FILES
+
+		def track_exchange(exchange_id):
+			#adds exchange to tracked
+
+		def untrack_exchange(exchange_id):
+			#removes excahnge from tracked
+
+	REQUESTS:
+		def historical(index_id, start_time=None, end_time=None):
+			#Returns dataframe for the specified historical data
 '''
 
 
@@ -191,120 +202,47 @@ class Database():
 						   Database.historical_index)
 
 
-	#######################################################
-	###Alpha-v1.0 end of progress
-	#######################################################
-
-
-	def reset_tracked():
-		#resets tracked_coins in settings
-
-		###TRACKED COINS###
-		#lists all supported coins from tracked exchanges
-		init_loop = True
-		coins = {}
-		for exchange_id, exchange_index in Database.coin_index.items():
-			if init_loop == True:
-				init_loop = False
-				#the first iteration initializes coins with all data
-				#from that coin
-				coins = list(exchange_index.keys())
-			else:
-				#creates a new list of coins in current exchange
-				compare_list = list(exchange_index.keys())
-
-				#compare new list to coins and delete coins that
-				#are not in both
-				for coin_id, coin_data in coins:
-					if coin_id not in compare_list:
-						coins.remove(coin_id)
-		#update settings
-		Database.settings['tracked_coins'] = coins
-
-		print(Database.settings)
-
-		print('NOTICE: reset database settings to their default')
-
-		Database.save_files()
-
-
-	def index_id(exchange_id, coin_id, 
-				 time_increment=None, period_id=None):
+	def track_exchange(exchange_id):
 		'''
-		Parameters:
-			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
-			coin_id        : (str) crytpocurrency id: 'BTC'
-			time_increment : (int) time increment of data in seconds
-						  - val must be supported by coinapi period_id
-			period_id      : (str) time increment of data in coinapi
-								   period_id format
-		'''
-		#converts time_increment to period_id equivalent
-		#uses period_id instead if given
-		if time_increment != None:
-			#converts time_increment into period_id
-			period_id = Coinapi.period_id(time_increment)
-		elif period_id != None:
-			if Coinapi.verify_period(period_id) == False:
-				raise ValueError(f'{period_id} not found in period_index')
+		adds exchange to tracked
 
-		return f'{exchange_id}_{coin_id}_{period_id}'
-
-
-	def add_exchange(exchange_id):
-		'''
 		Parameters:
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
-		#breaks function if exchange_id is invalid
-		if Coinapi.verify_exchange(exchange_id) == False:
-			return None
+		#verifies that exchange_id is supported by coinapi.io
+		verify_exchange(exchange_id)
 
-		if exchange_id in Database.settings['tracked_exchanges']:
-			#checks if exchange is already in tracked_exchanges
-			print(f'NOTICE: {exchange_id} Already Being Tracked')
-		elif Coinapi.verify_exchange(exchange_id):
-			#Verifies the given exchange is a valid coinapi exchange_id
+		if exchange_id not in Database.settings['tracked_exchanges']:
+			#adds exchange
 			print(f'Adding Exchange: {exchange_id}')
 			Database.settings['tracked_exchanges'].append(exchange_id)
 			#saves settings
 			Database.save_files()
-			#updates coin_index
-			Database.reset_coin_index()
+		else:
+			#exchange already in database
+			#
+			#checks if exchange is already in tracked_exchanges
+			print(f'NOTICE: {exchange_id} Already Being Tracked')
 
 
-	def remove_exchange(exchange_id):
+	def untrack_exchange(exchange_id):
 		'''
+		removes excahnge from tracked
+
 		Parameters:
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
-		#has data is used to flag the exchange_id when there is 
-		#data found in database associated to it
-		has_data = False
-
-		#Cannot delete exchange_id when there is data associated with
-		#exchange in database
-		for index_id, item_index in Database.historical_index.items():
-			if (exchange_id == item_index['exchange_id'] and 
-					item_index['datapoints'] != 0):
-				#if exchange_id is found with data it cannot be removed
-				print(f'NOTICE: {exchange_id} Cannot Be Deleted')
-				has_data = True
-
-		if exchange_id not in Database.settings['tracked_exchanges']:
-			#checks if exchange is already in tracked_exchanges
-			print(f'NOTICE: {exchange_id} Not Being Tracked')
-		elif (Coinapi.verify_exchange(exchange_id) and
-				has_data == False):
-			#Verifies the given exchange is a valid coinapi exchnage_id
-			print(f'Removing Exchange: {exchange_id}')
-			#removes exchange_id from settings and saves settings ti file
+		if exchange_id in Database.settings['tracked_exchanges']:
+			#exchange is in tracked
+			#
+			#deletes exchange
 			Database.settings['tracked_exchanges'].remove(exchange_id)
 			Database.save_files()
-			#resets coin_index with new tracked_exchanges
-			Database.reset_coin_index()
+		else:
+			#exchange is not in tracked
+			print(f'NOTICE: {exchange_id} not being tracked')
 
 
 	def historical(index_id, start_time=None, end_time=None):
@@ -316,17 +254,16 @@ class Database():
 
 			start_time : (int, unix-utc) returned data
 						 will be >= this time
-				NOTE: if start_time == None, all data
-					  is loaded before end_time
+				NOTE: if start_time == None, all data before
+					  end_time is returned
 
 			end_time   : (int, unix-utc) returned data
 						 will be <= this time
-				NOTE: if end_time == None, all data is
-					  is loaded after start_time
+				NOTE: if end_time == None, all data after
+					  start_time is returned
 
-		NOTE: start_time and end_time parameters both use
-				'time_period_start' column as reference for
-				the interval.
+		NOTE: start_time parameter uses 'time_period_start' column
+			  as reference. end_time uses 'time_period_end'
 		'''
 
 		#verifies given index_id
@@ -334,7 +271,7 @@ class Database():
 			raise KeyError(f'"{index_id}" not in Historical Index')
 
 		#makes sure start_time is <= end_time
-		if start_time != None and end_time != None: 
+		if start_time != None and end_time != None:
 			if start_time > end_time:
 				raise RuntimeError(f'start_time > end_time')
 
@@ -364,6 +301,11 @@ class Database():
 			data = data.loc[:end_time, :]
 
 		return data
+
+
+	#######################################################
+	###Alpha-v1.0 end of progress
+	#######################################################
 
 
 	def features(index_id, start_time=None, end_time=None):

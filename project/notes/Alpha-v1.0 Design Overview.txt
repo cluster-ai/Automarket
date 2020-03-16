@@ -26,15 +26,15 @@ Outline:
 	The end goal of this application is to remove as many barriers as
 	possible from the process of creating cryptocurrency data features.
 
-	Graphical User Interface (window.py):
-		- Acts as the skeleton of the app.
-		- scale the widgets in the window to whatever size is needed by 
+	Graphical User Interface (gui.py):
+		- This is what the user will directly see and control
+		- scales the widgets in the window to whatever size is needed by 
 		the user. 
 		- maintains a resolution ratio range and minimum window size for 
 		each axis
 		- tooling for system notifications and loading bars
 
-	Market Data Interface (coinapi.py):
+	Market Data Requests (coinapi.py):
 		- Gather market data by exchange, currency and period (time_interval)
 		- Track particular user-defined exchanges to declutter UI
 		- Track all the available currencies that are common across all
@@ -47,7 +47,7 @@ Outline:
 		- provides tooling for checking validity of coinapi related data
 		even if it is stored in the database
 
-	Custom Feature Creation (feature.py):
+	Feature Creation (feature.py):
 		- Provide a core set of feature functions
 		- split features into two types: numerical and categorical. Features
 		designed for one may not work for another.

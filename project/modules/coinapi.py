@@ -51,6 +51,9 @@ class Coinapi():
 		def verify_exchange(exchange_id):
 			#confirms whether exchange is supported by Coinapi.io
 
+		def verify_coin(coin_id):
+			#confirms whether coin is supported by Coinapi.io
+
 		def filter(request, filters, remaining=False):
 			#filters request data and returns filtered or remaining
 
@@ -59,8 +62,8 @@ class Coinapi():
 					filters={}, omit_filtered=False):
 			#makes api requests
 
-		def historical(key_id, index_id, requests=None):
-			#requests and formats historical data
+		def backfill(key_id, index_id, limit=None):
+			#backfills historical data for specified index_id
 
 		def reload_coins(key_id):
 			#reloads index of all coins for USD in database
@@ -153,10 +156,10 @@ class Coinapi():
 		'''
 		Updates the X-RateLimit-[limit, remaining, reset] data in 
 		Database for specified key. Does not update if X-RateLimit-Reset 
-		is not greater than existing.
+		if not greater than existing.
 
 		Parameters:
-			- key_id  : (str) user-given id to each coinapi api-key
+			- key_id  : (str) user given id to each coinapi api-key
 							  used to access api_index in database
 			- headers : (dict) request.headers from latest request
 		NOTE: If headers are not given, api_id is updated based on
@@ -244,16 +247,12 @@ class Coinapi():
 		Parameters:
 			time_increment : (int) value used to match against
 								   period_index['length_seconds']
-
-		Returns False if time_increment is not in period_index
-		Returns True if time_increment is in period_index
 		'''
 		for index_item in Database.period_index:
 			if index_item['length_seconds'] == time_increment:
 				return True
 
-		print(f'WARNING: {time_increment} not found in period_index')
-		return False
+		raise KeyError(f'{time_increment} not found in period_index')
 
 
 	def verify_exchange(exchange_id):
@@ -261,16 +260,24 @@ class Coinapi():
 		Parameters:
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
-
-			returns True given ID is found in exchange_index
-					False of not found
 		'''
 		for index_item in Coinapi.exchange_index:
 			if index_item['exchange_id'] == exchange_id:
 				return True
 				
-		print(f'WARNING: {exchange_id} Not Found in coinapi.json')
-		return False
+		raise KeyError(f'{exchange_id} not found in exchange_index')
+
+
+	def verify_coin(coin_id):
+		'''
+		Parameters:
+			coin_id : (str) Name of exchange in coinapi format
+							ex: 'BTC'
+		'''
+		if coin_id in Database.coin_index.keys():
+			return True
+
+		raise KeyError(f'{exchange_id} not found in coin_index.json')
 
 
 	def filter(request, filters, remaining=False):
@@ -395,82 +402,70 @@ class Coinapi():
 			return response
 
 
-	def historical(key_id, index_id, requests=None):
+	def backfill(key_id, index_id, limit=None):
 		'''
+		backfills historical data for specified index_id 
+		and saves it to database
+
 		Parameters:
 			key_id   : (str) name of the api key being used
 			index_id : (dict) historical_index of item being requested
-			requests : (int) number of timesteps (datapoints) 
-							 being requested times 100
-						- 100 datapoints = 1 request
+			limit    : (int) request limit set by user
 		return: (pd.DataFrame) the data that was requested
 		'''
+
+		print('----------------------------------------------------')
+		print('Backfilling Historical Data')
+		init_time = time.time()
+
 		#updates specified api key
 		Coinapi.update_key(key_id)
 
-		#loads the key_index
+		#loads the api key information
 		key_index = Database.api_index[key_id]
 		#loads historical index of data being requested
 		hist_index = Database.historical_index[index_id]
+		#loads start time for request
+		time_start = date_to_unix(hist_index['data_end'])#unix time
+		#loads the end time for request (latest increment time value)
+		remainder = init_time % hist_index['time_increment']
+		time_end = init_time - remainder
 
-		if requests == None:
-			#requests value not given
-			requests = key_index['remaining']
-		elif requests > key_index['remaining']:
-			#requests parameter larger than remaining
-			requests = key_index['remaining']
-			print(f'NOTICE: only {requests} requests left for {key_id}')
+		#verifies given limit is valid
+		if limit < 0:
+			#limit is negative
+			raise ValueError(f'limit cannot be negative')
+		elif isinstance(limit, int) == False:
+			#limit is not an int
+			limit_tp = type(limit)
+			raise ValueError(f'limit cannot be {limit_tp}, must be int')
+		elif limit > key_index['remaining']:
+			#given limit is larger than remaining requests for key_id
+			print('WARNING: given limit exceeds available requests')
+			limit = key_index['remaining']
 
-		#sets start time based on last datapoint
-		time_start = hist_index['data_end']
-		#determines interval based on number of requests
-		time_interval = requests * hist_index['time_increment'] * 100
-		print('requests:', requests)
-		#time_end is the date of the last datapoint being requested
-		time_end = unix_to_date(date_to_unix(time_start) + time_interval)
-
-		#catches time_end values that go past current date
-		current_time = time.time()
-		if date_to_unix(time_end) > current_time:
-			#current time is less than time_end
-			remainder = current_time % hist_index['time_interval']
-			#new time_end rounded down to nearest multiple of interval
-			time_end = current_time - remainder
-
-		#shorts function if no data exists
-		if requests == 0:
-			print(f'NOTICE: no requests left')
-			response = {
-				'data': pd.DataFrame(),
-				'time_start': time_start,
-				'time_end': time_start
-			}
-			return response
-
-		#queries for request
+		#generates request parameters
 		queries = {
-			'limit': key_index['remaining'],
-			'time_start': time_start,
-			'time_end': time_end,
+			'limit': limit,
+			'time_start': unix_to_date(time_start),
+			'time_end': unix_to_date(time_end),
 			'period_id': hist_index['period_id']
 		}
 
 		#load url
 		url = Coinapi.historical_url.substitute(
-			symbol_id=hist_index['symbol_id']
-		)
+					symbol_id=hist_index['symbol_id'])
 
 		#make the api request
 		response = Coinapi.request(key_id, url=url, queries=queries)
+		#converts response to pandas dataframe
+		df = pd.DataFrame.from_dict(response.json(), 
+										  orient='columns')
 
-		#json response data into a pandas dataframe (df)
-		df = pd.DataFrame.from_dict(df, orient='columns')
-
-		################################################
-		###Formats Historical Data
-
-
+		#verifies df has data and converts dates to unix
 		if df.empty == False:
+			#df is not empty
+			#
 			#convertes time_period_start to unix values
 			print('converting timestamps to unix')
 
@@ -479,14 +474,20 @@ class Coinapi():
 				#iterates each column
 				for col in df.columns:
 
-					if 'time' in col:#dates are converted to unix format
+					if 'time' in col:
+						#current column has a time value
+						#
+						#converts date to unix
 						df.at[index, col] = date_to_unix(row[col])
 
-			#calculates price_average using price_low and price_high
+			#calculates price_average column
 			price_low = df.loc[:, 'price_low'].values
 			price_high = df.loc[:, 'price_high'].values
 			price_average = np.divide(np.add(price_low, price_high), 2)
 		else:
+			#no data in response (df)
+			print(f'NOTICE: request has no data')
+
 			columns = {
 				'price_close',
 				'price_high',
@@ -499,45 +500,52 @@ class Coinapi():
 				'trades_count',
 				'volume_traded'
 			}
+
+			#re-initializes df with columns
 			df = pd.DataFrame(columns=columns)
 			price_average = np.nan
 
-		#create price_average column and set it to local variable
-		df['price_average'] = price_average
-
+		#inserts price_average into df at column index = 2
+		df.insert(2, 'price_average', price_average)
 		#initializes isnan with False for every row with data
 		df['isnan'] = False
-
-		#finds the total number of expected datapoints (if none were missing)
-		#(time_end - time_start) / time_increment
-		datapoints = int((date_to_unix(time_end) - 
-						  date_to_unix(time_start)) / time_increment)
-		#create the index of new_df (continuous)
-		interval = np.multiply(range(datapoints), time_increment)
-		interval = np.add(interval, date_to_unix(time_start))
-
-		#creates new_df with index (the index is also time_period_start)
-		new_df = pd.DataFrame(columns=df.columns, index=interval)
-
-		#changes df index so that it is based on time_period_start as
-		#new_df is
+		#sets index of df to equal 'time_period_start'
 		df.set_index('time_period_start', inplace=True, drop=False)
 
-		#overwrite df onto new_df
-		new_df.update(df)
+		#creates an empty dataframe (historical) with no missing 
+		#indexes, start and end times match request queries
+		datapoints = (time_end - time_start) / hist_index['time_increment']
+		index = range(datapoints) + time_start
+		historical = pd.DataFrame(columns=df.columns, index=index)
 
-		#df has missing time_period_start values, need to be filled
-		new_df.loc[:, 'time_period_start'] = new_df.index
-
-		#load all time_period_end values
-		new_df['time_period_end'] = np.add(new_df.loc[:, 'time_period_start'], 
-										   time_increment)
-
-		#update 'isnan' values for new new_df
+		#load time_period_start data into column
+		historical['time_period_start'] = historical.index
+		#load time_period_end data into column
+		historical['time_period_end'] = np.add(historical.index,
+											   hist_index['time_increment'])
+		#apply df data to historical
+		historical.update(df)
+		#set empty rows to isnan = True
 		new_df.isnan.fillna(True, inplace=True)
 
-		#prep new_df for historical database and return df
-		return new_df
+		#load existing data from database
+		existing_data = Database.historical(index_id)
+		#combine existing data and historical
+		historical = existing_data.append(historical)
+
+		#updates hist_index
+		hist_index['datapoints'] = len(historical.index)
+		hist_index['data_end'] = unix_to_date(time_end)
+		#updates Database.historical_index with hist_index
+		Database.historica_index[index_id] = hist_index
+		#commits changes to file
+		Database.save_files()
+
+		#saves new data to file
+		historical.to_csv(filepath, index=False)
+
+		print(f'\nDuration:', time.time() - init_time)
+		print('----------------------------------------------------')
 
 
 	def reload_coins(key_id):
@@ -546,11 +554,11 @@ class Coinapi():
 			key_id : (str) name of api_key to use for request
 
 		reloads index of all coins offered by coinapi.io in USD
-		organized by exchange
+		organized by coin_id
 
 		Example coin_index.json: {
-			'KRAKEN' : {
-				'BTC' : {},
+			'BTC' : {
+				'exchanges' : ['KRAKEN', 'BINANCE', ...],
 				...
 			},
 			...
@@ -571,19 +579,18 @@ class Coinapi():
 		#if exchanges are added as needed
 		for item_index in response:
 
-			#loads exchange_id from item_index
-			exchange_id = item_index['exchange_id']
+			#loads coin_id from item_index
+			coin_id = item_index['asset_id_base']
 
 			#determines if exchange exists in coin_index
-			if exchange_id not in Database.coin_index:
-				#creates new exchange and adds it to coin_index
-				Database.coin_index.update({exchange_id: {}})
-
-			#creates dict item: {coin_id, item_index}
-			coin = {item_index['asset_id_base']: item_index}
+			if coin_id not in Database.coin_index:
+				#coin_id not found in coin_index
+				#
+				#creates new coin and adds it to coin_index
+				Database.coin_index.update({coin_id: []})
 			
-			#adds coin to corresponding exchange in coin_index
-			Database.coin_index[exchange_id].update(coin)
+			#adds item_index to coin_index
+			Database.coin_index[coin_id].append(item_index)
 
 		#saves coin_index to file
 		Coinapi.save_files()

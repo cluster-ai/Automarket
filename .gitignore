@@ -6,3 +6,5 @@ __pycache__
 **/test.py
 **/changes.txt
 *.ui
+**/grapher_qt.py
+**feature_studio.py
