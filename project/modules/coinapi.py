@@ -54,6 +54,9 @@ class Coinapi():
 		def verify_coin(coin_id):
 			#confirms whether coin is supported by Coinapi.io
 
+		def add_hist_item(self, exchange_id, coin_id, time_increment):
+			#Adds historical item to Database.historical_index
+
 		def filter(request, filters, remaining=False):
 			#filters request data and returns filtered or remaining
 
@@ -280,6 +283,74 @@ class Coinapi():
 		raise KeyError(f'{exchange_id} not found in coin_index.json')
 
 
+	def add_hist_item(exchange_id, coin_id, period_id):
+		'''
+		Adds historical item to Database.historical_index
+
+		Parameters:
+			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
+			coin_id        : (str) crytpocurrency id: 'BTC'
+			time_increment : (int) time increment of data in seconds
+						  - val must be supported by coinapi period_id
+		'''
+		#verifies that parameters are supported by coinapi
+		Coinapi.verify_exchange(exchange_id)
+		Coinapi.verify_coin(coin_id)
+		Coinapi.verify_increment(period_id)
+
+		#generates index_id using define.py index_id function
+		index_id = index_id(exchange_id, coin_id, period_id)
+
+		#stops function if item already found in historical_index
+		if index_id in Database.historical_index:
+			print(f'NOTICE: {index_id} already in historical index')
+			return None
+
+		#the first dir is the period_id associated to time_increment
+		filepath = Database.historical_base_path + f'/{period_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+		#the final dir is the coin_id
+		filepath += f'/{coin_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+
+		#loads coin_data for new index_item
+		coin_data = Database.coin_index[exchange_id][coin_id]
+
+		#filename-example: 'KRAKEN_BTC_5MIN.csv'
+		filename = f'{index_id}.csv'
+		filepath = filepath + f'/{filename}' #adds filename to dir
+		#creates file if there is none
+		if os.path.exists(filepath) == False:
+			open(filepath, 'w')
+
+		#fills out required information for new 
+		#historical index_item
+		index_item = {
+			'filename': filename,
+			'filepath': filepath,
+			'symbol_id': coin_data['symbol_id'],
+			'exchange_id': exchange_id,
+			'asset_id_quote': coin_data['asset_id_quote'],
+			'asset_id_base': coin_data['asset_id_base'],
+			'period_id': period_id,
+			'time_increment': time_increment,
+			'datapoints': 0,
+			'data_start': coin_data['data_start'],
+			'data_end': coin_data['data_start']#not a typo
+		}
+
+		#updates historical_index
+		Database.historical_index.update({index_id: index_item})
+		#saves changes to file
+		Database.save_files()
+
+		print(f'\nAdded {index_id} to Historical Index')
+		print(f'Duration:', time.time() - init_time)
+		print('----------------------------------------------------')
+
+
 	def filter(request, filters, remaining=False):
 		'''
 		Parameters:
@@ -414,8 +485,7 @@ class Coinapi():
 		return: (pd.DataFrame) the data that was requested
 		'''
 
-		print('----------------------------------------------------')
-		print('Backfilling Historical Data')
+		print('\nBackfilling Historical Data')
 		init_time = time.time()
 
 		#updates specified api key
