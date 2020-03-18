@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 
 #local modules
-from define import *
+from define import Historical
 from .preproc import unix_to_date, date_to_unix
 
 
@@ -28,14 +28,12 @@ class Database():
 
 		def load_files():
 			#loads all database index files
-			#NOTE: DOES NOT LOAD COINAPI FILES
 
 		def save_file(path, data):
 			#tool for saving a single json file into database
 
 		def save_files():
 			#commits database indexes to file
-			#NOTE: DOES NOT SAVE COINAPI FILES
 
 		def track_exchange(exchange_id):
 			#adds exchange to tracked
@@ -167,6 +165,34 @@ class Database():
 			Database.historical_index = {}
 		Database.load_file(Database.historical_index_path, try_func, fail_func)
 
+		###API_INDEX###
+		def try_func(json):
+			Database.api_index = json
+		def fail_func():
+			Database.api_index = {}
+		Database.load_file(Database.api_index_path, try_func, fail_func)
+
+		###COIN_INDEX###
+		def try_func(json):
+			Database.coin_index = json
+		def fail_func():
+			Historical.reload_coins('free_key')
+		Database.load_file(Database.coin_index_path, try_func, fail_func)
+
+		###EXCHANGE_INDEX###
+		def try_func(json):
+			Database.exchange_index = json
+		def fail_func():
+			Historical.reload_exchanges('free_key')
+		Database.load_file(Database.exchange_index_path, try_func, fail_func)
+
+		###PERIOD_INDEX###
+		def try_func(json):
+			Database.period_index = json
+		def fail_func():
+			Historical.reload_periods('free_key')
+		Database.load_file(Database.period_index_path, try_func, fail_func)
+
 		print('----------------------------------------------------')
 
 
@@ -200,6 +226,18 @@ class Database():
 		###HISTORICAL_INDEX###
 		Database.save_file(Database.historical_index_path, 
 						   Database.historical_index)
+		###COIN_INDEX###
+		Database.save_file(Database.coin_index_path, 
+						   Database.coin_index)
+		###EXCHANGE_INDEX###
+		Database.save_file(Database.exchange_index_path, 
+						   Database.exchange_index)
+		###PERIOD_INDEX###
+		Database.save_file(Database.period_index_path, 
+						   Database.period_index)
+		###API_INDEX###
+		Database.save_file(Database.api_index_path, 
+						   Database.api_index)
 
 
 	def track_exchange(exchange_id):

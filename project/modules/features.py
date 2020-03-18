@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 #local modules
-from define import *
+from define import Database, Historical
 
 '''
 Module - features.py
@@ -18,10 +18,9 @@ Last Refactor: Alpha-v1.0
 
 CONTENTS:
 
+class Features():
+
 class Feature():
-
-
-class FeatureGroup():
 
 '''
 
@@ -33,8 +32,61 @@ class FeatureGroup():
 ########################################################################
 
 
-class Features():
-	pass
+class Features(Feature):
+	
+	def __init__():
+		pass
+
+
+	@classmethod
+	def add_item(cls, exchange_id, coin_id, time_increment):
+		'''
+		Adds features item to Database.features_index
+
+		Parameters:
+			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
+			coin_id        : (str) crytpocurrency id: 'BTC'
+			time_increment : (int) time increment of data in seconds
+						  - val must be supported by coinapi period_id
+		'''
+		#verifies that parameters are supported by coinapi
+		Historical.verify_exchange(exchange_id)
+		Historical.verify_coin(coin_id)
+		Historical.verify_increment(period_id)
+
+		#generates index_id using define.py index_id function
+		index_id = index_id(exchange_id, coin_id, period_id)
+
+		#stops function if item already found in features_index
+		if index_id in Database.features_index:
+			print(f'NOTICE: {index_id} already in historical index')
+			return None
+
+		#the item directory is the index_id
+ 		base_dir = Database.features_base_path + f'/{index_id}'
+		if os.path.isdir(base_dir) == False:
+			os.mkdir(base_dir)
+
+		#fills out required information for new 
+		#historical index_item
+		index_item = {
+			'base_dir': base_dir,
+			'symbol_id': coin_data['symbol_id'],
+			'exchange_id': exchange_id,
+			'asset_id_quote': coin_data['asset_id_quote'],
+			'asset_id_base': coin_data['asset_id_base'],
+			'period_id': period_id,
+			'time_increment': time_increment
+		}
+
+		#updates historical_index
+		Database.feature_index.update({index_id: index_item})
+		#saves changes to file
+		Database.save_files()
+
+		print(f'\nAdded {index_id} to Feature Index')
+		print(f'Duration:', time.time() - init_time)
+		print('----------------------------------------------------')
 
 
 class Feature():

@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 	
 #local modules
-from define import *
+from define import Database
 from .preproc import unix_to_date, date_to_unix
 
 
@@ -25,17 +25,9 @@ Last Refactor: Alpha-v1.0
 
 CONTENTS:
 
+#static class
 class Historical():
-	TOOLS:
-		def load_files():
-			#loads all coinapi files into database
-
-		def save_files():
-			#saves all coinapi database indexes to database
-
-		def update_key(key_id, headers=None):
-			#Updates Rate Limit values of specified key in database
-
+	TOOLS: @staticmethods
 		def increment_to_period(time_increment):
 			#converts time_increment (int) to period_id (str)
 
@@ -54,13 +46,17 @@ class Historical():
 		def verify_coin(coin_id):
 			#confirms whether coin is supported by Coinapi.io
 
-		def add_hist_item(self, exchange_id, coin_id, time_increment):
-			#Adds historical item to Database.historical_index
-
 		def filter(request, filters, remaining=False):
 			#filters request data and returns filtered or remaining
 
-	REQUESTS:
+	TOOLS: @classmethods
+		def update_key(key_id, headers=None):
+			#Updates Rate Limit values of specified key in database
+
+		def add_item(self, exchange_id, coin_id, time_increment):
+			#Adds historical item to Database.historical_index
+
+	REQUESTS: @classmethods
 		def request(key_id, url='', queries={}, 
 					filters={}, omit_filtered=False):
 			#makes api requests
@@ -99,100 +95,12 @@ class Historical():
 	#constant
 	asset_id_quote = 'USD'
 
-
-	def __init__():
-		Historical.load_files()
-
-
-	def load_files():
-		#loads all coinapi files to database
-
-		###API_INDEX###
-		def try_func(json):
-			Database.api_index = json
-		def fail_func():
-			Database.api_index = {}
-		Database.load_file(Database.api_index_path, try_func, fail_func)
-
-		###COIN_INDEX###
-		def try_func(json):
-			Database.coin_index = json
-		def fail_func():
-			Historical.reload_coins('free_key')
-		Database.load_file(Database.coin_index_path, try_func, fail_func)
-
-		###EXCHANGE_INDEX###
-		def try_func(json):
-			Database.exchange_index = json
-		def fail_func():
-			Historical.reload_exchanges('free_key')
-		Database.load_file(Database.exchange_index_path, try_func, fail_func)
-
-		###PERIOD_INDEX###
-		def try_func(json):
-			Database.period_index = json
-		def fail_func():
-			Historical.reload_periods('free_key')
-		Database.load_file(Database.period_index_path, try_func, fail_func)
+	@classmethod
+	def __init__(cls):
+		cls.load_files()
 
 
-	def save_files():
-		#commits all coinapi indexes to file in database
-
-		###COIN_INDEX###
-		Database.save_file(Database.coin_index_path, 
-						   Database.coin_index)
-		###EXCHANGE_INDEX###
-		Database.save_file(Database.exchange_index_path, 
-						   Database.exchange_index)
-		###PERIOD_INDEX###
-		Database.save_file(Database.period_index_path, 
-						   Database.period_index)
-		###API_INDEX###
-		Database.save_file(Database.api_index_path, 
-						   Database.api_index)
-
-
-	def update_key(key_id, headers=None):
-		'''
-		Updates the X-RateLimit-[limit, remaining, reset] data in 
-		Database for specified key. Does not update if X-RateLimit-Reset 
-		if not greater than existing.
-
-		Parameters:
-			- key_id  : (str) user given id to each coinapi api-key
-							  used to access api_index in database
-			- headers : (dict) request.headers from latest request
-		NOTE: If headers are not given, api_id is updated based on
-			the last X-RateLimit_Reset time
-		'''
-
-		#the current stored api information in database
-		key_index = Database.api_index[key_id]
-
-		if headers == None:
-			#the unix value of key_index['reset']
-			unix_reset = date_to_unix(key_index['reset'])
-
-			#if no header given
-			if unix_reset <= time.time():
-				#reset key_inex['remaining'] information in database
-				Database.api_index[key_id]['remaining'] = key_index['limit']
-		else:
-			#headers given from new request
-			for header, value in headers.items():
-				#if a header matches, update that value in database
-				if 'limit' in header:
-					Database.api_index[key_id]['limit'] = value
-				elif 'remaining' in header:
-					Database.api_index[key_id]['remaining'] = value
-				elif 'reset' in header:
-					Database.api_index[key_id]['reset'] = value
-
-		#commits changes
-		Historical.save_files()
-
-
+	@staticmethod
 	def increment_to_period(time_increment):
 		'''
 		Converts increment (int, in seconds) to 
@@ -212,6 +120,7 @@ class Historical():
 		raise ValueError(f'period_id not found for "{time_increment}"')
 
 
+	@staticmethod
 	def period_to_increment(period_id):
 		'''
 		Converts period_id (human readable str) to 
@@ -221,13 +130,14 @@ class Historical():
 			period_id : (str) str of time_step value EX:"5MIN"
 		'''
 
-		for index_item in Historical.period_index:
+		for index_item in Database.period_index:
 			if index_item['period_id'] == period_id:
 				return index_item['length_seconds']
 
-		raise ValueError(f'period_id not found for "{time_increment}"')
+		raise ValueError(f'time_increment not found for "{period_id}"')
 
 
+	@staticmethod
 	def verify_period(period_id):
 		'''
 		Parameters:
@@ -243,6 +153,7 @@ class Historical():
 		return False
 
 
+	@staticmethod
 	def verify_increment(time_increment):
 		'''
 		Parameters:
@@ -256,19 +167,21 @@ class Historical():
 		raise KeyError(f'{time_increment} not found in period_index')
 
 
+	@staticmethod
 	def verify_exchange(exchange_id):
 		'''
 		Parameters:
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
-		for index_item in Historical.exchange_index:
+		for index_item in Database.exchange_index:
 			if index_item['exchange_id'] == exchange_id:
 				return True
 				
 		raise KeyError(f'{exchange_id} not found in exchange_index')
 
 
+	@staticmethod
 	def verify_coin(coin_id):
 		'''
 		Parameters:
@@ -281,74 +194,7 @@ class Historical():
 		raise KeyError(f'{exchange_id} not found in coin_index.json')
 
 
-	def add_hist_item(exchange_id, coin_id, period_id):
-		'''
-		Adds historical item to Database.historical_index
-
-		Parameters:
-			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
-			coin_id        : (str) crytpocurrency id: 'BTC'
-			time_increment : (int) time increment of data in seconds
-						  - val must be supported by coinapi period_id
-		'''
-		#verifies that parameters are supported by coinapi
-		Historical.verify_exchange(exchange_id)
-		Historical.verify_coin(coin_id)
-		Historical.verify_increment(period_id)
-
-		#generates index_id using define.py index_id function
-		index_id = index_id(exchange_id, coin_id, period_id)
-
-		#stops function if item already found in historical_index
-		if index_id in Database.historical_index:
-			print(f'NOTICE: {index_id} already in historical index')
-			return None
-
-		#the first dir is the period_id associated to time_increment
-		filepath = Database.historical_base_path + f'/{period_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-		#the final dir is the coin_id
-		filepath += f'/{coin_id}'
-		if os.path.isdir(filepath) == False:
-			os.mkdir(filepath)
-
-		#loads coin_data for new index_item
-		coin_data = Database.coin_index[exchange_id][coin_id]
-
-		#filename-example: 'KRAKEN_BTC_5MIN.csv'
-		filename = f'{index_id}.csv'
-		filepath = filepath + f'/{filename}' #adds filename to dir
-		#creates file if there is none
-		if os.path.exists(filepath) == False:
-			open(filepath, 'w')
-
-		#fills out required information for new 
-		#historical index_item
-		index_item = {
-			'filename': filename,
-			'filepath': filepath,
-			'symbol_id': coin_data['symbol_id'],
-			'exchange_id': exchange_id,
-			'asset_id_quote': coin_data['asset_id_quote'],
-			'asset_id_base': coin_data['asset_id_base'],
-			'period_id': period_id,
-			'time_increment': time_increment,
-			'datapoints': 0,
-			'data_start': coin_data['data_start'],
-			'data_end': coin_data['data_start']#not a typo
-		}
-
-		#updates historical_index
-		Database.historical_index.update({index_id: index_item})
-		#saves changes to file
-		Database.save_files()
-
-		print(f'\nAdded {index_id} to Historical Index')
-		print(f'Duration:', time.time() - init_time)
-		print('----------------------------------------------------')
-
-
+	@staticmethod
 	def filter(request, filters, remaining=False):
 		'''
 		Parameters:
@@ -409,7 +255,118 @@ class Historical():
 		return filtered_items
 
 
-	def request(key_id, url='', queries={}, 
+	@classmethod
+	def update_key(cls, key_id, headers=None):
+		'''
+		Updates the X-RateLimit-[limit, remaining, reset] data in 
+		Database for specified key. Does not update if X-RateLimit-Reset 
+		if not greater than existing.
+
+		Parameters:
+			- key_id  : (str) user given id to each coinapi api-key
+							  used to access api_index in database
+			- headers : (dict) request.headers from latest request
+		NOTE: If headers are not given, api_id is updated based on
+			the last X-RateLimit_Reset time
+		'''
+
+		#the current stored api information in database
+		key_index = Database.api_index[key_id]
+
+		if headers == None:
+			#the unix value of key_index['reset']
+			unix_reset = date_to_unix(key_index['reset'])
+
+			#if no header given
+			if unix_reset <= time.time():
+				#reset key_inex['remaining'] information in database
+				Database.api_index[key_id]['remaining'] = key_index['limit']
+		else:
+			#headers given from new request
+			for header, value in headers.items():
+				#if a header matches, update that value in database
+				if 'limit' in header:
+					Database.api_index[key_id]['limit'] = value
+				elif 'remaining' in header:
+					Database.api_index[key_id]['remaining'] = value
+				elif 'reset' in header:
+					Database.api_index[key_id]['reset'] = value
+
+		#commits changes
+		cls.save_files()
+
+
+	@classmethod
+	def add_item(cls, exchange_id, coin_id, period_id):
+		'''
+		Adds historical item to Database.historical_index
+
+		Parameters:
+			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
+			coin_id        : (str) crytpocurrency id: 'BTC'
+			time_increment : (int) time increment of data in seconds
+						  - val must be supported by coinapi period_id
+		'''
+		#verifies that parameters are supported by coinapi
+		cls.verify_exchange(exchange_id)
+		cls.verify_coin(coin_id)
+		cls.verify_increment(period_id)
+
+		#generates index_id using define.py index_id function
+		index_id = index_id(exchange_id, coin_id, period_id)
+
+		#stops function if item already found in historical_index
+		if index_id in Database.historical_index:
+			print(f'NOTICE: {index_id} already in historical index')
+			return None
+
+		#the first dir is the period_id associated to time_increment
+		filepath = Database.historical_base_path + f'/{period_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+		#the final dir is the coin_id
+		filepath += f'/{coin_id}'
+		if os.path.isdir(filepath) == False:
+			os.mkdir(filepath)
+
+		#loads coin_data for new index_item
+		coin_data = Database.coin_index[exchange_id][coin_id]
+
+		#filename-example: 'KRAKEN_BTC_5MIN.csv'
+		filename = f'{index_id}.csv'
+		filepath = filepath + f'/{filename}' #adds filename to dir
+		#creates file if there is none
+		if os.path.exists(filepath) == False:
+			open(filepath, 'w')
+
+		#fills out required information for new 
+		#historical index_item
+		index_item = {
+			'filename': filename,
+			'filepath': filepath,
+			'symbol_id': coin_data['symbol_id'],
+			'exchange_id': exchange_id,
+			'asset_id_quote': coin_data['asset_id_quote'],
+			'asset_id_base': coin_data['asset_id_base'],
+			'period_id': period_id,
+			'time_increment': time_increment,
+			'datapoints': 0,
+			'data_start': coin_data['data_start'],
+			'data_end': coin_data['data_start']#not a typo
+		}
+
+		#updates historical_index
+		Database.historical_index.update({index_id: index_item})
+		#saves changes to file
+		Database.save_files()
+
+		print(f'\nAdded {index_id} to Historical Index')
+		print(f'Duration:', time.time() - init_time)
+		print('----------------------------------------------------')
+
+
+	@classmethod
+	def request(cls, key_id, url='', queries={}, 
 				filters={}, remaining=False):
 		'''
 		Parameters:
@@ -428,7 +385,7 @@ class Historical():
 		'''
 
 		#update api key index in database
-		Historical.update_key(key_id)
+		cls.update_key(key_id)
 
 		#creates a local api index with only "key_id" data 
 		key_index = Database.api_index[key_id]
@@ -455,14 +412,14 @@ class Historical():
 			print(f'API Request Successful: code {response.status_code}')
 			
 			#updates key_index rate limit information in database 
-			Historical.update_key(key_id, response.headers)
+			cls.update_key(key_id, response.headers)
 
 			#converts response to json
 			response = response.json()
 
 			#response is converted to json and filtered
 			if filters != {}:
-				response = Historical.filter(response, filters, remaining)
+				response = cls.filter(response, filters, remaining)
 			else:
 				print('NOTICE: no filter')
 
@@ -471,7 +428,8 @@ class Historical():
 			return response
 
 
-	def backfill(key_id, index_id, limit=None):
+	@classmethod
+	def backfill(cls, key_id, index_id, limit=None):
 		'''
 		backfills historical data for specified index_id 
 		and saves it to database
@@ -487,7 +445,7 @@ class Historical():
 		init_time = time.time()
 
 		#updates specified api key
-		Historical.update_key(key_id)
+		cls.update_key(key_id)
 
 		#loads the api key information
 		key_index = Database.api_index[key_id]
@@ -521,11 +479,11 @@ class Historical():
 		}
 
 		#load url
-		url = Historical.historical_url.substitute(
+		url = cls.historical_url.substitute(
 					symbol_id=hist_index['symbol_id'])
 
 		#make the api request
-		response = Historical.request(key_id, url=url, queries=queries)
+		response = cls.request(key_id, url=url, queries=queries)
 		#converts response to pandas dataframe
 		df = pd.DataFrame.from_dict(response.json(), 
 										  orient='columns')
@@ -580,29 +538,29 @@ class Historical():
 		#sets index of df to equal 'time_period_start'
 		df.set_index('time_period_start', inplace=True, drop=False)
 
-		#creates an empty dataframe (historical) with no missing 
+		#creates an empty dataframe (full_df) with no missing 
 		#indexes, start and end times match request queries
 		datapoints = (time_end - time_start) / hist_index['time_increment']
 		index = range(datapoints) + time_start
-		historical = pd.DataFrame(columns=df.columns, index=index)
+		full_df = pd.DataFrame(columns=df.columns, index=index)
 
 		#load time_period_start data into column
-		historical['time_period_start'] = historical.index
+		full_df['time_period_start'] = full_df.index
 		#load time_period_end data into column
-		historical['time_period_end'] = np.add(historical.index,
+		full_df['time_period_end'] = np.add(historical.index,
 											   hist_index['time_increment'])
-		#apply df data to historical
-		historical.update(df)
+		#apply df data to full_df
+		full_df.update(df)
 		#set empty rows to isnan = True
 		new_df.isnan.fillna(True, inplace=True)
 
 		#load existing data from database
 		existing_data = Database.historical(index_id)
 		#combine existing data and historical
-		historical = existing_data.append(historical)
+		full_df = existing_data.append(full_df)
 
 		#updates hist_index
-		hist_index['datapoints'] = len(historical.index)
+		hist_index['datapoints'] = len(full_df.index)
 		hist_index['data_end'] = unix_to_date(time_end)
 		#updates Database.historical_index with hist_index
 		Database.historica_index[index_id] = hist_index
@@ -610,13 +568,14 @@ class Historical():
 		Database.save_files()
 
 		#saves new data to file
-		historical.to_csv(filepath, index=False)
+		full_df.to_csv(filepath, index=False)
 
 		print(f'\nDuration:', time.time() - init_time)
 		print('----------------------------------------------------')
 
 
-	def reload_coins(key_id):
+	@classmethod
+	def reload_coins(cls, key_id):
 		'''
 		Parameters:
 			key_id : (str) name of api_key to use for request
@@ -637,7 +596,7 @@ class Historical():
 		init_time = time.time()
 
 		#requests all currency data and filters by USD
-		response = Historical.request(key_id, url=Historical.coin_url,
+		response = cls.request(key_id, url=Historical.coin_url,
 								   filters={'asset_id_quote': 'USD'})
 
 		#sets index to empty dict
@@ -661,13 +620,14 @@ class Historical():
 			Database.coin_index[coin_id].append(item_index)
 
 		#saves coin_index to file
-		Historical.save_files()
+		cls.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
 
 
-	def reload_exchanges(key_id):
+	@classmethod
+	def reload_exchanges(cls, key_id):
 		'''
 		Parameters:
 			key_id : (str) name of api key being used
@@ -686,7 +646,7 @@ class Historical():
 		init_time = time.time()
 
 		#requests all exchange data
-		response = Historical.request(key_id, url=Historical.exchange_url)
+		response = cls.request(key_id, url=Historical.exchange_url)
 
 		#sets index to empty dict
 		Database.exchange_index = {}
@@ -700,13 +660,14 @@ class Historical():
 			Database.exchange_index.update(exchange)
 
 		#saves exchange_index to file
-		Historical.save_files()
+		cls.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
 
 
-	def reload_periods(key_id):
+	@classmethod
+	def reload_periods(cls, key_id):
 		'''
 		Parameters:
 			key_id : (str) name of api key being used
@@ -725,7 +686,7 @@ class Historical():
 		init_time = time.time()
 
 		#requests all period data and filters unusable items
-		response = Historical.request(key_id, 
+		response = cls.request(key_id, 
 								   url=Historical.period_url,
 								   filters={'length_seconds': 0},
 								   remaining=True)
@@ -733,7 +694,7 @@ class Historical():
 		Database.period_index = response
 
 		#saves period_index to file
-		Historical.save_files()
+		cls.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')

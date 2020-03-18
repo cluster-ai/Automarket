@@ -4,8 +4,11 @@ if __name__ == "__main__":
 	from define import *
 	init()
 
+	from test import *
+
 
 	#tests
+	'''
 	from modules.features import Feature
 
 	feature = Feature('KRAKEN_BTC_5MIN')
@@ -16,3 +19,4 @@ if __name__ == "__main__":
 
 	print(feature.layers)
 	print(feature.output_type)
+	'''
