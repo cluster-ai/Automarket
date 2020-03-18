@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 
 #local modules
+from define import *
 
 '''
 Module - features.py
@@ -19,6 +20,9 @@ CONTENTS:
 
 class Feature():
 
+
+class FeatureGroup():
+
 '''
 
 
@@ -27,6 +31,10 @@ class Feature():
 
 #72 character recommended limit
 ########################################################################
+
+
+class Features():
+	pass
 
 
 class Feature():
@@ -39,11 +47,11 @@ class Feature():
 				'width': ['positive integer']
 			},
 			'output_type': 'numerical'
-		},
+		}, 
 		'delta': {
 			'kwargs': {},
 			'output_type': 'numerical'
-		}
+		},
 		'time_series': {
 			'kwargs': {},
 			'output_type': 'categorical'
@@ -51,9 +59,25 @@ class Feature():
 	}
 
 
-	def __init__(self, index_id):
+	def __init__(self, index_id, feature_id=None):
+		'''
+		Parameters:
+			index_id   : (str) name of the data group
+			feature_id : (str) name of the feature in the data group
+
+		NOTE: If a feature_id is given, that data will be loaded
+		from database. If the feature_id is not given, a new feature
+		is initialized.
+		'''
 		self.index_id = index_id
-		self.layers = []
+		self.layers = []#record of feature function stack
+		self.output_type = ''#output type of the top-most layer
+		'''
+		#verifies feature_id
+		if feature_id not in Database.features_index[index_id]:
+			#feature_id not found
+			raise KeyError(
+				f'"{feature_id}" not found in {index_id} features')'''
 
 
 	def add_layer(self, function, **kwargs):
@@ -70,6 +94,11 @@ class Feature():
 			#given function not found
 			raise KeyError(f'"{function}" not found in Feature.functions')
 
+		#currently, nothing can be put on top of a categorical layer
+		if self.output_type == 'categorical':
+			#top-most layer is categorical and cannot be added to
+			raise RuntimeError(f'cannot add to a categorical layer')
+
 		#loads feature funtion information
 		func_index = Feature.functions[function]
 
@@ -78,12 +107,24 @@ class Feature():
 			if kwarg not in func_index['kwargs']:
 				raise KeyError(f'unknown kwarg, "{kwarg}"" given')
 
+		#makes sure every kwarg is given
+		for kwarg in func_index['kwargs']:
+			if kwarg not in kwargs:
+				#missing kwarg in given parameters
+				raise KeyError(f'missing kwarg "{kwarg}"')
+
 		#creates layer with necessary information
 		layer = {
 			'function': function,
 			'kwargs': kwargs,
-			'outputs': ''
+			'output_type': func_index['output_type']
 		}
+
+		#appends layer to the function stack (self.layers)
+		self.layers.append(layer)
+
+		#self.output_type is the output_type of the top-most layer
+		self.output_type = func_index['output_type']
 
 
 	def smooth(self, width): #numerical

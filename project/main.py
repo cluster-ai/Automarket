@@ -1,15 +1,18 @@
 
 
 if __name__ == "__main__":
-	import modules.feature as feature
-	import modules.grapher as grapher
-
-	import matplotlib.pyplot as plt
-
-	from matplotlib.animation import FuncAnimation
-	import modules.controller as controller
-
 	from define import *
 	init()
 
-	grapher.window()
+
+	#tests
+	from modules.features import Feature
+
+	feature = Feature('KRAKEN_BTC_5MIN')
+
+	feature.add_layer('smooth', width=1)
+
+	feature.add_layer('delta')
+
+	print(feature.layers)
+	print(feature.output_type)

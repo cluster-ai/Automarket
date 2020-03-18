@@ -2,12 +2,12 @@
 #global
 
 from modules.database import Database
-from modules.coinapi import Coinapi
+from modules.historical import Historical
 
 
 def init():
 	Database.__init__()
-	Coinapi.__init__()
+	Historical.__init__()
 
 
 def index_id(exchange_id, coin_id, period_id):
@@ -21,8 +21,8 @@ def index_id(exchange_id, coin_id, period_id):
 							   period_id format
 	'''
 	#verifies each of the given arguments
-	Coinapi.verify_exchange(exchange_id)
-	Coinapi.verify_period(period_id)
-	Coinapi.verify_coin(coin_id)
+	Historical.verify_exchange(exchange_id)
+	Historical.verify_period(period_id)
+	Historical.verify_coin(coin_id)
 
 	return f'{exchange_id}_{coin_id}_{period_id}'
