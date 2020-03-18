@@ -2,6 +2,7 @@
 #standard libraries
 import datetime
 import time
+import os
 
 #third-party packages
 import pandas as pd
@@ -9,6 +10,7 @@ import numpy as np
 
 #local modules
 from define import Database, Historical
+import define
 
 '''
 Module - features.py
@@ -30,63 +32,6 @@ class Feature():
 
 #72 character recommended limit
 ########################################################################
-
-
-class Features(Feature):
-	
-	def __init__():
-		pass
-
-
-	@classmethod
-	def add_item(cls, exchange_id, coin_id, time_increment):
-		'''
-		Adds features item to Database.features_index
-
-		Parameters:
-			exchange_id    : (str) name of exchange in bold: 'KRAKEN'
-			coin_id        : (str) crytpocurrency id: 'BTC'
-			time_increment : (int) time increment of data in seconds
-						  - val must be supported by coinapi period_id
-		'''
-		#verifies that parameters are supported by coinapi
-		Historical.verify_exchange(exchange_id)
-		Historical.verify_coin(coin_id)
-		Historical.verify_increment(period_id)
-
-		#generates index_id using define.py index_id function
-		index_id = index_id(exchange_id, coin_id, period_id)
-
-		#stops function if item already found in features_index
-		if index_id in Database.features_index:
-			print(f'NOTICE: {index_id} already in historical index')
-			return None
-
-		#the item directory is the index_id
- 		base_dir = Database.features_base_path + f'/{index_id}'
-		if os.path.isdir(base_dir) == False:
-			os.mkdir(base_dir)
-
-		#fills out required information for new 
-		#historical index_item
-		index_item = {
-			'base_dir': base_dir,
-			'symbol_id': coin_data['symbol_id'],
-			'exchange_id': exchange_id,
-			'asset_id_quote': coin_data['asset_id_quote'],
-			'asset_id_base': coin_data['asset_id_base'],
-			'period_id': period_id,
-			'time_increment': time_increment
-		}
-
-		#updates historical_index
-		Database.feature_index.update({index_id: index_item})
-		#saves changes to file
-		Database.save_files()
-
-		print(f'\nAdded {index_id} to Feature Index')
-		print(f'Duration:', time.time() - init_time)
-		print('----------------------------------------------------')
 
 
 class Feature():
@@ -281,6 +226,68 @@ class Feature():
 			count += 1
 
 		return data
+
+
+class Features(Feature):
+	
+	def __init__():
+		pass
+
+
+	@classmethod
+	def add_item(cls, exchange_id, coin_id, period_id):
+		'''
+		Adds features item to Database.features_index
+
+		Parameters:
+			exchange_id : (str) name of exchange in bold: 'KRAKEN'
+			coin_id     : (str) crytpocurrency id: 'BTC'
+			period_id   : (str) period supported by coinapi:'5MIN'
+		'''
+
+
+
+		#verifies that parameters are supported by coinapi
+		Historical.verify_exchange(exchange_id)
+		Historical.verify_coin(coin_id)
+		Historical.verify_period(period_id)
+
+		#generates index_id using define.py index_id function
+		index_id = define.index_id(exchange_id, coin_id, period_id)
+
+		#stops function if item already found in features_index
+		if index_id in Database.features_index:
+			raise RuntimeError(f'"{index_id}" already in historical index')
+		elif index_id not in Database.historical_index:
+			raise RuntimeError(f'no historical data found for "{index_id}"')
+		
+		#loads associated historical data
+		hist_index = Database.historical_index[index_id]
+
+		#the item directory is the index_id
+		base_dir = Database.features_dir + f'/{index_id}'
+		if os.path.isdir(base_dir) == False:
+ 			os.mkdir(base_dir)
+
+		#fills out required information for new 
+		#historical index_item
+		index_item = {
+			'base_dir': base_dir,
+			'symbol_id': hist_index['symbol_id'],
+			'exchange_id': exchange_id,
+			'asset_id_quote': hist_index['asset_id_quote'],
+			'asset_id_base': hist_index['asset_id_base'],
+			'period_id': period_id,
+			'time_increment': hist_index['time_increment'],
+			'items': {}
+		}
+
+		#updates historical_index
+		Database.features_index.update({index_id: index_item})
+		#saves changes to file
+		Database.save_files()
+
+		print(f'Added {index_id} to Feature Index')
 
 
 def create_feature(columns, func, id):

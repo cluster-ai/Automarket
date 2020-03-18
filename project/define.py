@@ -3,11 +3,13 @@
 
 from modules.database import Database
 from modules.historical import Historical
+from modules.features import Features
 
 
 def init():
 	Database.__init__()
 	Historical.__init__()
+	Features.__init__()
 
 
 def index_id(exchange_id, coin_id, period_id):
