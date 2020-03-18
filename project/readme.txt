@@ -1,7 +1,7 @@
 
 
 
-NOTICE: This is the doc for using the financial model of cryptocurrency assuming it is able to meet the requirements in the business model outlined below.
+NOTICE: This is the doc for using the financial model Automarket will create, assuming it is able to meet the requirements in the business model outlined below.
 
 
 
