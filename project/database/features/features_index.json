@@ -1,1 +1,14 @@
-{}
+{
+    "KRAKEN_BTC_5MIN": {
+        "base_dir": "database/features/KRAKEN_BTC_5MIN",
+        "symbol_id": "KRAKEN_BTC_5MIN",
+        "exchange_id": "KRAKEN",
+        "asset_id_quote": "USD",
+        "asset_id_base": "BTC",
+        "period_id": "5MIN",
+        "time_increment": 300,
+        "features": {
+            "example": "{\"id\": \"example\", \"index_id\": \"KRAKEN_BTC_5MIN\", \"layers\": [{\"function\": \"smooth\", \"kwargs\": {\"width\": 5}, \"output_type\": \"numerical\"}, {\"function\": \"delta\", \"kwargs\": {}, \"output_type\": \"numerical\"}], \"output_type\": \"numerical\", \"py/object\": \"modules.features.Feature\"}"
+        }
+    }
+}

@@ -7,6 +7,7 @@ import os
 #third-party packages
 import pandas as pd
 import numpy as np
+import jsonpickle
 
 #local modules
 from define import Database, Historical
@@ -21,8 +22,13 @@ Last Refactor: Alpha-v1.0
 CONTENTS:
 
 class Features():
+	def add_layer():
+		#Adds a feature layer to the object
+
 
 class Feature():
+	def add_item(self, exchange_id, coin_id, period_id):
+		#Adds features item to Database.features_index
 
 '''
 
@@ -34,7 +40,7 @@ class Feature():
 ########################################################################
 
 
-class Feature():
+class Feature(object):
 
 	#dict of every feature function and its constraints
 	#can be thought of as a feature function data_index
@@ -56,25 +62,21 @@ class Feature():
 	}
 
 
-	def __init__(self, index_id, feature_id=None):
+	def __init__(self, index_id, feature_id):
 		'''
+		Generates new feature with feature_id based on given name
+
 		Parameters:
 			index_id   : (str) name of the data group
-			feature_id : (str) name of the feature in the data group
-
-		NOTE: If a feature_id is given, that data will be loaded
-		from database. If the feature_id is not given, a new feature
-		is initialized.
+			feature_id : (str) user given name of the feature
 		'''
 		self.index_id = index_id
+		self.id = feature_id
 		self.layers = []#record of feature function stack
 		self.output_type = ''#output type of the top-most layer
-		'''
-		#verifies feature_id
-		if feature_id not in Database.features_index[index_id]:
-			#feature_id not found
-			raise KeyError(
-				f'"{feature_id}" not found in {index_id} features')'''
+
+		#verifies this feature will not conflict with existing ones
+		self.verify()
 
 
 	def add_layer(self, function, **kwargs):
@@ -124,118 +126,32 @@ class Feature():
 		self.output_type = func_index['output_type']
 
 
-	def smooth(self, width): #numerical
+	def verify(self):
 		'''
-		This data iterates through DataFrame and averages each
-		value with "width" values on either side
-
-		Parameters:
-			historical     : (pd.DataFrame()) data from one exchange
-											  for one coin
-			time_increment : (int) time_series increment of data in seconds
-			width          : (positive int) number of points on each side
-											of value used in smoothing algo
-
-		Creates the following features
-			/price/
-			- price_average
-			- price_low
-			- price_high
-			/other/
-			- volume_traded
-			- trades_count
-
-		Uses following historical data
-			- price_average
-			- price_low
-			- price_high
-			- volume_traded
-			- trades_count
-
-		Assumptions:
-			- historical.index values are incrementing evenly and continuously
-			- historical.index values are increment by "time_increment" seconds
-			- historical.isnan values are 0 if False and 1 if True
+		verifies this feature will not conflict with existing ones
 		'''
+		#verifies that the given index_id is in features_index
+		if self.index_id not in Database.features_index:
+			#index_id not found
+			raise KeyError(f'"{self.index_id}" not found')
 
-		#sets 'time_period_start' as the index of historical
-		historical.set_index('time_period_start', drop=False, inplace=True)
-
-		#creates a complete copy for the new data to be saved
-		#this prevents changed values from influencing the algorithm
-		data = historical.copy()
-
-		#max and min indexes of historical data
-		max_hist_index = historical.index.max()
-		min_hist_index = historical.index.min()
-
-		#iterates through historical and converts data values
-		count = 0
-		prev_time = time.time()#tracks duration
-		for index, row in historical.iterrows():
-
-			max_index = index + time_increment*width
-			min_index = index - time_increment*width
-
-			#if max or min indexes are outside of dataframe index,
-			#it sets it to the next closest one
-			if max_index >= max_hist_index:
-				max_index = max_hist_index
-			if min_index <= min_hist_index:
-				min_index = min_hist_index
-
-			#columns being smoothed
-			columns = ['price_high']
-
-			#array of values that will be used for average
-			#in order of index
-			vals = historical.loc[min_index:max_index, columns]
-
-			#starts index count at zero for row 1 but
-			#still incrementing by time_increment
-			vals.index = vals.index - vals.index.min()
-
-			#centers actual value at index 0
-			#also sets index increment to 1
-			vals.index = ((vals.index - width*time_increment)
-						  / time_increment)
-
-			#calculates the multiplier and adds it as a col
-			vals['multiplier'] = vals.index
-			vals['multiplier'] = width - abs(vals.loc[:, 'multiplier']) + 1
-
-			print('\n', vals)
-
-			#drop empty values
-			vals.dropna(inplace=True)
-
-			for col in columns:
-				#average the vals
-				average = (np.sum(vals[col]*vals['multiplier']) 
-						   / np.sum(vals['multiplier']))
-
-				#apply new average value
-				data.at[index, col] = average
-
-			if count % 10000 == 0:
-				current_time = time.time()
-				duration = current_time - prev_time
-				prev_time = current_time
-				print(f"Count: {count} | Duration: {duration}")
-
-			count += 1
-
-		return data
+		#verifies that feature_id is not already being used
+		feat_index = Database.features_index[self.index_id]
+		if self.id in feat_index['features']:
+			#feature_id already being used
+			raise KeyError(f'"{self.id}" is already being used')
 
 
-class Features(Feature):
+
+
+class Features():
 	
 	def __init__():
 		pass
 
 
-	@classmethod
-	def add_item(cls, exchange_id, coin_id, period_id):
+	@staticmethod
+	def add_item(exchange_id, coin_id, period_id):
 		'''
 		Adds features item to Database.features_index
 
@@ -244,9 +160,6 @@ class Features(Feature):
 			coin_id     : (str) crytpocurrency id: 'BTC'
 			period_id   : (str) period supported by coinapi:'5MIN'
 		'''
-
-
-
 		#verifies that parameters are supported by coinapi
 		Historical.verify_exchange(exchange_id)
 		Historical.verify_coin(coin_id)
@@ -279,7 +192,7 @@ class Features(Feature):
 			'asset_id_base': hist_index['asset_id_base'],
 			'period_id': period_id,
 			'time_increment': hist_index['time_increment'],
-			'items': {}
+			'features': {}
 		}
 
 		#updates historical_index
@@ -290,25 +203,26 @@ class Features(Feature):
 		print(f'Added {index_id} to Feature Index')
 
 
-def create_feature(columns, func, id):
-	'''
-	Creates a custom feature with a single feature func.
-	The user can request multiple columns be returned
-	but it will be packaged as individual features with
-	the same user given id extension.
+	@staticmethod
+	def add_feature(feature):
+		'''
+		Adds a new custom feature using Feature class
 
-	Parameters:
+		Parameters:
+			index_id : (str) name of Database.features_index item
+			feature  : (Feature()) completed feature object
+		'''
+		#loads features item index
+		feat_index = Database.features_index[feature.index_id]
 
-	'''
-	pass
+		#verifies given feature will not conflict with existing ones
+		feature.verify()
 
+		#generates feature item using jsonpickle
+		index_item = {feature.id: jsonpickle.encode(feature)}
+		#updates local copy os feature_index
+		feat_index['features'].update(index_item)
 
-def update_feature(historical, feature_id):
-	pass
-
-
-def generate_data(historical, feature_id):
-	'''
-	Generates feature data
-	'''
-	pass
+		#updates Database with changes and saves them
+		Database.features_index[feature.index_id] = feat_index
+		Database.save_files()
