@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 
 #local modules
-from define import Historical
+#from define import Historical
 from .preproc import unix_to_date, date_to_unix
 
 

@@ -14,6 +14,7 @@ import numpy as np
 	
 #local modules
 from define import Database
+import define
 from .preproc import unix_to_date, date_to_unix
 
 
@@ -53,7 +54,7 @@ class Historical():
 		def update_key(key_id, headers=None):
 			#Updates Rate Limit values of specified key in database
 
-		def add_item(self, exchange_id, coin_id, time_increment):
+		def add_item(self, exchange_id, coin_id, period_id):
 			#Adds historical item to Database.historical_index
 
 	REQUESTS: @classmethods
@@ -97,7 +98,7 @@ class Historical():
 
 	@classmethod
 	def __init__(cls):
-		cls.load_files()
+		pass
 
 
 	@staticmethod
@@ -149,8 +150,7 @@ class Historical():
 			if index_item['period_id'] == period_id:
 				return True
 
-		print(f'WARNING: "{period_id}" not found in period_index')
-		return False
+		raise KeyError(f'"{period_id}" not found in period_index')
 
 
 	@staticmethod
@@ -174,8 +174,8 @@ class Historical():
 			exchange_id : (str) Name of exchange in coinapi format
 								ex: 'KRAKEN'
 		'''
-		for index_item in Database.exchange_index:
-			if index_item['exchange_id'] == exchange_id:
+		for exch, index_item in Database.exchange_index.items():
+			if exch == exchange_id:
 				return True
 				
 		raise KeyError(f'{exchange_id} not found in exchange_index')
@@ -191,7 +191,7 @@ class Historical():
 		if coin_id in Database.coin_index.keys():
 			return True
 
-		raise KeyError(f'{exchange_id} not found in coin_index.json')
+		raise KeyError(f'{coin_id} not found in coin_index.json')
 
 
 	@staticmethod
@@ -247,7 +247,7 @@ class Historical():
 				#item did not pass all filters
 				remaining_items.append(item)
 
-		if remaining_items == True:
+		if remaining == True:
 			print('Notice: returning remaining items')
 			return remaining_items
 
@@ -293,7 +293,7 @@ class Historical():
 					Database.api_index[key_id]['reset'] = value
 
 		#commits changes
-		cls.save_files()
+		Database.save_files()
 
 
 	@classmethod
@@ -310,10 +310,10 @@ class Historical():
 		#verifies that parameters are supported by coinapi
 		cls.verify_exchange(exchange_id)
 		cls.verify_coin(coin_id)
-		cls.verify_increment(period_id)
+		cls.verify_period(period_id)
 
 		#generates index_id using define.py index_id function
-		index_id = index_id(exchange_id, coin_id, period_id)
+		index_id = define.index_id(exchange_id, coin_id, period_id)
 
 		#stops function if item already found in historical_index
 		if index_id in Database.historical_index:
@@ -321,7 +321,7 @@ class Historical():
 			return None
 
 		#the first dir is the period_id associated to time_increment
-		filepath = Database.historical_base_path + f'/{period_id}'
+		filepath = Database.historical_dir + f'/{period_id}'
 		if os.path.isdir(filepath) == False:
 			os.mkdir(filepath)
 		#the final dir is the coin_id
@@ -330,7 +330,13 @@ class Historical():
 			os.mkdir(filepath)
 
 		#loads coin_data for new index_item
-		coin_data = Database.coin_index[exchange_id][coin_id]
+		data = Database.coin_index[coin_id]
+		coin_data = None
+		for index_item in data:
+			if index_item['exchange_id'] == exchange_id:
+				#exchange and coin matches
+				coin_data = index_item
+				break
 
 		#filename-example: 'KRAKEN_BTC_5MIN.csv'
 		filename = f'{index_id}.csv'
@@ -349,7 +355,7 @@ class Historical():
 			'asset_id_quote': coin_data['asset_id_quote'],
 			'asset_id_base': coin_data['asset_id_base'],
 			'period_id': period_id,
-			'time_increment': time_increment,
+			'time_increment': cls.period_to_increment(period_id),
 			'datapoints': 0,
 			'data_start': coin_data['data_start'],
 			'data_end': coin_data['data_start']#not a typo
@@ -360,9 +366,7 @@ class Historical():
 		#saves changes to file
 		Database.save_files()
 
-		print(f'\nAdded {index_id} to Historical Index')
-		print(f'Duration:', time.time() - init_time)
-		print('----------------------------------------------------')
+		print(f'Added {index_id} to Historical Index...')
 
 
 	@classmethod
@@ -620,7 +624,7 @@ class Historical():
 			Database.coin_index[coin_id].append(item_index)
 
 		#saves coin_index to file
-		cls.save_files()
+		Database.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
@@ -660,7 +664,7 @@ class Historical():
 			Database.exchange_index.update(exchange)
 
 		#saves exchange_index to file
-		cls.save_files()
+		Database.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
@@ -694,7 +698,7 @@ class Historical():
 		Database.period_index = response
 
 		#saves period_index to file
-		cls.save_files()
+		Database.save_files()
 
 		print(f'Duration:', (time.time() - init_time))
 		print('----------------------------------------------------')
