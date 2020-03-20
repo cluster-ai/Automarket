@@ -11,6 +11,7 @@ import jsonpickle
 
 #local modules
 from define import Database, Historical
+from modules.old_modules.preproc import date_to_unix, date_to_unix
 import define
 
 '''
@@ -40,27 +41,7 @@ class Feature():
 ########################################################################
 
 
-class Feature(object):
-
-	#dict of every feature function and its constraints
-	#can be thought of as a feature function data_index
-	functions = {
-		'smooth': {
-			'kwargs': {
-				'width': ['positive integer']
-			},
-			'output_type': 'numerical'
-		}, 
-		'delta': {
-			'kwargs': {},
-			'output_type': 'numerical'
-		},
-		'time_series': {
-			'kwargs': {},
-			'output_type': 'categorical'
-		}
-	}
-
+class Feature(FeatureFunctions):
 
 	def __init__(self, index_id, feature_id):
 		'''
@@ -140,6 +121,63 @@ class Feature(object):
 		if self.id in feat_index['features']:
 			#feature_id already being used
 			raise KeyError(f'"{self.id}" is already being used')
+
+
+	def process(self, start_time, end_time):
+		'''
+		Processes database historical data and returns result
+
+		NOTE: this function DOES NOT upload to the database.
+		The Features class must facilitate updates to the database
+		through this function.
+
+		Parameter:
+			start_time : (int) first datapoint in seconds of 
+							   historical processing
+			end_time   : (int) last datapoint in seconds of 
+							   historical processing
+		'''
+		#loads historical index data
+		hist_index = Database.historical_index[self.index_id]
+		#loads features index data
+		feat_index = Database.features_index[self.index_id]
+
+		#loads start and end times of existing historical data
+		hist_start = date_to_unix(hist_index['data_start'])
+		hist_end = date_to_unix(hist_index['data_end'])
+
+		#verifies start time is not out of range
+		if start_time < hist_start:
+			start_time = hist_start
+		#verifies end time is not out of range
+		if end_time > hist_end:
+			end_time = hist_end
+		#verifies start time is less than end time
+		if start_time >= end_time:
+			raise ValueError(f'start time cannot be greater than end time')
+
+		#verifies start and end times are multiples of time_increment
+		if start_time % hist_index['time_increment'] != 0:
+			raise ValueError(f'"{start_time}" not a valid index')
+		if end_time % hist_index['time_increment'] != 0:
+			raise ValueError(f'"{end_time}" not a valid index')
+
+		#initializes df with historical data
+		df = Database.historical(self.index_id, 
+								 start_time, 
+								 end_time)
+
+		#iterates through layers and computes features
+		for layer in self.layers:
+			#loads layer items
+			kwargs = layers['kwargs']
+			func = layers['function']
+
+			#calls feature function according to layer
+			#the "**" converts the dict to kwargs
+			df = getattr(self, func)(df, **kwargs)
+
+		return df
 
 
 
@@ -226,3 +264,17 @@ class Features():
 		#updates Database with changes and saves them
 		Database.features_index[feature.index_id] = feat_index
 		Database.save_files()
+
+
+	@staticmethod
+	def update(index_id):
+		'''
+		Updates each feature of a features_index item
+
+		Parameter:
+			index_id    : (str) name of item in features_index
+		'''
+		#loads features item index
+		feat_index = Database.features_index[index_id]
+
+		#iterates through each object
